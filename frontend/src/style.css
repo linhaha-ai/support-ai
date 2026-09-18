@@ -23,7 +23,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #89ad98; outline-offs
 h1, h2, h3, p { margin: 0; }
 .workspace { display: flex; min-height: 100vh; }
 .sidebar { width: 236px; flex-shrink: 0; display: flex; flex-direction: column; padding: 31px 21px 22px; border-right: 1px solid #e2e6dd; background: #fafbf8; }
-.brand { display: flex; align-items: center; gap: 11px; font-size: 21px; letter-spacing: -.6px; font-weight: 720; margin: 0 9px 59px; }
+.brand { display: flex; align-items: center; gap: 11px; font-size: 21px; letter-spacing: 0; font-weight: 720; margin: 0 9px 59px; }
 .brand-ai { color: #73917b; font-weight: 500; margin-left: 4px; }
 .brand-mark { position: relative; background: #30573f; color: #fff; width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; font-size: 29px; line-height: 1; font-family: Georgia, serif; }
 .brand-mark > span { position: absolute; font-family: sans-serif; font-size: 16px; color: #d9ed9c; top: -7px; right: -6px; }
@@ -49,10 +49,13 @@ h1, h2, h3, p { margin: 0; }
 .breadcrumb-slash { color: #c0c6bc; margin: 0 15px; }
 .environment-label { display: flex; align-items: center; gap: 7px; color: #717d6d; }
 .environment-label > span { border: 1px solid #93a78a; width: 6px; height: 6px; border-radius: 50%; }
+.account-actions { display: flex; align-items: center; gap: 14px; }
+.account-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #657560; }
+.logout-button.el-button { padding: 0; min-height: auto; font-size: 11px; color: #37634a; }
 main { max-width: 1240px; margin: 0 auto; padding: 45px 46px 24px; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; gap: 20px; }
 .eyebrow { color: #83917b; font-size: 9px; letter-spacing: 1.8px; font-weight: 650; }
-h1 { font-size: 29px; font-weight: 580; letter-spacing: -.8px; line-height: 1.5; margin-top: 9px; }
+h1 { font-size: 29px; font-weight: 580; letter-spacing: 0; line-height: 1.5; margin-top: 9px; }
 .page-heading p { color: #879081; font-size: 12px; margin-top: 10px; }
 .phase-badge { border: 1px solid #dfe5d7; border-radius: 6px; padding: 9px 11px; color: #5a7050; font-size: 11px; letter-spacing: .4px; flex-shrink: 0; background: #f9faf6; }
 .phase-badge span { margin-left: 8px; padding-left: 9px; border-left: 1px solid #e1e6db; color: #8a9681; font-size: 10px; }
@@ -66,7 +69,7 @@ h2 { font-weight: 600; font-size: 13px; }
 .connection-node svg { width: 62px; height: 62px; border: 1px solid #dce7d5; border-radius: 16px; padding: 16px; color: #5c7a4c; background: #f4f8ed; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
 .connection-line { width: 148px; height: 1px; background: #dde5d6; position: relative; margin-top: 31px; }
 .connection-line span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 5px solid #fff; box-sizing: content-box; background: #eaf2e1; color: #6f8b5b; font-size: 10px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
-.connection-copy h3 { font-size: 20px; font-weight: 580; letter-spacing: -.3px; }
+.connection-copy h3 { font-size: 20px; font-weight: 580; letter-spacing: 0; }
 .connection-copy p { font-size: 12px; color: #889081; line-height: 1.7; margin-top: 10px; }
 .check-button.el-button { height: 37px; border-radius: 6px; padding: 0 19px; margin: 22px 0 25px; font-size: 11px; }
 .check-button svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; margin-right: 7px; }
@@ -102,9 +105,23 @@ h2 { font-weight: 600; font-size: 13px; }
 footer { display: flex; justify-content: space-between; gap: 16px; color: #a0a896; font-size: 9px; margin-top: 30px; }
 footer > span:first-child { letter-spacing: .4px; }
 .footer-dot { margin: 0 5px; }
+.auth-loading { min-height: 100vh; display: grid; place-items: center; color: #6c7e6b; font-size: 14px; }
+.login-page { min-height: 100vh; display: grid; place-items: center; padding: 28px; background: #f5f6f2; }
+.login-panel { width: min(100%, 390px); padding: 36px; border: 1px solid #e0e5db; border-radius: 8px; background: #fff; box-shadow: 0 8px 22px #364b340d; }
+.login-brand { margin: 0 0 34px; font-size: 20px; }
+.login-panel h1 { margin-top: 9px; font-size: 25px; }
+.login-copy { margin-top: 10px; color: #879081; font-size: 12px; line-height: 1.7; }
+.login-form { display: grid; gap: 8px; margin-top: 29px; }
+.login-form label { color: #52604d; font-size: 12px; font-weight: 600; margin-top: 7px; }
+.login-form .el-input__wrapper { min-height: 39px; border-radius: 6px; box-shadow: 0 0 0 1px #dce4d7 inset; }
+.login-button.el-button { width: 100%; height: 39px; margin-top: 17px; border-radius: 6px; }
+.auth-error { margin: 9px 0 0; color: #9b5d47; font-size: 11px; line-height: 1.6; }
+.workspace-auth-error { margin: 0 0 18px; padding: 10px 12px; border-left: 3px solid #b8795f; background: #fff7f2; }
+.retry-link { margin-top: 15px; padding: 0; border: 0; background: transparent; color: #537b64; font-size: 11px; text-decoration: underline; cursor: pointer; }
+.retry-link:disabled { cursor: not-allowed; color: #9ca59a; }
 @keyframes breathe { 50% { opacity: .35; } }
 @media (min-width: 1500px) { main { padding-top: 62px; } .status-card { padding-top: 27px; } .connection-visual { margin-top: 45px; } .connection-copy { margin-top: 24px; } .check-button.el-button { margin-bottom: 32px; } }
 @media (max-width: 1100px) { .sidebar { width: 206px; padding-left: 16px; padding-right: 16px; } .topbar { padding: 0 28px; } main { padding: 35px 28px 24px; } .model-card { padding: 23px 21px; } }
-@media (max-width: 860px) { .sidebar { width: 175px; padding-left: 12px; padding-right: 12px; } .brand { font-size: 17px; gap: 7px; margin-left: 5px; margin-right: 5px; } .brand-mark { width: 29px; height: 29px; font-size: 24px; } .sidebar-note { margin-left: 7px; margin-right: 7px; } .sidebar-note .small-label { font-size: 8px; letter-spacing: .5px; } .sidebar-note p { font-size: 11px; } .sidebar-bottom { font-size: 8px; } .support-grid { grid-template-columns: 1fr; } h1 { font-size: 25px; } .phase-badge span { display: none; } footer > span:last-child { display: none; } }
-@media (max-width: 600px) { .workspace { flex-direction: column; } .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 15px 21px; border-right: 0; border-bottom: 1px solid #e2e6dd; gap: 10px; } .brand { margin: 0; font-size: 18px; } .workspace-label, .sidebar-note, .sidebar-bottom { display: none; } .navigation-item { margin-left: auto; padding: 8px 10px; font-size: 11px; gap: 7px; } .navigation-item svg { width: 14px; height: 14px; } .navigation-dot { display: none; } .topbar { height: 52px; padding: 0 22px; font-size: 10px; } main { padding: 30px 20px 22px; } .page-heading { margin-bottom: 24px; gap: 10px; } h1 { font-size: 24px; } .page-heading p { font-size: 10px; line-height: 1.7; max-width: 230px; } .eyebrow { font-size: 8px; } .phase-badge { padding: 7px; font-size: 9px; } .status-card { padding: 20px 19px 0; } .connection-line { width: 90px; } .connection-visual { margin-top: 32px; } .connection-copy h3 { font-size: 18px; } .connection-copy p { font-size: 11px; min-height: 37px; } .support-grid { margin-top: 16px; gap: 16px; } .last-checked { margin-left: -19px; margin-right: -19px; } .overview-card, .model-card { padding: 21px; } footer { font-size: 8px; line-height: 1.8; margin-top: 24px; } }
+@media (max-width: 860px) { .sidebar { width: 175px; padding-left: 12px; padding-right: 12px; } .brand { font-size: 17px; gap: 7px; margin-left: 5px; margin-right: 5px; } .brand-mark { width: 29px; height: 29px; font-size: 24px; } .sidebar-note { margin-left: 7px; margin-right: 7px; } .sidebar-note .small-label { font-size: 8px; letter-spacing: .5px; } .sidebar-note p { font-size: 11px; } .sidebar-bottom { font-size: 8px; } .support-grid { grid-template-columns: 1fr; } h1 { font-size: 25px; } .phase-badge span { display: none; } footer > span:last-child { display: none; } .account-name { max-width: 120px; } }
+@media (max-width: 600px) { .workspace { flex-direction: column; } .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 15px 21px; border-right: 0; border-bottom: 1px solid #e2e6dd; gap: 10px; } .brand { margin: 0; font-size: 18px; } .workspace-label, .sidebar-note, .sidebar-bottom { display: none; } .navigation-item { margin-left: auto; padding: 8px 10px; font-size: 11px; gap: 7px; } .navigation-item svg { width: 14px; height: 14px; } .navigation-dot { display: none; } .topbar { height: 52px; padding: 0 22px; font-size: 10px; } main { padding: 30px 20px 22px; } .page-heading { margin-bottom: 24px; gap: 10px; } h1 { font-size: 24px; } .page-heading p { font-size: 10px; line-height: 1.7; max-width: 230px; } .eyebrow { font-size: 8px; } .phase-badge { padding: 7px; font-size: 9px; } .status-card { padding: 20px 19px 0; } .connection-line { width: 90px; } .connection-visual { margin-top: 32px; } .connection-copy h3 { font-size: 18px; } .connection-copy p { font-size: 11px; min-height: 37px; } .support-grid { margin-top: 16px; gap: 16px; } .last-checked { margin-left: -19px; margin-right: -19px; } .overview-card, .model-card { padding: 21px; } footer { font-size: 8px; line-height: 1.8; margin-top: 24px; } .account-actions { gap: 8px; } .account-name { display: none; } .login-page { padding: 16px; } .login-panel { padding: 27px 23px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

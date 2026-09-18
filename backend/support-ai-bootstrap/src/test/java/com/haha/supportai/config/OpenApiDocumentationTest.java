@@ -1,0 +1,188 @@
+package com.haha.supportai.config;
+
+import java.time.OffsetDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.data.identity.entity.po.AppUser;
+import com.haha.supportai.data.identity.enums.UserRoleEnum;
+import com.haha.supportai.data.identity.repository.AppUserRepository;
+import com.haha.supportai.identity.config.IdentityOpenApiConfiguration;
+import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
+import com.haha.supportai.identity.service.AuthenticationService;
+import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
+        "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
+        "spring.ai.dashscope.api-key="
+})
+@AutoConfigureMockMvc
+class OpenApiDocumentationTest {
+
+    private static final String DOCUMENTATION_PASSWORD = "documentation-test-password";
+
+    @Autowired
+    MockMvc mvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
+
+    @MockBean
+    AppUserRepository appUserRepository;
+
+    @MockBean
+    AuthenticationService authenticationService;
+
+    @Test
+    void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
+        UUID userId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-18T00:00:00Z");
+        AppUser appUser = new AppUser(userId, "admin", "unused-hash", "系统管理员", UserRoleEnum.ADMIN, true, now, now);
+        AuthenticatedUser authenticatedUser = AuthenticatedUser.from(appUser);
+        when(authenticationService.authenticate("admin", DOCUMENTATION_PASSWORD)).thenReturn(authenticatedUser);
+        when(appUserRepository.findById(userId)).thenReturn(Optional.of(appUser));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        MvcResult apiDocsResult = mvc.perform(get("/v3/api-docs")
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.openapi").value("3.0.1"))
+                .andExpect(jsonPath("$.info.title").value("SupportAI API"))
+                .andExpect(jsonPath("$.info.version").value("1.0.0"))
+                .andExpect(jsonPath("$['paths']['/api/auth/csrf']['get']['operationId']")
+                        .value("getCsrfToken"))
+                .andExpect(jsonPath("$['paths']['/api/auth/csrf']['get']['responses']['200']"
+                        + "['content']['application/json']['schema']").exists())
+                .andExpect(jsonPath("$['paths']['/api/auth/login']['post']['operationId']").value("login"))
+                .andExpect(jsonPath("$['paths']['/api/auth/login']['post']['parameters'][0]['name']")
+                        .value("X-CSRF-TOKEN"))
+                .andExpect(jsonPath("$['paths']['/api/auth/login']['post']['requestBody']['required']").value(true))
+                .andExpect(jsonPath("$['paths']['/api/auth/login']['post']['requestBody']"
+                        + "['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/LoginRequest"))
+                .andExpect(jsonPath("$['paths']['/api/auth/login']['post']['responses']['200']"
+                        + "['content']['application/json']['schema']").exists())
+                .andExpect(jsonPath("$['paths']['/api/auth/logout']['post']['operationId']").value("logout"))
+                .andExpect(jsonPath("$['paths']['/api/auth/logout']['post']['responses']['204']").exists())
+                .andExpect(jsonPath("$['paths']['/api/auth/me']['get']['operationId']").value("getCurrentUser"))
+                .andExpect(jsonPath("$['paths']['/api/auth/me']['get']['responses']['200']"
+                        + "['content']['application/json']['schema']").exists())
+                .andExpect(jsonPath("$['paths']['/api/auth/me']['get']['security'][0]['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['type']")
+                        .value("apiKey"))
+                .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['in']").value("cookie"))
+                .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['name']")
+                        .value("support-ai-token"))
+                .andExpect(jsonPath("$['components']['schemas']['LoginRequest']['properties']['password']['writeOnly']")
+                        .value(true))
+                .andReturn();
+
+        JsonNode apiDocs = objectMapper.readTree(apiDocsResult.getResponse().getContentAsString());
+        assertResponseDataSchema(apiDocs, "/api/auth/csrf", "get", "CsrfTokenResponse");
+        assertResponseDataSchema(apiDocs, "/api/auth/login", "post", "CurrentUserResponse");
+        assertResponseDataSchema(apiDocs, "/api/auth/me", "get", "CurrentUserResponse");
+
+        mvc.perform(get("/v3/api-docs/actuator")
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['paths']['/api/health']").exists());
+
+        mvc.perform(get("/doc.html")
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
+    }
+
+    private void assertResponseDataSchema(JsonNode apiDocs, String path, String method, String expectedSchemaName) {
+        JsonNode responseSchema = apiDocs.path("paths").path(path).path(method).path("responses").path("200")
+                .path("content").path(MediaType.APPLICATION_JSON_VALUE).path("schema");
+        JsonNode dataSchema = findPropertySchema(apiDocs, responseSchema, "data");
+        String expectedReference = "#/components/schemas/" + expectedSchemaName;
+        if (!expectedReference.equals(dataSchema.path("$ref").asText())) {
+            throw new AssertionError(path + " 的成功响应 data 应引用 " + expectedSchemaName);
+        }
+    }
+
+    private JsonNode findPropertySchema(JsonNode apiDocs, JsonNode schema, String propertyName) {
+        JsonNode resolvedSchema = resolveSchema(apiDocs, schema);
+        JsonNode propertySchema = resolvedSchema.path("properties").path(propertyName);
+        if (!propertySchema.isMissingNode()) {
+            return propertySchema;
+        }
+        for (JsonNode nestedSchema : resolvedSchema.path("allOf")) {
+            JsonNode nestedProperty = findPropertySchema(apiDocs, nestedSchema, propertyName);
+            if (!nestedProperty.isMissingNode()) {
+                return nestedProperty;
+            }
+        }
+        return propertySchema;
+    }
+
+    private JsonNode resolveSchema(JsonNode apiDocs, JsonNode schema) {
+        String reference = schema.path("$ref").asText();
+        String prefix = "#/components/schemas/";
+        if (reference.startsWith(prefix)) {
+            return apiDocs.path("components").path("schemas").path(reference.substring(prefix.length()));
+        }
+        return schema;
+    }
+
+    private AuthenticatedRequest login() throws Exception {
+        MvcResult csrfResult = mvc.perform(get("/api/auth/csrf"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode csrf = objectMapper.readTree(csrfResult.getResponse().getContentAsString()).path("data");
+        MockHttpSession session = (MockHttpSession) csrfResult.getRequest().getSession(false);
+        MvcResult loginResult = mvc.perform(post("/api/auth/login")
+                        .session(session)
+                        .header(csrf.path("headerName").asText(), csrf.path("token").asText())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.createObjectNode()
+                                .put("username", "admin")
+                                .put("password", DOCUMENTATION_PASSWORD)
+                                .toString()))
+                .andExpect(status().isOk())
+                .andReturn();
+        return new AuthenticatedRequest((MockHttpSession) loginResult.getRequest().getSession(false),
+                loginCookie(loginResult));
+    }
+
+    private Cookie loginCookie(MvcResult loginResult) {
+        String prefix = IdentityOpenApiConfiguration.SA_TOKEN_COOKIE_NAME + "=";
+        String setCookie = loginResult.getResponse().getHeaders("Set-Cookie").stream()
+                .filter(header -> header.startsWith(prefix))
+                .filter(header -> !header.contains("Max-Age=0"))
+                .reduce((previous, current) -> current)
+                .orElseThrow(() -> new AssertionError("登录响应缺少 Sa-Token Cookie"));
+        int valueEnd = setCookie.indexOf(';');
+        String tokenValue = setCookie.substring(prefix.length(), valueEnd < 0 ? setCookie.length() : valueEnd);
+        return new Cookie(IdentityOpenApiConfiguration.SA_TOKEN_COOKIE_NAME, tokenValue);
+    }
+
+    private record AuthenticatedRequest(MockHttpSession session, Cookie cookie) {
+    }
+}

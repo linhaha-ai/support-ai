@@ -4,11 +4,11 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 工程基础，真实模型验收待完成**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02 账号功能待后端验收**
 
-当前仓库包含 Spring Boot 后端、Vue 启动状态页和 PostgreSQL 开发配置，支持配置 Ollama / DashScope 的 Chat 与 Embedding。登录、知识库及问答等业务能力仍按 F02 起逐步实现；下文业务架构为 V1.0.0 的建设目标。工程验证与真实模型验收分别记录在 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录与运行状态页和 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 账号数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。后端已按 9 个子模块整理，Controller 统一归 bootstrap；当前版本的构建、数据库与登录联调尚待验收。本轮前端 19 项测试和生产构建通过。知识库及问答等业务能力从 F03 起逐步实现，预留模块不代表功能已完成。阶段产出和逐项核对结果见 [F02 验收记录](doc/F02验收记录.md)，模型前置证据见 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
 
-[技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md)
+[技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
 ## 业务场景
 
@@ -61,8 +61,9 @@ V1.0.0 聚焦文本知识与只读业务查询。PDF/OCR、图片问答、多租
 | 向量模型 | 默认 Ollama `bge-m3`；可切换 DashScope `text-embedding-v4`，统一校验 1024 维 |
 | 重排序 | qwen3-rerank，独立适配、支持关闭与失败回退 |
 | 数据存储 | PostgreSQL 16 + pgvector 0.8.x |
-| 数据访问与迁移 | Spring JDBC / JdbcTemplate、Flyway |
-| 身份认证 | Spring Security、服务端 Session、CSRF |
+| 数据访问与迁移 | MyBatis-Plus 3.5.17（Spring Boot 3 专用 Starter）、Flyway |
+| 身份认证 | Sa-Token 1.46.0、Cookie 登录态、Servlet Session CSRF、jBCrypt |
+| 接口文档 | springdoc-openapi 2.9.1、Knife4j 4.5.0、OpenAPI 3.0 |
 | 前端 | Vue 3、TypeScript、Vite、Element Plus |
 | 实时响应 | POST + fetch 消费 SSE，后端使用 SseEmitter |
 | 后台任务 | PostgreSQL 持久任务表、有界执行器、租约与幂等 |
@@ -79,7 +80,7 @@ Spring AI、SAA Extensions 和 SAA 分别使用对应 BOM 管理依赖。模型�
 ```mermaid
 flowchart TD
     WEB["Vue 3 前端"] -->|"REST / POST SSE"| API["Spring MVC 接口"]
-    API --> AUTH["Session / 成员权限 / 会话授权"]
+    API --> AUTH["Sa-Token / 成员权限 / 会话授权"]
     AUTH --> DOC["文档与导入服务"]
     AUTH --> RUN["会话与问答运行服务"]
     AUTH --> TICKET["只读工单服务"]
@@ -129,36 +130,40 @@ flowchart TD
 
 ## 项目分层与工程组织
 
-后端按业务域组织，复杂模块内部划分四层：
+所有 Controller 统一放在 bootstrap 的 `com.haha.supportai.controller.<业务>` 下；其余代码先按业务模块归属，再按职责细分包。简单业务模块直接使用职责包，复杂业务可先增加功能子包，再按职责细分：
 
-| 层级 | 主要职责 |
+| 职责包 | 主要职责 |
 | --- | --- |
-| API | 参数与 DTO、HTTP 状态、SSE 和文件响应 |
-| Application | 业务用例、鉴权入口、事务与调用编排 |
-| Domain | 权限语义、任务状态、版本发布等业务规则 |
-| Infrastructure | JDBC、模型适配、文件存取和后台执行 |
+| bootstrap 下的 controller.<业务> | 参数校验、HTTP 状态、SSE 和文件响应，调用所属业务模块的 service |
+| service | 业务用例、授权、状态规则、短事务与调用编排；不为单一实现创建空接口 |
+| entity.dto / entity.vo | 本业务的请求或内部传输对象 / 对外响应对象 |
+| filter / handler / exception / config | 过滤器、异常处理、业务异常与装配配置 |
+| security / model / support | 身份安全能力、模型适配及其他有明确职责的支撑代码 |
+| data 下的业务域 entity.po / enums / repository / mapper | 数据库实体、持久化枚举、业务查询门面与 MyBatis Mapper |
 
-下列为工程布局；业务域暂保留包边界，评测和演示资料随后续阶段添加：
+后端采用 9 个子模块，加父工程共 10 个 Maven 工程。只有 bootstrap 生成可执行 Spring Boot JAR；后续业务模块目前使用包说明预留职责，评测和演示资料随后续阶段添加：
 
 ```text
 support-ai/
-├── backend/                    # Spring Boot 后端
-│   └── src/main/
-│       ├── java/com/haha/supportai/
-│       │   ├── identity/       # 账号与授权
-│       │   ├── knowledge/      # 知识库、文档与版本
-│       │   ├── ingestion/      # 解析、分块与导入任务
-│       │   ├── retrieval/      # 向量、关键词、融合与重排序
-│       │   ├── conversation/   # 会话、运行、引用与 SSE
-│       │   ├── ticket/         # 模拟工单与查询
-│       │   ├── ai/             # 模型、提示词与 Agent 工具
-│       │   ├── storage/        # 受控文件存储
-│       │   ├── common/         # 共享基础类型，规划包
-│       │   └── config/         # 组件装配
-│       └── resources/
-│           ├── db/migration/   # Flyway 迁移
-│           └── prompts/        # 提示词，规划目录
-├── frontend/                   # Vue 启动状态页
+├── backend/
+│   ├── pom.xml                 # support-ai-parent：聚合、版本与构建规则
+│   ├── support-ai-common/      # 响应、异常、traceId 与公共 Web 支撑
+│   ├── support-ai-data/        # MyBatis-Plus、类型映射、按业务分包的实体与数据访问
+│   ├── support-ai-storage/     # 文件存储边界，待 F05 实现
+│   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
+│   ├── support-ai-ai/          # Ollama / DashScope 模型接入
+│   ├── support-ai-knowledge/   # 知识、导入、检索边界，待 F03 起实现
+│   ├── support-ai-conversation/ # 会话、运行与 RAG 边界，待 F10 起实现
+│   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
+│   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
+│       ├── src/main/java/com/haha/supportai/
+│       │   ├── SupportAiApplication.java
+│       │   ├── controller/identity/AuthController.java
+│       │   └── config/
+│       └── src/main/resources/
+│           ├── application*.yml
+│           └── db/migration/   # 按全局顺序管理的 Flyway 迁移
+├── frontend/                   # Vue 登录与运行状态页
 ├── evaluation/                 # 评测题集与结果，规划目录
 ├── data/demo/                  # 模拟资料与工单，规划目录
 ├── deploy/                     # 开发数据库 Compose，完整部署在 F31
@@ -167,6 +172,12 @@ support-ai/
 │   └── 开发计划.md
 └── README.md
 ```
+
+`data` 统一提供 MyBatis-Plus、数据库驱动、连接池与类型映射，并按业务分包承载实体 PO、持久化枚举、Repository 和 Mapper；当前 `AppUser`、`UserRoleEnum`、`AppUserRepository`、`AppUserMapper` 分别位于 `com.haha.supportai.data.identity` 下的 `entity.po`、`enums`、`repository`、`mapper` 包。业务服务通过 Repository 调用 Mapper，不直接使用 JdbcTemplate 或 RowMapper。业务授权、事务编排、认证流程与 DTO/VO 留在所属业务模块，跨业务调用仍通过业务服务，不能绕过服务直接访问其他域的 Repository/Mapper。data 不反向依赖 identity；连接参数、Flyway 生产迁移与应用配置集中在 bootstrap。全局 OpenAPI 元信息与 Knife4j 运行装配归 bootstrap，身份配置与异常处理归 identity。详细结构见[后端模块结构](doc/后端模块结构.md)。
+
+data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前账号查询通过 BaseMapper 完成，无需空 Mapper XML；后续授权检索、任务租约和批量向量写入使用显式 Mapper SQL，复杂 XML 按需放入 `src/main/resources/mapper/<业务>/`。UUID、枚举和时间类型显式映射，数据库结构仍由 Flyway 管理。PgVectorStore 验收和独立 SQL 测试夹具继续使用底层 JDBC；本次业务数据访问迁移不等于移除 JDBC 依赖。版本组合与数据库映射、事务回滚仍待运行验收。
+
+当前唯一业务控制器 `AuthController` 位于 bootstrap 的 `controller.identity`。未来知识、会话、助手控制器分别按需放入 `controller.knowledge`、`controller.conversation`、`controller.assistant`，只随实际功能创建，不建立空目录。identity 保留 `service`、`entity.dto`、`entity.vo`、`security`、`filter`、`exception`、`handler`、`config`；`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。common 使用 `entity.vo`、`filter`、`handler`、`support`；ai 使用 `config` 和 `model`。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。本次 Controller 归属调整仅做静态检查，构建与运行回归仍待执行。
 
 ## 数据与接口设计
 
@@ -199,15 +210,41 @@ V1.0.0 按 **7 个累计阶段、32 个任务**逐步增加功能，不按日期
 
 每项任务都有前置依赖、实现内容、验收标准和完成复选框。通过验收后更新[开发计划](doc/开发计划.md)中的对应标识。
 
-## 本机启动（F01）
+## 本机启动（F01 / F02）
 
 在仓库根目录使用 PowerShell 7，准备 JDK 21、Maven 3.9.11、Node 24.13.1、npm 11.8.0，并启动 Docker Desktop 的 Linux 引擎。默认端口为后端 8080、前端 5173、数据库 5432。
 
-启动本机 PostgreSQL，再启动后端：
+启动本机 PostgreSQL，再构建并启动后端，由 Flyway 创建表结构。后端可在空账号表下启动，演示账号通过独立 SQL 按需导入：
 
 ```powershell
 docker compose -f deploy/compose.dev.yml up -d --wait postgres
-mvn -f backend/pom.xml spring-boot:run
+mvn -f backend/pom.xml -DskipTests clean install
+mvn -f backend/support-ai-bootstrap/pom.xml spring-boot:run
+```
+
+等待后端启动完成后，在另一个 PowerShell 终端从仓库根目录执行以下命令，导入演示账号：
+
+```powershell
+Get-Content -Raw -Encoding utf8 'backend/support-ai-data/src/main/resources/db/seed/identity/init_app_user.sql' | docker compose -f deploy/compose.dev.yml exec -T postgres psql -U supportai -d supportai -v ON_ERROR_STOP=1
+```
+
+脚本中的默认演示账号如下，密码与用户名一致：
+
+| 用户名 | 默认密码 | 角色 |
+| --- | --- | --- |
+| `admin` | `admin` | ADMIN |
+| `support1` | `support1` | USER |
+| `support2` | `support2` | USER |
+
+初始化脚本保存在 data 模块的 `db/seed/identity/init_app_user.sql`，包含兼容 jBCrypt 的 cost 12 BCrypt 摘要及中文表/列说明。脚本不在 Flyway 扫描目录，应用不会自动执行；通过 `ON CONFLICT (username) DO NOTHING` 只补齐缺失账号，不覆盖已有密码、角色或启用状态。首次导入前必须先由后端完成 Flyway 建表。本轮仅生成并保存脚本，尚未向本机数据库执行导入；接口响应和日志不包含密码或摘要。
+
+账号表由 V2 创建，V3 增量迁移补齐表及全部 8 个字段的中文数据库注释；已有 V1、V2 内容保持原样。V3 随下一次正常启动或数据库验收执行，本轮未连接数据库执行迁移。
+
+多模块应用需要先安装同一版本的本地模块，再从 bootstrap 启动。本次 Controller 跨模块迁移后首次构建必须带 `clean`，清除旧包中的类、旧 Controller、旧 Repository 和已删除初始化器的编译产物，避免新旧组件重复扫描或旧初始化器继续自动创建用户；本轮没有执行 Maven 或删除这些产物。后续未移动类的日常构建可使用 `mvn -f backend/pom.xml -DskipTests install`。父工程只负责聚合构建，不直接执行 `spring-boot:run`；修改其他模块后需重新安装。也可以在仓库根目录打包后启动唯一的可执行 JAR：
+
+```powershell
+mvn -f backend/pom.xml -DskipTests clean package
+java -jar backend/support-ai-bootstrap/target/support-ai-bootstrap-1.0.0-SNAPSHOT.jar
 ```
 
 数据库地址、名称、用户和密码已直接配置为 `localhost:5432/supportai`、`supportai`、`supportai`。该公开密码只用于绑定到 `127.0.0.1` 的本机开发数据库，生产部署必须替换。PostgreSQL 初始化密码只在空数据卷首次创建时生效；已有卷需通过数据库命令同步修改账号密码。`docker compose -f deploy/compose.dev.yml down` 保留数据卷，不应使用 `down -v` 作为日常重启方式。
@@ -219,9 +256,19 @@ npm --prefix frontend ci
 npm --prefix frontend run dev
 ```
 
-访问 <http://localhost:5173>。Vite 将 `/api` 代理到 `http://127.0.0.1:8080`；修改后端端口时，在前端启动终端设置 `VITE_API_PROXY_TARGET`。`GET /api/health` 只返回健康状态，其余路径默认拒绝访问。页面连接成功只表示后端与数据库可用，不代表模型已经验收。
+访问 <http://127.0.0.1:5173>。Vite 将 `/api` 代理到 `http://127.0.0.1:8080`；修改后端端口时，在前端启动终端设置 `VITE_API_PROXY_TARGET`。页面先取得 CSRF 令牌并恢复当前身份，登录后显示运行概览；`GET /api/health` 保持匿名，其余业务入口要求登录，写请求还必须携带 CSRF 令牌。页面连接成功只表示后端与数据库可用，不代表模型已经验收。
 
-[.env.example](.env.example) 仅列出 DashScope 等必须外部注入的云端凭据。原生 Maven/Java 不会自动加载 `.env`；需要云端模型时应在启动进程中设置对应配置。不要提交填入真实值的文件，也不要使用 `VITE_` 前缀传递密钥。
+本机 HTTP 开发配置的 Sa-Token 登录 Cookie 与 CSRF Session Cookie 均使用 `HttpOnly`、`SameSite=Lax`，并显式设置 `Secure=false`。部署到 HTTPS 时必须将 `sa-token.cookie.secure` 和 `server.servlet.session.cookie.secure` 都覆盖为 `true`。Sa-Token 当前使用单实例内存存储登录态，应用重启后需要重新登录。
+
+### 接口文档
+
+接口文档本身属于受保护资源。先在 <http://127.0.0.1:5173> 登录，再访问 Knife4j 页面 <http://127.0.0.1:8080/doc.html>；前后端必须使用相同主机名，不能混用 `localhost` 与 `127.0.0.1`。OpenAPI 3.0 JSON 位于 <http://127.0.0.1:8080/v3/api-docs>，Actuator 健康接口位于 `actuator` 文档分组。当前生成内容只包含已经实现的认证接口和健康检查；后续接口随对应开发任务落地后再进入契约。
+
+文档声明 Sa-Token HttpOnly Cookie 鉴权，并明确标注写请求所需的 `X-CSRF-TOKEN`。在 Knife4j 中调试写接口前，先调用 `GET /api/auth/csrf`，再将返回的令牌填入该请求头。Knife4j 4.5.0 自带的旧 springdoc 依赖已排除，工程显式固定 springdoc-openapi 2.9.1 以适配 Spring Boot 3.5.x。
+
+接口保留操作、参数、数据模型和鉴权注解，成功响应由方法返回类型及 HTTP 状态注解生成，避免逐接口重复声明响应列表。通用错误结构与状态约定见[技术设计大纲](doc/技术设计大纲.md)，运行行为由安全回归测试验证。
+
+普通配置在 YAML 中使用可直接运行的开发默认值；演示账号无需环境变量，DashScope 密钥仍只在启动进程中通过环境变量注入。原生 Maven/Java 不会自动加载 `.env`，不要提交真实凭据，也不要使用 `VITE_` 前缀把密钥传给浏览器。
 
 ### 模型选择
 
@@ -239,7 +286,8 @@ ollama list
 
 ```powershell
 $env:SPRING_AI_DASHSCOPE_API_KEY = Read-Host '北京地域 DashScope API Key' -MaskInput
-mvn -f backend/pom.xml spring-boot:run '-Dspring-boot.run.profiles=dashscope'
+mvn -f backend/pom.xml -DskipTests clean install
+mvn -f backend/support-ai-bootstrap/pom.xml spring-boot:run '-Dspring-boot.run.profiles=dashscope'
 ```
 
 云端 profile 直接配置 Chat 为 `qwen-plus`，Embedding 为 `text-embedding-v4 / 1024`。混合模式仍启用 `dashscope` profile，再通过 `SPRING_AI_MODEL_CHAT`、`SPRING_AI_MODEL_EMBEDDING` 临时覆盖其中一个角色。两个角色独立选择，均只接受 `ollama` 或 `dashscope`；全本地直接使用 `ollama` profile。
@@ -251,8 +299,8 @@ mvn -f backend/pom.xml spring-boot:run '-Dspring-boot.run.profiles=dashscope'
 普通测试不调用真实模型，也不要求 Docker。先执行最快的编译和单元测试：
 
 ```powershell
-mvn -f backend/pom.xml -DskipTests compile
-mvn -f backend/pom.xml test
+mvn -f backend/pom.xml -DskipTests clean compile
+mvn -f backend/pom.xml clean test
 mvn -f backend/pom.xml dependency:tree
 npm --prefix frontend run test -- --run
 npm --prefix frontend run build
@@ -268,6 +316,10 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 ```
 
 真实测试发送少量固定样本文本，分别检查 Chat、流式增量、实际向量长度和 PgVectorStore 相似查询。云端调用会产生相应模型费用；没有执行成功的测试不计入验收通过。
+
+以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。多模块迁移尚未执行 Maven 验证，迁移前的成功记录不代表当前结构已验收通过。
+
+MyBatis-Plus 接入后需重点核对账号的 UUID、字符串角色、带时区时间映射，以及同一 Spring 事务中的回滚行为。依赖树应只包含选定的 Boot 3 专用 Starter，检查 MyBatis、MyBatis-Spring 和 Spring Boot 版本实际解析结果；上述检查本轮均未运行，F01/F02 仍待验收。
 
 ## 验证与交付标准
 
