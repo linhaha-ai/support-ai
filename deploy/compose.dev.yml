@@ -4,12 +4,13 @@ services:
   postgres:
     image: pgvector/pgvector:0.8.6-pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-supportai}
-      POSTGRES_USER: ${POSTGRES_USER:-supportai}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the environment or --env-file}
+      POSTGRES_DB: supportai
+      POSTGRES_USER: supportai
+      # 仅供绑定到 127.0.0.1 的本机开发数据库使用，生产环境禁止沿用。
+      POSTGRES_PASSWORD: supportai
       POSTGRES_INITDB_ARGS: --encoding=UTF8
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

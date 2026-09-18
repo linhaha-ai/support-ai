@@ -41,7 +41,8 @@ public class AiConfiguration {
                 throw new IllegalStateException("DashScope requires the dashscope profile (spring.ai.dashscope.enabled=true)");
             }
             if (cloud && !StringUtils.hasText(environment.getProperty("spring.ai.dashscope.api-key"))) {
-                throw new IllegalStateException("DASHSCOPE_API_KEY is required when a DashScope model is selected");
+                throw new IllegalStateException(
+                        "SPRING_AI_DASHSCOPE_API_KEY is required when a DashScope model is selected");
             }
             positiveDuration(environment, "support.ai.connect-timeout", Duration.ofSeconds(10));
             positiveDuration(environment, "support.ai.read-timeout", Duration.ofSeconds(180));

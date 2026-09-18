@@ -203,18 +203,14 @@ V1.0.0 按 **7 个累计阶段、32 个任务**逐步增加功能，不按日期
 
 在仓库根目录使用 PowerShell 7，准备 JDK 21、Maven 3.9.11、Node 24.13.1、npm 11.8.0，并启动 Docker Desktop 的 Linux 引擎。默认端口为后端 8080、前端 5173、数据库 5432。
 
-先设置数据库密码并启动 PostgreSQL。同一终端中的后端进程会继承以下变量；`Read-Host -MaskInput` 避免将密码写入命令历史。
+启动本机 PostgreSQL，再启动后端：
 
 ```powershell
-$env:POSTGRES_PASSWORD = Read-Host '设置本机开发数据库密码' -MaskInput
-$env:DB_PASSWORD = $env:POSTGRES_PASSWORD
-$env:DB_URL = 'jdbc:postgresql://localhost:5432/supportai'
-$env:DB_USERNAME = 'supportai'
 docker compose -f deploy/compose.dev.yml up -d --wait postgres
 mvn -f backend/pom.xml spring-boot:run
 ```
 
-数据库默认名称和用户均为 `supportai`。可通过 `POSTGRES_PORT` 改宿主机端口，同时调整 `DB_URL`。密码只在空数据卷初始化时生效；已有卷需要使用原密码，修改环境变量不会修改已有账号密码。`docker compose -f deploy/compose.dev.yml down` 保留数据卷，不应使用 `down -v` 作为日常重启方式。
+数据库地址、名称、用户和密码已直接配置为 `localhost:5432/supportai`、`supportai`、`supportai`。该公开密码只用于绑定到 `127.0.0.1` 的本机开发数据库，生产部署必须替换。PostgreSQL 初始化密码只在空数据卷首次创建时生效；已有卷需通过数据库命令同步修改账号密码。`docker compose -f deploy/compose.dev.yml down` 保留数据卷，不应使用 `down -v` 作为日常重启方式。
 
 另开终端启动前端：
 
@@ -225,7 +221,7 @@ npm --prefix frontend run dev
 
 访问 <http://localhost:5173>。Vite 将 `/api` 代理到 `http://127.0.0.1:8080`；修改后端端口时，在前端启动终端设置 `VITE_API_PROXY_TARGET`。`GET /api/health` 只返回健康状态，其余路径默认拒绝访问。页面连接成功只表示后端与数据库可用，不代表模型已经验收。
 
-[.env.example](.env.example) 仅列出配置项。若复制成 `.env` 给 Compose 使用，应显式加 `--env-file .env`；原生 Maven/Java **不会自动加载该文件**，仍须在启动终端设置 `DB_*` 等环境变量。不要提交填入真实值的文件，也不要使用 `VITE_` 前缀传递密钥。
+[.env.example](.env.example) 仅列出 DashScope 等必须外部注入的云端凭据。原生 Maven/Java 不会自动加载 `.env`；需要云端模型时应在启动进程中设置对应配置。不要提交填入真实值的文件，也不要使用 `VITE_` 前缀传递密钥。
 
 ### 模型选择
 
@@ -237,18 +233,16 @@ ollama pull bge-m3
 ollama list
 ```
 
-应用启动不会拉取模型或发起生成请求。`OLLAMA_BASE_URL` 默认 `http://localhost:11434`，`OLLAMA_CHAT_MODEL` 默认 `qwen2.5:3b`，`OLLAMA_EMBEDDING_MODEL` 默认 `bge-m3`。连接超时默认 10 秒，读取超时默认 180 秒，可分别通过 `AI_CONNECT_TIMEOUT`、`AI_READ_TIMEOUT` 设置。
+应用启动不会拉取模型或发起生成请求。Ollama 地址直接配置为 `http://localhost:11434`，Chat 模型为 `qwen2.5:3b`，Embedding 模型为 `bge-m3`；连接超时为 10 秒，读取超时为 180 秒。需要调整时修改对应 profile，或使用 Spring Boot 标准外部配置覆盖具体属性。
 
 需要北京地域 DashScope 时，在启动终端配置密钥并启用对应 profile：
 
 ```powershell
-$env:DASHSCOPE_API_KEY = Read-Host '北京地域 DashScope API Key' -MaskInput
-$env:AI_CHAT_PROVIDER = 'dashscope'
-$env:AI_EMBEDDING_PROVIDER = 'dashscope'
+$env:SPRING_AI_DASHSCOPE_API_KEY = Read-Host '北京地域 DashScope API Key' -MaskInput
 mvn -f backend/pom.xml spring-boot:run '-Dspring-boot.run.profiles=dashscope'
 ```
 
-云端默认 Chat 为 `qwen-plus`，Embedding 为 `text-embedding-v4 / 1024`；可配置 `DASHSCOPE_BASE_URL` 和 `DASHSCOPE_WORKSPACE_ID`。混合模式仍启用 `dashscope` profile，再将两个 `AI_*_PROVIDER` 中任意一个设为 `ollama`。两个角色独立选择，均只接受 `ollama` 或 `dashscope`。切回全本地时将两个角色都设为 `ollama`，使用 `ollama` profile。
+云端 profile 直接配置 Chat 为 `qwen-plus`，Embedding 为 `text-embedding-v4 / 1024`。混合模式仍启用 `dashscope` profile，再通过 `SPRING_AI_MODEL_CHAT`、`SPRING_AI_MODEL_EMBEDDING` 临时覆盖其中一个角色。两个角色独立选择，均只接受 `ollama` 或 `dashscope`；全本地直接使用 `ollama` profile。
 
 同为 1024 维不代表向量兼容。更换 Embedding 提供方或模型后必须重建独立索引，不能用新模型查询旧向量。F01 的向量表仅存在于隔离测试环境；正式业务向量表在 F08 创建。
 
@@ -268,9 +262,8 @@ npm --prefix frontend run build
 
 ```powershell
 mvn -f backend/pom.xml -Pdb-it verify
-# 先在当前终端将 AI_CHAT_PROVIDER、AI_EMBEDDING_PROVIDER 均设为 ollama
 mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=ollama' verify
-# 先将两个提供方均设为 dashscope，并注入 DASHSCOPE_API_KEY
+# 先注入 SPRING_AI_DASHSCOPE_API_KEY
 mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 ```
 

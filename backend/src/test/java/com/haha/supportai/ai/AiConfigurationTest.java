@@ -63,7 +63,8 @@ class AiConfigurationTest {
     @Test
     void rejectsMissingCloudKey() {
         runner.withPropertyValues("spring.ai.model.chat=dashscope", "spring.ai.dashscope.enabled=true")
-                .run(context -> assertThat(context.getStartupFailure()).hasMessageContaining("DASHSCOPE_API_KEY"));
+                .run(context -> assertThat(context.getStartupFailure())
+                        .hasMessageContaining("SPRING_AI_DASHSCOPE_API_KEY"));
     }
 
     @Test

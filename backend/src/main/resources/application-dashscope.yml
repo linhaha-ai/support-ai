@@ -1,7 +1,7 @@
 spring:
   ai:
     model:
-      chat: ${AI_CHAT_PROVIDER:dashscope}
-      embedding: ${AI_EMBEDDING_PROVIDER:dashscope}
+      chat: dashscope
+      embedding: dashscope
     dashscope:
       enabled: true
