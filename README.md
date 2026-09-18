@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：方案设计，待实现与验证**
+**目标版本：V1.0.0 · 当前阶段：F01 工程基础，真实模型验收待完成**
 
-当前仓库已提供技术设计大纲与功能开发计划，尚未创建可运行的前后端工程。下文功能、架构与部署方案均为 V1.0.0 的建设目标，完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Spring Boot 后端、Vue 启动状态页和 PostgreSQL 开发配置，支持配置 Ollama / DashScope 的 Chat 与 Embedding。登录、知识库及问答等业务能力仍按 F02 起逐步实现；下文业务架构为 V1.0.0 的建设目标。工程验证与真实模型验收分别记录在 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md)
 
@@ -57,8 +57,8 @@ V1.0.0 聚焦文本知识与只读业务查询。PDF/OCR、图片问答、多租
 | Java | JDK 21 |
 | Web 服务 | Spring Boot 3.5.x、Spring MVC；初始验证基线为 3.5.8 |
 | AI 框架 | Spring AI Alibaba 1.1.2.2、Spring AI 1.1.2、SAA Extensions 1.1.2.2 |
-| 生成模型 | DashScope 接入通义千问 qwen-plus 系列 |
-| 向量模型 | text-embedding-v4，显式使用 1024 维 |
+| 生成模型 | 默认本机 Ollama `qwen2.5:3b`；可切换北京地域 DashScope `qwen-plus` |
+| 向量模型 | 默认 Ollama `bge-m3`；可切换 DashScope `text-embedding-v4`，统一校验 1024 维 |
 | 重排序 | qwen3-rerank，独立适配、支持关闭与失败回退 |
 | 数据存储 | PostgreSQL 16 + pgvector 0.8.x |
 | 数据访问与迁移 | Spring JDBC / JdbcTemplate、Flyway |
@@ -99,7 +99,7 @@ flowchart TD
     TICKET --> PG
     RUN --> PG
 
-    EMB --> MODEL["DashScope 模型服务"]
+    EMB --> MODEL["Ollama / DashScope 模型服务"]
     RAG --> MODEL
     AGENT --> MODEL
 ```
@@ -138,13 +138,13 @@ flowchart TD
 | Domain | 权限语义、任务状态、版本发布等业务规则 |
 | Infrastructure | JDBC、模型适配、文件存取和后台执行 |
 
-下列为待建设的工程结构；
+下列为工程布局；业务域暂保留包边界，评测和演示资料随后续阶段添加：
 
 ```text
 support-ai/
-├── backend/                    # Spring Boot 后端，规划目录
+├── backend/                    # Spring Boot 后端
 │   └── src/main/
-│       ├── java/com/example/supportai/
+│       ├── java/com/haha/supportai/
 │       │   ├── identity/       # 账号与授权
 │       │   ├── knowledge/      # 知识库、文档与版本
 │       │   ├── ingestion/      # 解析、分块与导入任务
@@ -153,15 +153,15 @@ support-ai/
 │       │   ├── ticket/         # 模拟工单与查询
 │       │   ├── ai/             # 模型、提示词与 Agent 工具
 │       │   ├── storage/        # 受控文件存储
-│       │   ├── common/         # 共享基础类型
+│       │   ├── common/         # 共享基础类型，规划包
 │       │   └── config/         # 组件装配
 │       └── resources/
 │           ├── db/migration/   # Flyway 迁移
-│           └── prompts/        # 提示词
-├── frontend/                   # Vue 前端，规划目录
+│           └── prompts/        # 提示词，规划目录
+├── frontend/                   # Vue 启动状态页
 ├── evaluation/                 # 评测题集与结果，规划目录
 ├── data/demo/                  # 模拟资料与工单，规划目录
-├── deploy/                     # 部署配置，规划目录
+├── deploy/                     # 开发数据库 Compose，完整部署在 F31
 ├── doc/
 │   ├── 技术设计大纲.md
 │   └── 开发计划.md
@@ -199,16 +199,82 @@ V1.0.0 按 **7 个累计阶段、32 个任务**逐步增加功能，不按日期
 
 每项任务都有前置依赖、实现内容、验收标准和完成复选框。通过验收后更新[开发计划](doc/开发计划.md)中的对应标识。
 
-## 开始开发
+## 本机启动（F01）
 
-从开发计划的 **F01：建立可启动的应用与模型连接** 开始：
+在仓库根目录使用 PowerShell 7，准备 JDK 21、Maven 3.9.11、Node 24.13.1、npm 11.8.0，并启动 Docker Desktop 的 Linux 引擎。默认端口为后端 8080、前端 5173、数据库 5432。
 
-1. 阅读技术设计中的版本基线，准备 JDK 21、Maven、Node.js 和 Docker 环境。
-2. 建立后端与前端工程，验证 PostgreSQL、pgvector 和 Flyway。
-3. 通过环境变量配置模型凭据，验证 Chat、流式输出和 1024 维 Embedding。
-4. 固定通过验证的依赖版本，再依次实现账号授权和文档入库。
+先设置数据库密码并启动 PostgreSQL。同一终端中的后端进程会继承以下变量；`Read-Host -MaskInput` 避免将密码写入命令历史。
 
-当前仓库尚无应用启动脚本与部署配置，启动命令将在工程实现并验证后补充。
+```powershell
+$env:POSTGRES_PASSWORD = Read-Host '设置本机开发数据库密码' -MaskInput
+$env:DB_PASSWORD = $env:POSTGRES_PASSWORD
+$env:DB_URL = 'jdbc:postgresql://localhost:5432/supportai'
+$env:DB_USERNAME = 'supportai'
+docker compose -f deploy/compose.dev.yml up -d --wait postgres
+mvn -f backend/pom.xml spring-boot:run
+```
+
+数据库默认名称和用户均为 `supportai`。可通过 `POSTGRES_PORT` 改宿主机端口，同时调整 `DB_URL`。密码只在空数据卷初始化时生效；已有卷需要使用原密码，修改环境变量不会修改已有账号密码。`docker compose -f deploy/compose.dev.yml down` 保留数据卷，不应使用 `down -v` 作为日常重启方式。
+
+另开终端启动前端：
+
+```powershell
+npm --prefix frontend ci
+npm --prefix frontend run dev
+```
+
+访问 <http://localhost:5173>。Vite 将 `/api` 代理到 `http://127.0.0.1:8080`；修改后端端口时，在前端启动终端设置 `VITE_API_PROXY_TARGET`。`GET /api/health` 只返回健康状态，其余路径默认拒绝访问。页面连接成功只表示后端与数据库可用，不代表模型已经验收。
+
+[.env.example](.env.example) 仅列出配置项。若复制成 `.env` 给 Compose 使用，应显式加 `--env-file .env`；原生 Maven/Java **不会自动加载该文件**，仍须在启动终端设置 `DB_*` 等环境变量。不要提交填入真实值的文件，也不要使用 `VITE_` 前缀传递密钥。
+
+### 模型选择
+
+默认无需云端密钥，连接本机独立 Ollama。先安装并启动 Ollama，再显式准备模型：
+
+```powershell
+ollama pull qwen2.5:3b
+ollama pull bge-m3
+ollama list
+```
+
+应用启动不会拉取模型或发起生成请求。`OLLAMA_BASE_URL` 默认 `http://localhost:11434`，`OLLAMA_CHAT_MODEL` 默认 `qwen2.5:3b`，`OLLAMA_EMBEDDING_MODEL` 默认 `bge-m3`。连接超时默认 10 秒，读取超时默认 180 秒，可分别通过 `AI_CONNECT_TIMEOUT`、`AI_READ_TIMEOUT` 设置。
+
+需要北京地域 DashScope 时，在启动终端配置密钥并启用对应 profile：
+
+```powershell
+$env:DASHSCOPE_API_KEY = Read-Host '北京地域 DashScope API Key' -MaskInput
+$env:AI_CHAT_PROVIDER = 'dashscope'
+$env:AI_EMBEDDING_PROVIDER = 'dashscope'
+mvn -f backend/pom.xml spring-boot:run '-Dspring-boot.run.profiles=dashscope'
+```
+
+云端默认 Chat 为 `qwen-plus`，Embedding 为 `text-embedding-v4 / 1024`；可配置 `DASHSCOPE_BASE_URL` 和 `DASHSCOPE_WORKSPACE_ID`。混合模式仍启用 `dashscope` profile，再将两个 `AI_*_PROVIDER` 中任意一个设为 `ollama`。两个角色独立选择，均只接受 `ollama` 或 `dashscope`。切回全本地时将两个角色都设为 `ollama`，使用 `ollama` profile。
+
+同为 1024 维不代表向量兼容。更换 Embedding 提供方或模型后必须重建独立索引，不能用新模型查询旧向量。F01 的向量表仅存在于隔离测试环境；正式业务向量表在 F08 创建。
+
+### 自动化检查
+
+普通测试不调用真实模型，也不要求 Docker。先执行最快的编译和单元测试：
+
+```powershell
+mvn -f backend/pom.xml -DskipTests compile
+mvn -f backend/pom.xml test
+mvn -f backend/pom.xml dependency:tree
+npm --prefix frontend run test -- --run
+npm --prefix frontend run build
+```
+
+数据库与真实模型检查显式执行。Testcontainers 使用隔离数据库，不连接开发数据卷；数据库检查需要 Docker，真实模型检查还需要对应服务、模型或密钥。缺少条件时测试失败，不静默跳过：
+
+```powershell
+mvn -f backend/pom.xml -Pdb-it verify
+# 先在当前终端将 AI_CHAT_PROVIDER、AI_EMBEDDING_PROVIDER 均设为 ollama
+mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=ollama' verify
+# 先将两个提供方均设为 dashscope，并注入 DASHSCOPE_API_KEY
+mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
+```
+
+真实测试发送少量固定样本文本，分别检查 Chat、流式增量、实际向量长度和 PgVectorStore 相似查询。云端调用会产生相应模型费用；没有执行成功的测试不计入验收通过。
 
 ## 验证与交付标准
 

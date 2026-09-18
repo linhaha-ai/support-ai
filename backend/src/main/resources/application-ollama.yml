@@ -1,0 +1,7 @@
+spring:
+  ai:
+    model:
+      chat: ${AI_CHAT_PROVIDER:ollama}
+      embedding: ${AI_EMBEDDING_PROVIDER:ollama}
+    dashscope:
+      enabled: false
