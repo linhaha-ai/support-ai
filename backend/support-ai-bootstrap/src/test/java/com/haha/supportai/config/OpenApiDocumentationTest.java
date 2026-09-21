@@ -19,6 +19,7 @@ import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -86,6 +87,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     DocumentUploadPersistenceService documentUploadPersistenceService;
+
+    @MockBean
+    IngestionJobQueryService ingestionJobQueryService;
 
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
@@ -155,6 +159,12 @@ class OpenApiDocumentationTest {
                         + "['format']").value("binary"))
                 .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
                         + "['responses']['202']").exists())
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['operationId']")
+                        .value("getIngestionJob"))
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['responses']['200']")
+                        .exists())
                 .andExpect(jsonPath("$['paths']['/api/admin/knowledge-bases']['get']['operationId']")
                         .value("listManagedKnowledgeBases"))
                 .andExpect(jsonPath("$['paths']['/api/admin/users']['get']['operationId']")
@@ -195,6 +205,8 @@ class OpenApiDocumentationTest {
                 "KnowledgeBaseManagementResponse");
         assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}/documents", "post", "202",
                 "DocumentUploadReceiptResponse");
+        assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
+                "IngestionJobStatusResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",
                 "KnowledgeBaseManagementResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/users", "get", "UserSummaryResponse");

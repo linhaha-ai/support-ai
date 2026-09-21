@@ -35,10 +35,10 @@ public class IngestionJob {
     private IngestionStageEnum stage; // 当前入库处理阶段
 
     @TableField("attempt")
-    private int attempt; // 已发起处理的次数
+    private int attempt; // 当前处理阶段已发起的执行次数
 
     @TableField("max_attempts")
-    private int maxAttempts; // 最大处理次数
+    private int maxAttempts; // 单个处理阶段允许的最大执行次数
 
     @TableField("lease_owner")
     private String leaseOwner; // 当前任务租约持有者标识

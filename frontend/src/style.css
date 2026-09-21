@@ -169,6 +169,7 @@ footer > span:first-child { letter-spacing: .4px; }
 .document-upload-actions { grid-column: 3; grid-row: 2; }
 .document-upload-actions .el-button { min-height: 32px; margin-left: 0; border-radius: 6px; }
 .document-upload-error { margin-top: 10px; color: #9b5d47; font-size: 11px; line-height: 1.6; }
+.document-upload-error .el-button { min-height: auto; margin-left: 6px; padding: 0; font-size: 11px; vertical-align: baseline; }
 .document-upload-receipt { display: grid; gap: 4px; margin-top: 12px; padding-left: 10px; border-left: 3px solid #92a978; color: #64735d; font-size: 10px; line-height: 1.6; }
 .document-upload-receipt strong { color: #466549; font-size: 11px; }
 .member-manager { margin-bottom: 20px; padding: 20px; border: 1px solid #dce5d9; border-radius: 8px; background: #fbfcf9; }

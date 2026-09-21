@@ -67,6 +67,29 @@ export interface DocumentUploadReceipt {
   status: 'QUEUED'
 }
 
+export type IngestionJobStatus = 'QUEUED' | 'RUNNING' | 'RETRY_WAIT' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
+export type IngestionJobStage = 'PARSE' | 'CHUNK' | 'EMBED' | 'PUBLISH'
+
+export interface IngestionJobDetail {
+  jobId: string
+  versionId: string
+  status: IngestionJobStatus
+  stage: IngestionJobStage
+  attempt: number
+  maxAttempts: number
+  completedChunks: number | null
+  totalChunks: number | null
+  progressPercent: number | null
+  retryable: boolean
+  cancellable: boolean
+  errorCode: string | null
+  errorMessage: string | null
+  nextRunAt: string | null
+  startedAt: string | null
+  finishedAt: string | null
+  updatedAt: string
+}
+
 export interface KnowledgeBaseApiError {
   kind: 'unauthorized' | 'forbidden' | 'conflict' | 'request' | 'invalid-response'
   message: string
@@ -212,6 +235,71 @@ function parseDocumentUploadReceipt(value: unknown): DocumentUploadReceipt | nul
     versionId: value.versionId,
     jobId: value.jobId,
     status: value.status,
+  }
+}
+
+function parseIngestionJobStatus(value: unknown): IngestionJobStatus | null {
+  return value === 'QUEUED' || value === 'RUNNING' || value === 'RETRY_WAIT'
+    || value === 'SUCCEEDED' || value === 'FAILED' || value === 'CANCELLED'
+    ? value
+    : null
+}
+
+function parseIngestionJobStage(value: unknown): IngestionJobStage | null {
+  return value === 'PARSE' || value === 'CHUNK' || value === 'EMBED' || value === 'PUBLISH' ? value : null
+}
+
+function parseNullableString(value: unknown): string | null | undefined {
+  return typeof value === 'string' || value === null ? value : undefined
+}
+
+function parseNullableNumber(value: unknown): number | null | undefined {
+  if (value === null) return null
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function parseIngestionJobDetail(value: unknown): IngestionJobDetail | null {
+  const status = isRecord(value) ? parseIngestionJobStatus(value.status) : null
+  const stage = isRecord(value) ? parseIngestionJobStage(value.stage) : null
+  const completedChunks = isRecord(value) ? parseNullableNumber(value.completedChunks) : undefined
+  const totalChunks = isRecord(value) ? parseNullableNumber(value.totalChunks) : undefined
+  const progressPercent = isRecord(value) ? parseNullableNumber(value.progressPercent) : undefined
+  if (!isRecord(value)
+    || typeof value.jobId !== 'string'
+    || typeof value.versionId !== 'string'
+    || !status
+    || !stage
+    || typeof value.attempt !== 'number'
+    || typeof value.maxAttempts !== 'number'
+    || completedChunks === undefined
+    || totalChunks === undefined
+    || progressPercent === undefined
+    || typeof value.retryable !== 'boolean'
+    || typeof value.cancellable !== 'boolean'
+    || parseNullableString(value.errorCode) === undefined
+    || parseNullableString(value.errorMessage) === undefined
+    || parseNullableString(value.nextRunAt) === undefined
+    || parseNullableString(value.startedAt) === undefined
+    || parseNullableString(value.finishedAt) === undefined
+    || typeof value.updatedAt !== 'string') return null
+  return {
+    jobId: value.jobId,
+    versionId: value.versionId,
+    status,
+    stage,
+    attempt: value.attempt,
+    maxAttempts: value.maxAttempts,
+    completedChunks,
+    totalChunks,
+    progressPercent,
+    retryable: value.retryable,
+    cancellable: value.cancellable,
+    errorCode: parseNullableString(value.errorCode) ?? null,
+    errorMessage: parseNullableString(value.errorMessage) ?? null,
+    nextRunAt: parseNullableString(value.nextRunAt) ?? null,
+    startedAt: parseNullableString(value.startedAt) ?? null,
+    finishedAt: parseNullableString(value.finishedAt) ?? null,
+    updatedAt: value.updatedAt,
   }
 }
 
@@ -378,6 +466,20 @@ export async function uploadKnowledgeDocument(
   if (data) return data
   if (!response.ok) throw uploadErrorFor(response, envelope?.code)
   throw { kind: 'invalid-response', message: '上传文档的响应格式无效，请稍后重试。' } satisfies KnowledgeBaseApiError
+}
+
+export async function fetchIngestionJob(jobId: string): Promise<IngestionJobDetail> {
+  const response = await fetch(`/api/ingestion-jobs/${encodeURIComponent(jobId)}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const data = response.ok && envelope?.code === 'OK' ? parseIngestionJobDetail(envelope.data) : null
+  if (data) return data
+  if (!response.ok) throw errorFor(response)
+  throw { kind: 'invalid-response', message: '文档处理任务响应格式无效，请稍后重试。' } satisfies KnowledgeBaseApiError
 }
 
 export async function updateKnowledgeBase(id: string, input: UpdateKnowledgeBaseInput): Promise<KnowledgeBaseManagement> {

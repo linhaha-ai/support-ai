@@ -9,7 +9,13 @@ import 'element-plus/es/components/option/style/css'
 import 'element-plus/es/components/select/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
-import type { KnowledgeBaseManagement, KnowledgeBaseMember, KnowledgeBasePermission, KnowledgeBaseStatus } from './knowledgeBase'
+import type {
+  IngestionJobDetail,
+  KnowledgeBaseManagement,
+  KnowledgeBaseMember,
+  KnowledgeBasePermission,
+  KnowledgeBaseStatus,
+} from './knowledgeBase'
 import type { CurrentUser } from './useAuth'
 import { useDocumentUpload } from './useDocumentUpload'
 import { useKnowledgeBases } from './useKnowledgeBases'
@@ -52,6 +58,47 @@ function formatDate(value: string): string {
 
 function statusLabel(status: KnowledgeBaseStatus): string {
   return status === 'ACTIVE' ? '启用中' : '已停用'
+}
+
+function ingestionStatusLabel(job: IngestionJobDetail | null): string {
+  if (!job) return 'QUEUED · 排队'
+  if (job.status === 'QUEUED') return 'QUEUED · 排队'
+  if (job.status === 'RUNNING') return `RUNNING · ${ingestionStageLabel(job.stage)}`
+  if (job.status === 'RETRY_WAIT') return 'RETRY_WAIT · 等待重试'
+  if (job.status === 'SUCCEEDED') return 'SUCCEEDED · 已完成'
+  if (job.status === 'FAILED') return 'FAILED · 处理失败'
+  return 'CANCELLED · 已取消'
+}
+
+function ingestionStatusType(job: IngestionJobDetail | null): 'info' | 'warning' | 'success' | 'danger' {
+  if (!job || job.status === 'QUEUED') return 'info'
+  if (job.status === 'RUNNING' || job.status === 'RETRY_WAIT') return 'warning'
+  if (job.status === 'SUCCEEDED') return 'success'
+  return 'danger'
+}
+
+function ingestionStageLabel(stage: IngestionJobDetail['stage']): string {
+  if (stage === 'PARSE') return '正在解析'
+  if (stage === 'CHUNK') return '正在分块'
+  if (stage === 'EMBED') return '正在向量化'
+  return '正在发布'
+}
+
+function ingestionSummary(job: IngestionJobDetail | null, loading: boolean): string {
+  if (!job) return loading ? '正在读取处理进度。' : '任务 QUEUED，正在排队。'
+  if (job.status === 'QUEUED') return '任务 QUEUED，正在排队。'
+  if (job.status === 'RUNNING') return `任务 RUNNING，${ingestionStageLabel(job.stage)}。`
+  if (job.status === 'RETRY_WAIT') return '任务 RETRY_WAIT，等待重试。'
+  if (job.status === 'SUCCEEDED') return '任务 SUCCEEDED，处理完成。'
+  if (job.status === 'FAILED') return job.errorMessage || '任务 FAILED，处理失败，请稍后重试或联系管理员。'
+  return '任务 CANCELLED，处理已取消。'
+}
+
+function hasKnownIngestionProgress(job: IngestionJobDetail | null): boolean {
+  return job?.status === 'RUNNING'
+    && job.completedChunks !== null
+    && job.totalChunks !== null
+    && job.progressPercent !== null
 }
 
 function resetEditor() {
@@ -387,7 +434,13 @@ onMounted(knowledgeBases.load)
               <h3 :id="`document-upload-${item.id}`">上传文档</h3>
               <p>仅支持 UTF-8 Markdown 或 TXT，单个文件不超过 5 MB。</p>
             </div>
-            <ElTag v-if="documentUpload.stateFor(item.id).receipt" size="small" type="warning">处理中</ElTag>
+            <ElTag
+              v-if="documentUpload.stateFor(item.id).receipt"
+              size="small"
+              :type="ingestionStatusType(documentUpload.stateFor(item.id).job)"
+            >
+              {{ ingestionStatusLabel(documentUpload.stateFor(item.id).job) }}
+            </ElTag>
           </div>
           <form class="document-upload-form" @submit.prevent="submitDocument(item.id, $event)">
             <label :for="`document-file-${item.id}`">文档文件</label>
@@ -422,8 +475,29 @@ onMounted(knowledgeBases.load)
           <p v-if="documentUpload.stateFor(item.id).error" class="document-upload-error" role="alert">
             {{ documentUpload.stateFor(item.id).error }}
           </p>
+          <p v-if="documentUpload.stateFor(item.id).jobError" class="document-upload-error" role="alert">
+            {{ documentUpload.stateFor(item.id).jobError }}
+            <ElButton
+              text
+              type="primary"
+              :loading="documentUpload.stateFor(item.id).jobLoading"
+              @click="documentUpload.refreshJob(item.id)"
+            >
+              重新查询
+            </ElButton>
+          </p>
           <div v-if="documentUpload.stateFor(item.id).receipt" class="document-upload-receipt" role="status">
-            <strong>文档已接收，正在处理中。</strong>
+            <strong>{{ ingestionSummary(documentUpload.stateFor(item.id).job, documentUpload.stateFor(item.id).jobLoading) }}</strong>
+            <span v-if="hasKnownIngestionProgress(documentUpload.stateFor(item.id).job)">
+              进度 {{ documentUpload.stateFor(item.id).job?.progressPercent }}%，已完成
+              {{ documentUpload.stateFor(item.id).job?.completedChunks }}/{{ documentUpload.stateFor(item.id).job?.totalChunks }} 个分块
+            </span>
+            <span v-if="documentUpload.stateFor(item.id).job?.status === 'RETRY_WAIT' && documentUpload.stateFor(item.id).job?.nextRunAt">
+              预计重试时间 {{ formatDate(documentUpload.stateFor(item.id).job?.nextRunAt ?? '') }}
+            </span>
+            <span v-if="documentUpload.stateFor(item.id).job?.status === 'FAILED' && documentUpload.stateFor(item.id).job?.errorCode">
+              错误代码 {{ documentUpload.stateFor(item.id).job?.errorCode }}
+            </span>
             <span>文档 {{ documentUpload.stateFor(item.id).receipt?.documentId }}</span>
             <span>版本 {{ documentUpload.stateFor(item.id).receipt?.versionId }}</span>
             <span>任务 {{ documentUpload.stateFor(item.id).receipt?.jobId }}</span>

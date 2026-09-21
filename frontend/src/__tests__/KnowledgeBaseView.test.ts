@@ -72,6 +72,31 @@ function queuedReceipt() {
   }
 }
 
+function ingestionJob(
+  status: 'QUEUED' | 'RUNNING' | 'RETRY_WAIT' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' = 'QUEUED',
+  progressKnown = true,
+) {
+  return {
+    jobId: queuedReceipt().jobId,
+    versionId: queuedReceipt().versionId,
+    status,
+    stage: status === 'RUNNING' ? 'EMBED' : 'PARSE',
+    attempt: status === 'RETRY_WAIT' ? 1 : 0,
+    maxAttempts: 3,
+    completedChunks: status === 'RUNNING' && progressKnown ? 4 : status === 'RUNNING' ? null : 0,
+    totalChunks: status === 'RUNNING' && progressKnown ? 10 : status === 'RUNNING' ? null : 0,
+    progressPercent: status === 'RUNNING' && progressKnown ? 40 : status === 'RUNNING' ? null : 0,
+    retryable: status === 'FAILED' || status === 'RETRY_WAIT',
+    cancellable: status === 'QUEUED' || status === 'RUNNING' || status === 'RETRY_WAIT',
+    errorCode: status === 'FAILED' ? 'DOCUMENT_READ_FAILED' : null,
+    errorMessage: status === 'FAILED' ? '原文件暂时无法读取' : null,
+    nextRunAt: null,
+    startedAt: status === 'RUNNING' ? '2026-09-21T10:00:00+08:00' : null,
+    finishedAt: status === 'FAILED' ? '2026-09-21T10:01:00+08:00' : null,
+    updatedAt: '2026-09-21T10:00:00+08:00',
+  }
+}
+
 async function selectDocument(view: VueWrapper, file: File) {
   const input = view.get('.document-file-input')
   Object.defineProperty(input.element, 'files', { configurable: true, value: [file] })
@@ -115,6 +140,7 @@ describe('知识库视图', () => {
     fetchMock.mockResolvedValueOnce(ok([writableSummary]))
       .mockResolvedValueOnce(ok(csrf))
       .mockResolvedValueOnce(ok(receipt, 202))
+      .mockResolvedValueOnce(ok(ingestionJob()))
     const view = mountView()
     await flushPromises()
 
@@ -134,11 +160,80 @@ describe('知识库视图', () => {
     expect(request?.body).toBeInstanceOf(FormData)
     expect((request?.body as FormData).get('file')).toBeInstanceOf(File)
     expect((request?.headers as Record<string, string>)['Content-Type']).toBeUndefined()
-    expect(view.text()).toContain('文档已接收，正在处理中。')
     expect(view.text()).toContain(receipt.documentId)
     expect(view.text()).toContain(receipt.versionId)
     expect(view.text()).toContain(receipt.jobId)
+    expect(view.text()).toContain('QUEUED · 排队')
+    expect(view.text()).toContain('任务 QUEUED，正在排队。')
     expect(view.text()).not.toContain('可问答')
+  })
+
+  it('文档任务运行时展示中文阶段与进度', async () => {
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockResolvedValueOnce(ok(csrf))
+      .mockResolvedValueOnce(ok(queuedReceipt(), 202))
+      .mockResolvedValueOnce(ok(ingestionJob('RUNNING')))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+    await view.get('.document-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(view.text()).toContain('RUNNING · 正在向量化')
+    expect(view.text()).toContain('任务 RUNNING，正在向量化。')
+    expect(view.text()).toContain('进度 40%，已完成 4/10 个分块')
+  })
+
+  it('文档任务失败时展示脱敏错误与错误代码', async () => {
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockResolvedValueOnce(ok(csrf))
+      .mockResolvedValueOnce(ok(queuedReceipt(), 202))
+      .mockResolvedValueOnce(ok(ingestionJob('FAILED')))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+    await view.get('.document-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(view.text()).toContain('FAILED · 处理失败')
+    expect(view.text()).toContain('原文件暂时无法读取')
+    expect(view.text()).toContain('错误代码 DOCUMENT_READ_FAILED')
+  })
+
+  it('文档任务运行但进度未知时仅展示中文阶段', async () => {
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockResolvedValueOnce(ok(csrf))
+      .mockResolvedValueOnce(ok(queuedReceipt(), 202))
+      .mockResolvedValueOnce(ok(ingestionJob('RUNNING', false)))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+    await view.get('.document-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(view.text()).toContain('RUNNING · 正在向量化')
+    expect(view.text()).toContain('任务 RUNNING，正在向量化。')
+    expect(view.text()).not.toContain('进度 null')
+    expect(view.text()).not.toContain('已完成 null')
+  })
+
+  it('任务状态查询失败时显示重新查询入口', async () => {
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockResolvedValueOnce(ok(csrf))
+      .mockResolvedValueOnce(ok(queuedReceipt(), 202))
+      .mockResolvedValueOnce(failure('INGESTION_JOB_UNAVAILABLE', 503))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+    await view.get('.document-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(view.text()).toContain('知识库请求未完成，请稍后重试。')
+    expect(view.text()).toContain('重新查询')
   })
 
   it('只读知识库不展示文档上传入口', async () => {
@@ -174,6 +269,7 @@ describe('知识库视图', () => {
     fetchMock.mockResolvedValueOnce(ok([writableSummary]))
       .mockImplementationOnce(() => csrfPending)
       .mockResolvedValueOnce(ok(queuedReceipt(), 202))
+      .mockResolvedValueOnce(ok(ingestionJob()))
     const view = mountView()
     await flushPromises()
 
@@ -186,7 +282,7 @@ describe('知识库视图', () => {
     resolveCsrf?.(ok(csrf))
     await flushPromises()
 
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
     expect(fetchMock.mock.calls.filter(([url]) => url === `/api/knowledge-bases/${writableSummary.id}/documents`)).toHaveLength(1)
   })
 

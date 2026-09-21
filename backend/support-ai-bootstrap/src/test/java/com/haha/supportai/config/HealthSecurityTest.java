@@ -10,6 +10,7 @@ import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +70,9 @@ class HealthSecurityTest {
     @MockBean
     DocumentUploadPersistenceService documentUploadPersistenceService;
 
+    @MockBean
+    IngestionJobQueryService ingestionJobQueryService;
+
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
@@ -78,7 +82,7 @@ class HealthSecurityTest {
     @Test
     void anonymousBusinessEntriesRequireAuthenticationAndWritesRequireCsrf() throws Exception {
         for (String path : new String[] { "/api/chat", "/api/health/db", "/api/env", "/actuator", "/doc.html",
-                "/v3/api-docs", "/" }) {
+                "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000", "/" }) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
