@@ -8,8 +8,11 @@ import com.haha.supportai.knowledge.document.exception.DocumentFileRequiredExcep
 import com.haha.supportai.knowledge.document.exception.DocumentFileTooLargeException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileTypeUnsupportedException;
 import com.haha.supportai.knowledge.document.exception.DocumentNameInvalidException;
+import com.haha.supportai.knowledge.document.exception.DocumentNotFoundException;
+import com.haha.supportai.knowledge.document.exception.DocumentQueryInvalidException;
 import com.haha.supportai.knowledge.document.exception.DocumentStorageUnavailableException;
 import com.haha.supportai.knowledge.document.exception.DocumentUploadFailedException;
+import com.haha.supportai.knowledge.document.parsing.exception.DocumentReadFailedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +70,22 @@ public class DocumentExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "DOCUMENT_NAME_INVALID", "文档名称不合法", request);
     }
 
+    @ExceptionHandler(DocumentQueryInvalidException.class)
+    ResponseEntity<ApiError> handleInvalidQuery(DocumentQueryInvalidException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "DOCUMENT_QUERY_INVALID", "分页参数或游标不合法", request);
+    }
+
+    @ExceptionHandler(DocumentNotFoundException.class)
+    ResponseEntity<ApiError> handleNotFound(DocumentNotFoundException exception, HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "DOCUMENT_NOT_FOUND", "文档或版本不存在", request);
+    }
+
+    @ExceptionHandler(DocumentReadFailedException.class)
+    ResponseEntity<ApiError> handleReadFailed(DocumentReadFailedException exception, HttpServletRequest request) {
+        logFailure(request, exception);
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "DOCUMENT_READ_FAILED", "原文件暂时无法读取", request);
+    }
+
     @ExceptionHandler(DocumentStorageUnavailableException.class)
     ResponseEntity<ApiError> handleStorageUnavailable(DocumentStorageUnavailableException exception,
             HttpServletRequest request) {
@@ -81,7 +100,7 @@ public class DocumentExceptionHandler {
     }
 
     private void logFailure(HttpServletRequest request, RuntimeException exception) {
-        LOGGER.error("文档上传失败: traceId={}, type={}", TraceIdFilter.getTraceId(request),
+        LOGGER.error("文档操作失败: traceId={}, type={}", TraceIdFilter.getTraceId(request),
                 exception.getClass().getSimpleName());
     }
 

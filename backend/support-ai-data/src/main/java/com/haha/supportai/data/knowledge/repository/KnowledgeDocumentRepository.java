@@ -1,5 +1,7 @@
 package com.haha.supportai.data.knowledge.repository;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -31,5 +33,13 @@ public class KnowledgeDocumentRepository {
         return knowledgeDocumentMapper.selectCount(Wrappers.<KnowledgeDocument>lambdaQuery()
                 .eq(KnowledgeDocument::getKbId, knowledgeBaseId)
                 .isNull(KnowledgeDocument::getDeletedAt));
+    }
+
+    public List<KnowledgeDocument> listAccessibleByKnowledgeBaseId(UUID knowledgeBaseId, UUID userId) {
+        return knowledgeDocumentMapper.selectAccessibleByKnowledgeBaseId(knowledgeBaseId, userId);
+    }
+
+    public Optional<KnowledgeDocument> findAccessibleByIdAndUserId(UUID documentId, UUID userId) {
+        return knowledgeDocumentMapper.selectAccessibleByIdAndUserId(documentId, userId);
     }
 }

@@ -1,6 +1,8 @@
 package com.haha.supportai.data.knowledge.repository;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +30,13 @@ public class IngestionJobRepository {
 
     public Optional<IngestionJob> findAccessibleByIdAndUserId(UUID jobId, UUID userId) {
         return ingestionJobMapper.selectAccessibleByIdAndUserId(jobId, userId);
+    }
+
+    public List<IngestionJob> findByVersionIds(Collection<UUID> versionIds) {
+        if (versionIds.isEmpty()) {
+            return List.of();
+        }
+        return ingestionJobMapper.selectByVersionIds(versionIds);
     }
 
     public Optional<IngestionJob> findActiveLeaseForUpdate(UUID jobId, UUID versionId, IngestionStageEnum stage,

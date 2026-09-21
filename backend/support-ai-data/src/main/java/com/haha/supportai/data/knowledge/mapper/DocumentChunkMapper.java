@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haha.supportai.data.knowledge.entity.po.DocumentChunk;
+import com.haha.supportai.data.knowledge.entity.po.DocumentChunkContent;
 import com.haha.supportai.data.typehandler.UuidTypeHandler;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -16,6 +17,39 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface DocumentChunkMapper extends BaseMapper<DocumentChunk> {
+
+    @Select("""
+            <script>
+            -- document_chunk、vector_store：按稳定分块序号读取位置元数据和正文；正文以 vector_store 为唯一副本。
+            SELECT chunk.id, chunk.version_id, chunk.chunk_index, chunk.section, chunk.page_no,
+                   chunk.start_offset, chunk.end_offset, chunk.char_count, chunk.token_count, vector.content
+            FROM document_chunk chunk
+            LEFT JOIN vector_store vector ON vector.id = chunk.id
+            WHERE chunk.version_id = #{versionId,jdbcType=OTHER}
+            <if test="afterChunkIndex != null">
+              AND chunk.chunk_index &gt; #{afterChunkIndex}
+            </if>
+            ORDER BY chunk.chunk_index
+            LIMIT #{limit}
+            </script>
+            """)
+    @Results(id = "documentChunkContentResultMap", value = {
+            @Result(column = "id", property = "id", javaType = UUID.class, typeHandler = UuidTypeHandler.class,
+                    id = true),
+            @Result(column = "version_id", property = "versionId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "chunk_index", property = "chunkIndex"),
+            @Result(column = "section", property = "section"),
+            @Result(column = "page_no", property = "pageNo"),
+            @Result(column = "start_offset", property = "startOffset"),
+            @Result(column = "end_offset", property = "endOffset"),
+            @Result(column = "char_count", property = "charCount"),
+            @Result(column = "token_count", property = "tokenCount"),
+            @Result(column = "content", property = "content")
+    })
+    List<DocumentChunkContent> selectContentByVersionId(@Param("versionId") UUID versionId,
+                                                         @Param("afterChunkIndex") Integer afterChunkIndex,
+                                                         @Param("limit") int limit);
 
     @Insert("""
             <script>

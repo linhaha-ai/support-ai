@@ -1,0 +1,103 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import DocumentManagementView from '../DocumentManagementView.vue'
+
+const fetchMock = vi.fn<typeof fetch>()
+let wrapper: VueWrapper | undefined
+const knowledgeBaseId = '4f8ac4b4-1c89-452c-a5be-f3a8cb0d1234'
+const documentId = '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a'
+const versionId = '43ec5c35-baf0-467f-b671-6ad6e9b8d4a8'
+
+function ok(data: unknown, status = 200) {
+  return new Response(JSON.stringify({ code: 'OK', data, traceId: 'trace-test' }), {
+    status, headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function failure(status = 503) {
+  return new Response(JSON.stringify({ code: 'DOCUMENT_QUERY_UNAVAILABLE', traceId: 'trace-test' }), {
+    status, headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+const version = {
+  versionId, versionNo: 2, status: 'FAILED', active: false, pending: true,
+  originalFilename: 'guide.md', fileSize: 1024, mediaType: 'text/markdown', chunkCount: 0,
+  task: {
+    jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, status: 'FAILED', stage: 'PARSE',
+    attempt: 1, maxAttempts: 3, completedChunks: 0, totalChunks: 0, progressPercent: 0,
+    retryable: true, cancellable: false, errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取',
+    nextRunAt: null, startedAt: '2026-09-21T10:00:00+08:00', finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
+  },
+  createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
+}
+
+function documentList() {
+  return [{
+    documentId, name: '产品说明', activeVersion: null, pendingVersion: version,
+    revision: 1, createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
+  }]
+}
+
+function detail() {
+  return {
+    ...documentList()[0], knowledgeBaseId,
+  }
+}
+
+function mountView() {
+  wrapper = mount(DocumentManagementView, { props: { knowledgeBaseId, knowledgeBaseName: '产品支持' } })
+  return wrapper
+}
+
+beforeEach(() => vi.stubGlobal('fetch', fetchMock))
+afterEach(() => {
+  wrapper?.unmount()
+  wrapper = undefined
+  fetchMock.mockReset()
+  vi.unstubAllGlobals()
+})
+
+describe('文档管理视图', () => {
+  it('详情读取失败时显示错误和重试，并使用同一文档标识重新请求', async () => {
+    fetchMock.mockResolvedValueOnce(ok(documentList()))
+      .mockResolvedValueOnce(failure())
+      .mockResolvedValueOnce(failure())
+    const view = mountView()
+    await flushPromises()
+
+    await view.get('.document-list-item').trigger('click')
+    await flushPromises()
+
+    expect(view.text()).toContain('文档信息暂时无法读取，请稍后重试。')
+    const retry = view.findAll('.document-alert .el-button').find((button) => button.text() === '重试')
+    expect(retry).toBeDefined()
+    await retry!.trigger('click')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/documents/${documentId}`, expect.objectContaining({ method: 'GET' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, `/api/documents/${documentId}`, expect.objectContaining({ method: 'GET' }))
+  })
+
+  it('展示失败版本的处理状态和脱敏任务错误', async () => {
+    fetchMock.mockResolvedValueOnce(ok(documentList()))
+      .mockResolvedValueOnce(ok(detail()))
+      .mockResolvedValueOnce(ok({ items: [version], nextCursor: null }))
+      .mockResolvedValueOnce(ok({
+        documentId, versionId, versionNo: 2, active: false, pending: true,
+        originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
+      }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+    const view = mountView()
+    await flushPromises()
+
+    await view.get('.document-list-item').trigger('click')
+    await flushPromises()
+
+    expect(view.text()).toContain('处理失败')
+    expect(view.text()).toContain('DOCUMENT_READ_FAILED · 原文件暂时无法读取')
+    expect(view.text()).toContain('# 产品说明')
+  })
+})

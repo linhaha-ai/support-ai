@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F08 已实现待后端与场景验收**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F09 已实现待后端与场景验收**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态和知识库页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 账号/知识库数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05 新增 Markdown/TXT 上传、受控本地 FileStore、文档/版本/持久任务三表、数据库失败文件补偿和处理中回执；F06 新增任务状态查询、授权隔离的脱敏回执、原子领取与 owner + token + 有效期租约基础设施、attempt/进度记录和有界执行器配置；F07 已接入受控原文件读取、严格 UTF-8 与完整性校验、CommonMark 标题解析、`CL100K_BASE` 近似 token 分块和 `document_chunk` 元数据持久化；F08 已接入标准四字段 `vector_store`、事务外批量 Embedding、租约保护的 chunk/vector 成对写入和 `READY/active/SUCCEEDED` 原子发布。Worker 默认启用，存在待处理任务且模型服务可用时可走完 PARSE、CHUNK、EMBED、PUBLISH；F09 文档查看和 F11 授权检索尚未实现。当前开发库已确认 Flyway V1—V9 全部成功、pgvector 0.8.6 和 `vector(1024)` 表结构有效；后端 Maven、空库/Testcontainers、真实模型与完整浏览器场景仍待验收。阶段产出见 [F08 验收记录](doc/F08验收记录.md)、[F07 验收记录](doc/F07验收记录.md)、[F06 验收记录](doc/F06验收记录.md)、[F05 验收记录](doc/F05验收记录.md)、[F04 验收记录](doc/F04验收记录.md)、[F03 验收记录](doc/F03验收记录.md)、[F02 验收记录](doc/F02验收记录.md)，模型前置证据见 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库与文档检查页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05—F08 已形成上传、持久任务、解析分块、向量生成与原子发布链路；F09 新增授权文档列表、详情、版本游标分页、受控原文读取和分块正文检查，前端覆盖加载、空数据、处理中、失败和重试状态。分块正文继续以 `vector_store.content` 为唯一权威副本，READ 成员可查看，管理员身份不绕过成员授权；F11 授权检索尚未实现。当前开发库已确认 Flyway V1—V9 全部成功、pgvector 0.8.6 和 `vector(1024)` 表结构有效；F09 前端 7 个测试文件共 40 项测试与生产构建已通过，后端 Maven、空库/Testcontainers、真实模型和完整浏览器场景仍待验收。本轮 M1/M2 复核还发现 Ollama 未启动、当前验收会话未提供 DashScope 配置、认证后的 OpenAPI JSON 返回 500，且开发库没有文档、分块或向量，因此 F01—F09 不能勾选。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F09 结果见 [F09 验收记录](doc/验收记录/F09验收记录.md)；完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -152,7 +152,7 @@ support-ai/
 │   ├── support-ai-storage/     # FileStore 与受控本地原文件存储
 │   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
 │   ├── support-ai-ai/          # Ollama / DashScope 模型接入
-│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量生成与发布；检索待实现
+│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量发布与授权查看；检索待实现
 │   ├── support-ai-conversation/ # 会话、运行与 RAG 边界，待 F10 起实现
 │   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
 │   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
@@ -171,12 +171,7 @@ support-ai/
 ├── doc/
 │   ├── 技术设计大纲.md
 │   ├── 开发计划.md
-│   ├── F03验收记录.md
-│   ├── F04验收记录.md
-│   ├── F05验收记录.md
-│   ├── F06验收记录.md
-│   ├── F07验收记录.md
-│   └── F08验收记录.md
+│   └── 验收记录/              # 阶段验收记录统一存放，后续直接新增
 └── README.md
 ```
 
@@ -245,7 +240,7 @@ Get-Content -Raw -Encoding utf8 'backend/support-ai-data/src/main/resources/db/s
 
 管理员初始化脚本为 bootstrap 模块的 `db/migration/V4__initialize_default_admin.sql`，随 Flyway 升级执行；手动脚本保留在 data 模块的 `db/seed/identity/init_app_user.sql`，用于补齐管理员和两位普通演示用户，不会自动执行。两份脚本均使用兼容 jBCrypt 的 cost 12 BCrypt 摘要及 `ON CONFLICT (username) DO NOTHING`，不覆盖已有密码、角色或启用状态，也不在日常启动时重置账号。手动导入前须完成 Flyway 建表；接口响应和日志不包含密码或摘要。
 
-账号表由 V2 创建，V3 补齐表及全部 8 个字段的中文数据库注释，V4 补齐默认管理员；V5 创建 `knowledge_base`、`kb_member` 及其约束、索引和中文注释。2026-09-21 已确认当前开发库 V1—V9 均由 Flyway 成功登记，V9 随后端启动自动执行；`knowledge_base`、文档任务、分块和 `vector_store` 表均存在，向量列为 `vector(1024)`。此前 V4 幂等补齐的 `admin/admin` 已通过当前后端基础登录验证。F03 使用一次性 pgvector PostgreSQL 容器按顺序执行 V1—V5，已验证两张表、9 个关键约束、4 个非级联外键和 3 个索引；当前开发库核验不替代空库 Testcontainers、MyBatis 和事务验收。完整状态见 [F03 验收记录](doc/F03验收记录.md)及 [F08 验收记录](doc/F08验收记录.md)。
+账号表由 V2 创建，V3 补齐表及全部 8 个字段的中文数据库注释，V4 补齐默认管理员；V5 创建 `knowledge_base`、`kb_member` 及其约束、索引和中文注释。2026-09-21 已确认当前开发库 V1—V9 均由 Flyway 成功登记，V9 随后端启动自动执行；`knowledge_base`、文档任务、分块和 `vector_store` 表均存在，向量列为 `vector(1024)`。此前 V4 幂等补齐的 `admin/admin` 已通过当前后端基础登录验证。F03 使用一次性 pgvector PostgreSQL 容器按顺序执行 V1—V5，已验证两张表、9 个关键约束、4 个非级联外键和 3 个索引；当前开发库核验不替代空库 Testcontainers、MyBatis 和事务验收。完整状态见 [验收记录](doc/验收记录/)。
 
 多模块应用需要先安装同一版本的本地模块，再从 bootstrap 启动。本次 Controller 跨模块迁移后首次构建必须带 `clean`，清除旧包中的类、旧 Controller、旧 Repository 和已删除初始化器的编译产物，避免新旧组件重复扫描或旧初始化器继续自动创建用户；本轮没有执行 Maven 或删除这些产物。后续未移动类的日常构建可使用 `mvn -f backend/pom.xml -DskipTests install`。父工程只负责聚合构建，不直接执行 `spring-boot:run`；修改其他模块后需重新安装。也可以在仓库根目录打包后启动唯一的可执行 JAR：
 

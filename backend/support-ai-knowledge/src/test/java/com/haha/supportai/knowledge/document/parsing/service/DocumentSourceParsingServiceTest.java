@@ -49,8 +49,9 @@ class DocumentSourceParsingServiceTest {
         DocumentParsingProperties parsingProperties = new DocumentParsingProperties();
         parsingProperties.setMaxTokens(32);
         parsingProperties.setMaxChunks(10);
-        documentSourceParsingService = new DocumentSourceParsingService(documentVersionRepository, fileStore,
-                new DocumentTextParser(), uploadProperties, parsingProperties, new ObjectMapper());
+        DocumentSourceReader documentSourceReader = new DocumentSourceReader(fileStore, uploadProperties);
+        documentSourceParsingService = new DocumentSourceParsingService(documentVersionRepository,
+                documentSourceReader, new DocumentTextParser(), parsingProperties, new ObjectMapper());
     }
 
     @Test

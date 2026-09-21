@@ -14,8 +14,10 @@ import type {
   KnowledgeBaseManagement,
   KnowledgeBaseMember,
   KnowledgeBasePermission,
+  KnowledgeBaseSummary,
   KnowledgeBaseStatus,
 } from './knowledgeBase'
+import DocumentManagementView from './DocumentManagementView.vue'
 import type { CurrentUser } from './useAuth'
 import { useDocumentUpload } from './useDocumentUpload'
 import { useKnowledgeBases } from './useKnowledgeBases'
@@ -40,6 +42,7 @@ const memberForm = reactive({
   permission: 'READ' as KnowledgeBasePermission,
 })
 const pendingRevokeUserId = ref<string | null>(null)
+const inspectedKnowledgeBase = ref<KnowledgeBaseSummary | null>(null)
 
 const editorTitle = computed(() => editingId.value ? '编辑知识库' : '新建知识库')
 const canSubmit = computed(() => editor.name.trim().length > 0 && !knowledgeBases.saving)
@@ -211,11 +214,26 @@ async function submitDocument(knowledgeBaseId: string, event: Event) {
   if (receipt) form?.reset()
 }
 
+function openDocumentManagement(item: KnowledgeBaseSummary) {
+  inspectedKnowledgeBase.value = item
+}
+
+function closeDocumentManagement() {
+  inspectedKnowledgeBase.value = null
+}
+
 onMounted(knowledgeBases.load)
 </script>
 
 <template>
   <section class="knowledge-page" aria-labelledby="knowledge-heading">
+    <DocumentManagementView
+      v-if="inspectedKnowledgeBase"
+      :knowledge-base-id="inspectedKnowledgeBase.id"
+      :knowledge-base-name="inspectedKnowledgeBase.name"
+      @close="closeDocumentManagement"
+    />
+    <template v-else>
     <div class="page-heading knowledge-heading">
       <div>
         <span class="eyebrow">KNOWLEDGE BASE</span>
@@ -428,6 +446,9 @@ onMounted(knowledgeBases.load)
           <span>权限 {{ item.permission }}</span>
           <span>更新于 {{ formatDate(item.updatedAt) }}</span>
         </div>
+        <div class="knowledge-item-actions">
+          <ElButton text type="primary" @click="openDocumentManagement(item)">查看文档</ElButton>
+        </div>
         <section v-if="item.permission === 'WRITE'" class="document-upload" :aria-labelledby="`document-upload-${item.id}`">
           <div class="document-upload-heading">
             <div>
@@ -505,5 +526,7 @@ onMounted(knowledgeBases.load)
         </section>
       </article>
     </section>
+
+    </template>
   </section>
 </template>

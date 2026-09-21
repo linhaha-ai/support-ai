@@ -1,15 +1,77 @@
 package com.haha.supportai.data.knowledge.mapper;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haha.supportai.data.knowledge.entity.po.KnowledgeDocument;
+import com.haha.supportai.data.typehandler.UuidTypeHandler;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.ResultMap;
+import org.apache.ibatis.annotations.Results;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
+
+    @Select("""
+            -- document、knowledge_base、kb_member、app_user：仅返回当前启用成员可读取的未删除文档。
+            SELECT document.id, document.kb_id, document.name, document.active_version_id,
+                   document.pending_version_id, document.next_version_no, document.created_by,
+                   document.deleted_at, document.revision, document.created_at, document.updated_at
+            FROM document
+            INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+            INNER JOIN kb_member member ON member.kb_id = kb.id
+            INNER JOIN app_user account ON account.id = member.user_id
+            WHERE document.kb_id = #{knowledgeBaseId,jdbcType=OTHER}
+              AND member.user_id = #{userId,jdbcType=OTHER}
+              AND kb.status = 'ACTIVE'
+              AND account.enabled = TRUE
+              AND document.deleted_at IS NULL
+            ORDER BY document.updated_at DESC, document.id DESC
+            """)
+    @Results(id = "knowledgeDocumentResultMap", value = {
+            @Result(column = "id", property = "id", javaType = UUID.class, typeHandler = UuidTypeHandler.class,
+                    id = true),
+            @Result(column = "kb_id", property = "kbId", javaType = UUID.class, typeHandler = UuidTypeHandler.class),
+            @Result(column = "name", property = "name"),
+            @Result(column = "active_version_id", property = "activeVersionId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "pending_version_id", property = "pendingVersionId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "next_version_no", property = "nextVersionNo"),
+            @Result(column = "created_by", property = "createdBy", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "deleted_at", property = "deletedAt"),
+            @Result(column = "revision", property = "revision"),
+            @Result(column = "created_at", property = "createdAt"),
+            @Result(column = "updated_at", property = "updatedAt")
+    })
+    List<KnowledgeDocument> selectAccessibleByKnowledgeBaseId(@Param("knowledgeBaseId") UUID knowledgeBaseId,
+                                                               @Param("userId") UUID userId);
+
+    @Select("""
+            -- document、knowledge_base、kb_member、app_user：按文档标识复核当前用户的实时读取权限。
+            SELECT document.id, document.kb_id, document.name, document.active_version_id,
+                   document.pending_version_id, document.next_version_no, document.created_by,
+                   document.deleted_at, document.revision, document.created_at, document.updated_at
+            FROM document
+            INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+            INNER JOIN kb_member member ON member.kb_id = kb.id
+            INNER JOIN app_user account ON account.id = member.user_id
+            WHERE document.id = #{documentId,jdbcType=OTHER}
+              AND member.user_id = #{userId,jdbcType=OTHER}
+              AND kb.status = 'ACTIVE'
+              AND account.enabled = TRUE
+              AND document.deleted_at IS NULL
+            """)
+    @ResultMap("knowledgeDocumentResultMap")
+    Optional<KnowledgeDocument> selectAccessibleByIdAndUserId(@Param("documentId") UUID documentId,
+                                                               @Param("userId") UUID userId);
 
     @Update("""
             -- document：文档逻辑表；pending_version_id 指向本次已入队的待处理版本

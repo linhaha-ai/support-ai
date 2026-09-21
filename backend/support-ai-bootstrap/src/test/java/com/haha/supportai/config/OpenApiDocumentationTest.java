@@ -19,6 +19,7 @@ import com.haha.supportai.identity.config.IdentityOpenApiConfiguration;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
+import com.haha.supportai.knowledge.document.service.DocumentQueryService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
@@ -88,6 +89,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     DocumentUploadService documentUploadService;
+
+    @MockBean
+    DocumentQueryService documentQueryService;
 
     @MockBean
     DocumentUploadPersistenceService documentUploadPersistenceService;
@@ -163,6 +167,20 @@ class OpenApiDocumentationTest {
                         + "['format']").value("binary"))
                 .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
                         + "['responses']['202']").exists())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['get']['operationId']")
+                        .value("listKnowledgeDocuments"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['get']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}']['get']['operationId']")
+                        .value("getKnowledgeDocument"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['get']['operationId']")
+                        .value("listKnowledgeDocumentVersions"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions/{versionId}/chunks']"
+                        + "['get']['operationId']").value("listKnowledgeDocumentChunks"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions/{versionId}/content']"
+                        + "['get']['operationId']").value("getKnowledgeDocumentContent"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions/{versionId}/content']"
+                        + "['get']['security'][0]['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['operationId']")
                         .value("getIngestionJob"))
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['security'][0]"
@@ -209,6 +227,16 @@ class OpenApiDocumentationTest {
                 "KnowledgeBaseManagementResponse");
         assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}/documents", "post", "202",
                 "DocumentUploadReceiptResponse");
+        assertResponseDataArrayItemSchema(apiDocs, "/api/knowledge-bases/{kbId}/documents", "get",
+                "DocumentSummaryResponse");
+        assertResponseDataSchema(apiDocs, "/api/documents/{documentId}", "get",
+                "DocumentDetailResponse");
+        assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions", "get",
+                "DocumentVersionPageResponse");
+        assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions/{versionId}/chunks", "get",
+                "DocumentChunkPageResponse");
+        assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions/{versionId}/content", "get",
+                "DocumentContentResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
                 "IngestionJobStatusResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",

@@ -1,5 +1,6 @@
 package com.haha.supportai.data.knowledge.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,16 @@ public class DocumentVersionRepository {
 
     public Optional<DocumentVersion> findById(UUID versionId) {
         return Optional.ofNullable(documentVersionMapper.selectById(versionId));
+    }
+
+    public List<DocumentVersion> listAccessibleByDocumentId(UUID documentId, UUID userId, Integer beforeVersionNo,
+                                                            int limit) {
+        return documentVersionMapper.selectAccessibleByDocumentId(documentId, userId, beforeVersionNo, limit);
+    }
+
+    public Optional<DocumentVersion> findAccessibleByDocumentIdAndIdAndUserId(UUID documentId, UUID versionId,
+                                                                                UUID userId) {
+        return documentVersionMapper.selectAccessibleByDocumentIdAndIdAndUserId(documentId, versionId, userId);
     }
 
     public boolean updateBuildingChunkCount(UUID versionId, int chunkCount) {

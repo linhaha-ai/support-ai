@@ -1,6 +1,8 @@
 package com.haha.supportai.data.knowledge.mapper;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -88,6 +90,23 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                                             @Param("leaseOwner") String leaseOwner,
                                             @Param("leaseToken") UUID leaseToken,
                                             @Param("leaseUntil") OffsetDateTime leaseUntil);
+
+    @Select("""
+            <script>
+            -- ingestion_job：按文档版本批量读取任务摘要，供已完成授权校验的文档列表聚合使用。
+            SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                   job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                   job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            FROM ingestion_job job
+            WHERE job.version_id IN
+            <foreach collection="versionIds" item="versionId" open="(" separator="," close=")">
+              #{versionId,jdbcType=OTHER}
+            </foreach>
+            </script>
+            """)
+    @ResultMap("ingestionJobResultMap")
+    List<IngestionJob> selectByVersionIds(@Param("versionIds") Collection<UUID> versionIds);
 
     @Select("""
             -- ingestion_job：经版本、文档、启用知识库和成员关系联查，避免暴露无权任务
