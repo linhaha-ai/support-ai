@@ -36,7 +36,7 @@ import com.haha.supportai.conversation.support.RagPromptFactory.RagPrompt;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
-import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
+import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
@@ -398,11 +398,11 @@ public class RagAnswerService {
                 continue;
             }
             try {
-                documentSourceQueryService.findReadableSource(userId, registered.chunkId())
+                documentSourceQueryService.findAuthorizedSource(userId, registered.chunkId())
                         .map(source -> toSourceResponse(citationNumber, source))
                         .ifPresent(sources::add);
             } catch (RuntimeException ignored) {
-                // 发送来源前无法确认读取权限时直接隐藏，不使用生成前快照降级。
+                // 撤权、停用或未知来源在发送前必须隐藏，不使用生成前快照降级。
             }
         }
         return List.copyOf(sources);
@@ -421,20 +421,21 @@ public class RagAnswerService {
                 continue;
             }
             try {
-                documentSourceQueryService.findReadableSource(userId, source.getChunkId())
+                documentSourceQueryService.findAuthorizedSource(userId, source.getChunkId())
                         .map(documentSource -> toSourceResponse(source.getNumber(), documentSource))
                         .ifPresent(readableSources::add);
             } catch (RuntimeException ignored) {
-                // 发送瞬间无法确认读取权限时直接隐藏，不使用先前缓存的来源信息。
+                // 撤权、停用或未知来源在发送瞬间必须隐藏，不使用先前缓存的来源信息。
             }
         }
         return List.copyOf(readableSources);
     }
 
-    private RagSourceResponse toSourceResponse(int citationNumber, DocumentSourceResponse source) {
+    private RagSourceResponse toSourceResponse(int citationNumber, DocumentSourceAvailabilityResponse source) {
         return new RagSourceResponse(citationNumber, MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
                 source.getVersionId(), source.getChunkId(), source.getDocumentName(), source.getSection(),
-                source.isCurrent(), "/api/chunks/" + source.getChunkId() + "/source");
+                source.isCurrent(), source.isAvailable(), source.isAvailable()
+                        ? "/api/chunks/" + source.getChunkId() + "/source" : null);
     }
 
     private String serialize(Object value) {

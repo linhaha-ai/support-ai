@@ -73,4 +73,45 @@ describe('文档检查异步状态', () => {
     expect(documents.content.value?.versionId).toBe(secondVersionId)
     scope.stop()
   })
+
+  it('删除成功后清空详情、使旧请求失效并重新加载列表', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }))
+      .mockResolvedValueOnce(ok([]))
+    const scope = effectScope()
+    const documents = scope.run(() => useDocuments(() => detail.knowledgeBaseId))
+    if (!documents) throw new Error('未能创建文档状态')
+    documents.selectedDocumentId.value = documentId
+    documents.selectedDocument.value = detail
+    documents.versions.value = [version(firstVersionId, 1)]
+
+    await expect(documents.deleteSelectedDocument()).resolves.toBe(true)
+
+    expect(documents.selectedDocument.value).toBeNull()
+    expect(documents.versions.value).toEqual([])
+    expect(documents.documents.value).toEqual([])
+    expect(documents.deleteNotice.value).toContain('立即退出检索')
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/knowledge-bases/${detail.knowledgeBaseId}/documents`,
+      expect.objectContaining({ method: 'GET' }),
+    )
+    scope.stop()
+  })
+
+  it('删除失败时保留当前详情并允许再次尝试', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    const scope = effectScope()
+    const documents = scope.run(() => useDocuments(() => detail.knowledgeBaseId))
+    if (!documents) throw new Error('未能创建文档状态')
+    documents.selectedDocumentId.value = documentId
+    documents.selectedDocument.value = detail
+
+    await expect(documents.deleteSelectedDocument()).resolves.toBe(false)
+
+    expect(documents.selectedDocument.value?.documentId).toBe(documentId)
+    expect(documents.deleteError.value).toBe('文档暂时无法删除，请稍后重试。')
+    expect(documents.deleting.value).toBe(false)
+    scope.stop()
+  })
 })

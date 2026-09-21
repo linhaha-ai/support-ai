@@ -27,7 +27,7 @@ import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
-import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
+import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
@@ -120,7 +120,7 @@ class RagAnswerServiceTest {
                 .willReturn(List.of(evidence));
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 List.of(evidence.getChunkId()))).willReturn(List.of(evidence));
-        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
                 .willReturn(Optional.of(source(evidence, true)));
         streamAnswer("请检查订单服务日志。[1]", null);
 
@@ -195,7 +195,7 @@ class RagAnswerServiceTest {
                 .willReturn(List.of());
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 List.of(historicalEvidence.getChunkId()))).willReturn(List.of(historicalEvidence));
-        given(documentSourceQueryService.findReadableSource(USER_ID, historicalEvidence.getChunkId()))
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, historicalEvidence.getChunkId()))
                 .willReturn(Optional.of(source(historicalEvidence, true)));
         streamAnswer("继续观察服务状态。[1]", null);
 
@@ -225,7 +225,7 @@ class RagAnswerServiceTest {
                 new RagConversationContext(List.of(new RagHistoryTurn("之前的问题", "之前的回答。[1]")),
                         List.of(new RagHistorySource(1, rootSourceId, KB_ID, evidence.getChunkId(), "{}", "{}"))));
         arrangeEvidence(List.of(evidence));
-        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
                 .willReturn(Optional.of(source(evidence, true)));
         streamAnswer("仍按原方案处理。[1]", null);
 
@@ -256,7 +256,7 @@ class RagAnswerServiceTest {
                 .willReturn(List.of());
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 List.of(evidence.getChunkId()))).willReturn(List.of(evidence));
-        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
                 .willReturn(Optional.of(source(evidence, true)));
         streamAnswer("两个历史来源都参与结论。[1][2]", null);
 
@@ -285,7 +285,7 @@ class RagAnswerServiceTest {
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 List.of(second.getChunkId())))
                 .willReturn(List.of(revalidatedSecond));
-        given(documentSourceQueryService.findReadableSource(USER_ID, second.getChunkId()))
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, second.getChunkId()))
                 .willReturn(Optional.of(source(second, true)));
         streamAnswer("请检查第二项配置。[1]", new ChatModelUsage(10, 5, 15));
 
@@ -468,7 +468,7 @@ class RagAnswerServiceTest {
     void hidesCitedSourceWhenReadPermissionWasRevokedDuringGeneration() {
         KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "可用资料");
         arrangeEvidence(List.of(evidence));
-        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
                 .willReturn(Optional.empty());
         streamAnswer("处理建议。[1]", null);
 
@@ -483,14 +483,31 @@ class RagAnswerServiceTest {
         KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "可用资料");
         RagSourceResponse cachedSource = new RagSourceResponse(1, MessageSourceTypeEnum.DOCUMENT,
                 evidence.getDocumentId(), evidence.getVersionId(), evidence.getChunkId(), evidence.getDocumentName(),
-                evidence.getSection(), true, "/api/chunks/" + evidence.getChunkId() + "/source");
-        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+                evidence.getSection(), true, true, "/api/chunks/" + evidence.getChunkId() + "/source");
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
                 .willReturn(Optional.empty());
 
         List<RagSourceResponse> sources = ragAnswerService.revalidateReadableSources(USER_ID,
                 List.of(cachedSource));
 
         assertThat(sources).isEmpty();
+    }
+
+    @Test
+    void marksDeletedCitedSourceUnavailableWithoutPreviewPath() {
+        KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "可用资料");
+        arrangeEvidence(List.of(evidence));
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
+                .willReturn(Optional.of(source(evidence, false, false)));
+        streamAnswer("处理建议。[1]", null);
+
+        var result = ragAnswerService.generate(preparedRun("如何处理？"));
+
+        assertThat(result.getSources()).singleElement().satisfies(source -> {
+            assertThat(source.isAvailable()).isFalse();
+            assertThat(source.isCurrent()).isFalse();
+            assertThat(source.getPreviewPath()).isNull();
+        });
     }
 
     @Test
@@ -535,11 +552,16 @@ class RagAnswerServiceTest {
                 question, ChatRunStatusEnum.QUEUED, false);
     }
 
-    private DocumentSourceResponse source(KnowledgeRetrievalEvidenceResponse evidence, boolean current) {
-        return new DocumentSourceResponse(evidence.getKnowledgeBaseId(), evidence.getDocumentId(),
+    private DocumentSourceAvailabilityResponse source(KnowledgeRetrievalEvidenceResponse evidence, boolean current) {
+        return source(evidence, current, true);
+    }
+
+    private DocumentSourceAvailabilityResponse source(KnowledgeRetrievalEvidenceResponse evidence, boolean current,
+                                                       boolean available) {
+        return new DocumentSourceAvailabilityResponse(evidence.getKnowledgeBaseId(), evidence.getDocumentId(),
                 evidence.getDocumentName(), evidence.getVersionId(), evidence.getVersionNo(), evidence.getChunkId(),
                 evidence.getChunkIndex(), evidence.getSection(), evidence.getPageNo(), evidence.getStartOffset(),
-                evidence.getEndOffset(), current, evidence.getContent());
+                evidence.getEndOffset(), current, available);
     }
 
     private KnowledgeRetrievalEvidenceResponse evidence(int number, String content) {

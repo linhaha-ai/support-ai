@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  deleteKnowledgeDocument,
   fetchDocument,
   fetchDocumentChunks,
   fetchDocumentContent,
@@ -12,9 +13,9 @@ const knowledgeBaseId = '4f8ac4b4-1c89-452c-a5be-f3a8cb0d1234'
 const documentId = '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a'
 const versionId = '43ec5c35-baf0-467f-b671-6ad6e9b8d4a8'
 
-function ok(data: unknown) {
+function ok(data: unknown, status = 200) {
   return new Response(JSON.stringify({ code: 'OK', data, traceId: 'trace-test' }), {
-    status: 200, headers: { 'Content-Type': 'application/json' },
+    status, headers: { 'Content-Type': 'application/json' },
   })
 }
 
@@ -80,5 +81,27 @@ describe('文档查询接口', () => {
 
     fetchMock.mockResolvedValueOnce(ok({ items: [{ chunkId: 'chunk', index: 0 }], nextCursor: null }))
     await expect(fetchDocumentChunks(documentId, versionId)).rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('携带 CSRF 令牌删除文档并严格接受异步受理状态', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }))
+
+    await deleteKnowledgeDocument(documentId)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/csrf', expect.objectContaining({ method: 'GET' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/documents/${documentId}`, expect.objectContaining({
+      method: 'DELETE',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
+    }))
+  })
+
+  it('删除文档失败时返回适合当前操作的权限提示', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+
+    await expect(deleteKnowledgeDocument(documentId)).rejects.toMatchObject({
+      kind: 'forbidden', message: '当前账号没有删除此文档的权限。',
+    })
   })
 })

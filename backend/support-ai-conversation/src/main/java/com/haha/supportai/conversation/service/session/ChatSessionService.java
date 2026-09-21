@@ -36,7 +36,7 @@ import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.security.ActiveAccountGuard;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
-import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
+import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -201,20 +201,21 @@ public class ChatSessionService {
                 continue;
             }
             try {
-                documentSourceQueryService.findReadableSource(userId, source.getChunkId())
+                documentSourceQueryService.findAuthorizedSource(userId, source.getChunkId())
                         .map(documentSource -> toSourceResponse(source.getCitationNo(), documentSource))
                         .ifPresent(sources::add);
             } catch (RuntimeException ignored) {
-                // 无法确认当前读取权限的历史来源必须隐藏，不能返回生成时保存的快照。
+                // 撤权、停用或未知来源必须隐藏，不能返回生成时保存的快照。
             }
         }
         return List.copyOf(sources);
     }
 
-    private RagSourceResponse toSourceResponse(int citationNumber, DocumentSourceResponse source) {
+    private RagSourceResponse toSourceResponse(int citationNumber, DocumentSourceAvailabilityResponse source) {
         return new RagSourceResponse(citationNumber, MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
                 source.getVersionId(), source.getChunkId(), source.getDocumentName(), source.getSection(),
-                source.isCurrent(), "/api/chunks/" + source.getChunkId() + "/source");
+                source.isCurrent(), source.isAvailable(), source.isAvailable()
+                        ? "/api/chunks/" + source.getChunkId() + "/source" : null);
     }
 
     private int normalizeLimit(Integer requestedLimit) {

@@ -12,9 +12,11 @@ import com.haha.supportai.conversation.enums.RetrievalQueryRewriteStatusEnum;
 import com.haha.supportai.conversation.exception.ChatRunNotFoundException;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
+import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatMessageRoleEnum;
 import com.haha.supportai.data.conversation.enums.ChatMessageStatusEnum;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
 import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
@@ -23,6 +25,7 @@ import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.security.ActiveAccountGuard;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
+import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -128,6 +131,30 @@ class ChatRunControlServiceTest {
         assertThat(response.getMetrics().getQueryRewrite().getRetrievalQuestion()).isEqualTo("ERR-1001 处理步骤");
         assertThat(response.getMetrics().getQueryRewrite().getStatus())
                 .isEqualTo(RetrievalQueryRewriteStatusEnum.REWRITTEN);
+    }
+
+    @Test
+    void readableKnowledgeScopeKeepsDeletedSourceMetadataAsUnavailable() {
+        UUID chunkId = UUID.fromString("10000000-0000-4000-8000-000000000007");
+        given(chatRunRepository.findOwnedById(RUN_ID, USER_ID)).willReturn(Optional.of(run(ChatRunStatusEnum.COMPLETED)));
+        given(chatMessageRepository.listByRunId(RUN_ID)).willReturn(messages());
+        given(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID)).willReturn(List.of(KB_ID));
+        given(knowledgeScopeAccess.allReadable(USER_ID, List.of(KB_ID))).willReturn(true);
+        given(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).willReturn(List.of(new MessageSource(
+                UUID.randomUUID(), ASSISTANT_MESSAGE_ID, null, 1, true, MessageSourceTypeEnum.DOCUMENT, KB_ID,
+                chunkId, "{}", "{}", OffsetDateTime.now())));
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, chunkId)).willReturn(Optional.of(
+                new DocumentSourceAvailabilityResponse(KB_ID, UUID.randomUUID(), "已删除排障手册", UUID.randomUUID(),
+                        1, chunkId, 0, "故障处理", null, 0, 10, false, false)));
+
+        var response = controlService.getStatus(RUN_ID);
+
+        assertThat(response.getSources()).singleElement().satisfies(source -> {
+            assertThat(source.getTitle()).isEqualTo("已删除排障手册");
+            assertThat(source.isAvailable()).isFalse();
+            assertThat(source.isCurrent()).isFalse();
+            assertThat(source.getPreviewPath()).isNull();
+        });
     }
 
     @Test

@@ -335,7 +335,7 @@ class ChatMessageStreamServiceTest {
         UUID versionId = UUID.fromString("70000000-0000-4000-8000-000000000001");
         UUID chunkId = UUID.fromString("80000000-0000-4000-8000-000000000001");
         return new RagSourceResponse(1, MessageSourceTypeEnum.DOCUMENT, documentId, versionId, chunkId,
-                "排障手册", "超时处理", true, "/api/chunks/" + chunkId + "/source");
+                "排障手册", "超时处理", true, true, "/api/chunks/" + chunkId + "/source");
     }
 
     private static class RecordingChatMessageStreamService extends ChatMessageStreamService {

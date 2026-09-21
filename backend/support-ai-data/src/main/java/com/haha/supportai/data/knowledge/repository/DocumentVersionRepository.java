@@ -1,5 +1,6 @@
 package com.haha.supportai.data.knowledge.repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,5 +45,13 @@ public class DocumentVersionRepository {
 
     public boolean markFailedIfQueuedOrBuilding(UUID versionId) {
         return documentVersionMapper.markFailedIfQueuedOrBuilding(versionId) == 1;
+    }
+
+    public List<String> listStorageKeysForDeletedDocument(UUID documentId) {
+        return documentVersionMapper.selectStorageKeysForDeletedDocument(documentId);
+    }
+
+    public int cancelBuildingByDocumentId(UUID documentId, OffsetDateTime cancelledAt) {
+        return documentVersionMapper.cancelBuildingByDocumentId(documentId, cancelledAt);
     }
 }

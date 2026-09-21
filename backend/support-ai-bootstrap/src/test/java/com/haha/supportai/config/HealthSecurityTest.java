@@ -13,10 +13,12 @@ import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
-import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
-import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentCleanupJobRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVectorRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
+import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
@@ -35,6 +37,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.json.JsonCompareMode;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -45,7 +48,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
-        "spring.ai.dashscope.api-key=", "support.ai.ingestion.worker.enabled=false"
+        "spring.ai.dashscope.api-key=", "support.ai.ingestion.worker.enabled=false",
+        "support.ai.document.cleanup.enabled=false"
 })
 @AutoConfigureMockMvc
 class HealthSecurityTest {
@@ -73,6 +77,12 @@ class HealthSecurityTest {
 
     @MockBean
     IngestionJobRepository ingestionJobRepository;
+
+    @MockBean
+    DocumentCleanupJobRepository documentCleanupJobRepository;
+
+    @MockBean
+    DocumentVectorRepository documentVectorRepository;
 
     @MockBean
     KbMemberRepository kbMemberRepository;
@@ -167,6 +177,11 @@ class HealthSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
 
+        String documentPath = "/api/documents/550e8400-e29b-41d4-a716-446655440000";
+        mvc.perform(delete(documentPath))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
+
         var csrfRequest = mvc.perform(get("/api/auth/csrf"))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -176,6 +191,11 @@ class HealthSecurityTest {
                         .header(csrf.path("headerName").asText(), csrf.path("token").asText())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(messageBody))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+        mvc.perform(delete(documentPath)
+                        .session((MockHttpSession) csrfRequest.getRequest().getSession(false))
+                        .header(csrf.path("headerName").asText(), csrf.path("token").asText()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }

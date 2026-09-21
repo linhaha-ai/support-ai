@@ -35,4 +35,8 @@ public class DocumentVectorRepository {
     public DocumentVector findById(UUID id) {
         return documentVectorMapper.selectVectorById(id);
     }
+
+    public int deleteByDeletedDocumentId(UUID documentId) {
+        return documentVectorMapper.deleteByDeletedDocumentId(documentId);
+    }
 }

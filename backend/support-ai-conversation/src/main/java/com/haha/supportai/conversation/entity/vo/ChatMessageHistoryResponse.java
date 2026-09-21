@@ -34,8 +34,8 @@ public class ChatMessageHistoryResponse {
     @Schema(description = "消息状态", requiredMode = Schema.RequiredMode.REQUIRED)
     private final ChatMessageStatusEnum status; // 消息状态
 
-    @Schema(description = "当前仍可读取的实际引用来源", requiredMode = Schema.RequiredMode.REQUIRED)
-    private final List<RagSourceResponse> sources; // 当前仍可读取的引用来源
+    @Schema(description = "当前授权下的实际引用来源；已删除资料保留不可用标记", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final List<RagSourceResponse> sources; // 当前授权下的引用来源状态
 
     @Schema(description = "创建时间", format = "date-time", requiredMode = Schema.RequiredMode.REQUIRED)
     private final OffsetDateTime createdAt; // 创建时间

@@ -15,7 +15,8 @@ import org.apache.ibatis.annotations.Select;
 public interface AuthorizedDocumentSourceMapper {
 
     @Select("""
-            -- document_chunk、vector_store 及授权关系：按当前权限读取可追溯的 READY 历史或活动版本来源。
+            -- document_chunk、document_version、document、knowledge_base、kb_member、app_user、vector_store：
+            -- 当前成员可见的来源状态；已删除文档仅保留定位元数据，正文一律不返回。
             SELECT kb.id AS knowledge_base_id,
                    document.id AS document_id,
                    document.name AS document_name,
@@ -27,10 +28,13 @@ public interface AuthorizedDocumentSourceMapper {
                    chunk.page_no,
                    chunk.start_offset,
                    chunk.end_offset,
-                   vector.content,
-                   COALESCE(document.active_version_id = version.id, FALSE) AS is_current
+                   CASE WHEN document.deleted_at IS NULL THEN vector.content ELSE NULL END AS content,
+                   COALESCE(document.deleted_at IS NULL AND document.active_version_id = version.id, FALSE)
+                       AS is_current,
+                   COALESCE(document.deleted_at IS NULL AND LENGTH(BTRIM(vector.content)) > 0, FALSE)
+                       AS is_available
             FROM document_chunk chunk
-            INNER JOIN vector_store vector ON vector.id = chunk.id
+            LEFT JOIN vector_store vector ON vector.id = chunk.id
             INNER JOIN document_version version ON version.id = chunk.version_id
             INNER JOIN document ON document.id = version.document_id
             INNER JOIN knowledge_base kb ON kb.id = document.kb_id
@@ -41,9 +45,8 @@ public interface AuthorizedDocumentSourceMapper {
               AND member.permission IN ('READ', 'WRITE')
               AND account.enabled = TRUE
               AND kb.status = 'ACTIVE'
-              AND document.deleted_at IS NULL
               AND version.status = 'READY'
-              AND LENGTH(BTRIM(vector.content)) > 0
+              AND (document.deleted_at IS NOT NULL OR LENGTH(BTRIM(vector.content)) > 0)
             """)
     @Results(id = "authorizedDocumentSourceResultMap", value = {
             @Result(column = "knowledge_base_id", property = "knowledgeBaseId", javaType = UUID.class,
@@ -62,8 +65,9 @@ public interface AuthorizedDocumentSourceMapper {
             @Result(column = "start_offset", property = "startOffset"),
             @Result(column = "end_offset", property = "endOffset"),
             @Result(column = "content", property = "content"),
-            @Result(column = "is_current", property = "current")
+            @Result(column = "is_current", property = "current"),
+            @Result(column = "is_available", property = "available")
     })
-    Optional<AuthorizedDocumentSource> findReadableByChunkId(@Param("userId") UUID userId,
-                                                               @Param("chunkId") UUID chunkId);
+    Optional<AuthorizedDocumentSource> findAuthorizedByChunkId(@Param("userId") UUID userId,
+                                                                 @Param("chunkId") UUID chunkId);
 }

@@ -1,5 +1,6 @@
 package com.haha.supportai.data.knowledge.mapper;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,6 +93,40 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
     @ResultMap("knowledgeDocumentResultMap")
     Optional<KnowledgeDocument> selectAccessibleByIdAndUserIdForUpdate(@Param("documentId") UUID documentId,
                                                                         @Param("userId") UUID userId);
+
+    @Select("""
+            -- document、knowledge_base、kb_member、app_user：锁定当前 WRITE 成员的文档，包含已删除记录以支持幂等删除。
+            SELECT document.id, document.kb_id, document.name, document.active_version_id,
+                   document.pending_version_id, document.next_version_no, document.created_by,
+                   document.deleted_at, document.revision, document.created_at, document.updated_at
+            FROM document
+            INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+            INNER JOIN kb_member member ON member.kb_id = kb.id
+            INNER JOIN app_user account ON account.id = member.user_id
+            WHERE document.id = #{documentId,jdbcType=OTHER}
+              AND member.user_id = #{userId,jdbcType=OTHER}
+              AND member.permission = 'WRITE'
+              AND kb.status = 'ACTIVE'
+              AND account.enabled = TRUE
+            FOR UPDATE OF document
+            """)
+    @ResultMap("knowledgeDocumentResultMap")
+    Optional<KnowledgeDocument> selectWritableByIdAndUserIdForUpdateIncludingDeleted(
+            @Param("documentId") UUID documentId, @Param("userId") UUID userId);
+
+    @Update("""
+            -- document：逻辑删除文档并立即清除活动、待处理版本指针，阻断检索和导入发布。
+            UPDATE document
+            SET deleted_at = #{deletedAt},
+                active_version_id = NULL,
+                pending_version_id = NULL,
+                revision = revision + 1,
+                updated_at = #{deletedAt}
+            WHERE id = #{documentId,jdbcType=OTHER}
+              AND deleted_at IS NULL
+            """)
+    int softDeleteAndClearVersions(@Param("documentId") UUID documentId,
+                                   @Param("deletedAt") OffsetDateTime deletedAt);
 
     @Update("""
             -- document：文档逻辑表；pending_version_id 指向本次已入队的待处理版本

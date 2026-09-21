@@ -44,8 +44,9 @@ export interface ChatSourceReference {
   chunkId: string
   title: string
   section: string | null
+  available: boolean
   isCurrent: boolean
-  previewPath: string
+  previewPath: string | null
 }
 
 export interface DocumentSource {
@@ -263,8 +264,11 @@ function parseSourceReference(value: unknown): ChatSourceReference | null {
     || typeof value.chunkId !== 'string'
     || typeof value.title !== 'string' || value.title.trim() === ''
     || !(typeof value.section === 'string' || value.section === null)
+    || typeof value.available !== 'boolean'
     || typeof value.isCurrent !== 'boolean'
-    || value.previewPath !== expectedPreviewPath(value.chunkId)) return null
+    || !(typeof value.previewPath === 'string' || value.previewPath === null)
+    || value.available && value.previewPath !== expectedPreviewPath(value.chunkId)
+    || !value.available && (value.previewPath !== null || value.isCurrent)) return null
   return {
     number: value.number as number,
     type: 'DOCUMENT',
@@ -273,6 +277,7 @@ function parseSourceReference(value: unknown): ChatSourceReference | null {
     chunkId: value.chunkId,
     title: value.title,
     section: value.section,
+    available: value.available,
     isCurrent: value.isCurrent,
     previewPath: value.previewPath,
   }

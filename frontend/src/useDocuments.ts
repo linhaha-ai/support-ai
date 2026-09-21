@@ -1,5 +1,6 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import {
+  deleteKnowledgeDocument,
   fetchDocument,
   fetchDocumentChunks,
   fetchDocumentContent,
@@ -35,6 +36,9 @@ export function useDocuments(knowledgeBaseId: () => string) {
   const detailError = ref('')
   const contentError = ref('')
   const chunksError = ref('')
+  const deleting = ref(false)
+  const deleteError = ref('')
+  const deleteNotice = ref('')
   const nextVersionCursor = ref<string | null>(null)
   const nextChunkCursor = ref<string | null>(null)
   let disposed = false
@@ -84,6 +88,8 @@ export function useDocuments(knowledgeBaseId: () => string) {
     selectedDocumentId.value = documentId
     detailLoading.value = true
     detailError.value = ''
+    deleteError.value = ''
+    deleteNotice.value = ''
     selectedDocument.value = null
     versions.value = []
     selectedVersion.value = null
@@ -181,6 +187,27 @@ export function useDocuments(knowledgeBaseId: () => string) {
     }
   }
 
+  async function deleteSelectedDocument(): Promise<boolean> {
+    const documentId = selectedDocument.value?.documentId
+    if (!documentId || deleting.value) return false
+    deleting.value = true
+    deleteError.value = ''
+    deleteNotice.value = ''
+    try {
+      await deleteKnowledgeDocument(documentId)
+      if (disposed) return false
+      if (selectedDocument.value?.documentId === documentId) resetSelection()
+      deleteNotice.value = '文档已立即退出检索，关联文件和正文正在受控清理。'
+      await loadDocuments()
+      return true
+    } catch (error) {
+      if (!disposed && selectedDocument.value?.documentId === documentId) deleteError.value = messageFor(error)
+      return false
+    } finally {
+      if (!disposed) deleting.value = false
+    }
+  }
+
   onScopeDispose(() => {
     disposed = true
     documentsRequest += 1
@@ -194,7 +221,9 @@ export function useDocuments(knowledgeBaseId: () => string) {
     documents, selectedDocumentId, selectedDocument, versions, selectedVersion, content, chunks,
     documentsLoading, detailLoading, versionsLoading, contentLoading, chunksLoading,
     documentsError, detailError, contentError, chunksError,
+    deleting, deleteError, deleteNotice,
     canLoadMoreVersions, canLoadMoreChunks,
     loadDocuments, selectDocument, resetSelection, loadVersions, selectVersion, loadContent, loadChunks,
+    deleteSelectedDocument,
   }
 }

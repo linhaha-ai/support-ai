@@ -15,6 +15,10 @@ public class AuthorizedDocumentSourceRepository {
     private final AuthorizedDocumentSourceMapper authorizedDocumentSourceMapper;
 
     public Optional<AuthorizedDocumentSource> findReadableByChunkId(UUID userId, UUID chunkId) {
-        return authorizedDocumentSourceMapper.findReadableByChunkId(userId, chunkId);
+        return findAuthorizedByChunkId(userId, chunkId).filter(AuthorizedDocumentSource::isAvailable);
+    }
+
+    public Optional<AuthorizedDocumentSource> findAuthorizedByChunkId(UUID userId, UUID chunkId) {
+        return authorizedDocumentSourceMapper.findAuthorizedByChunkId(userId, chunkId);
     }
 }

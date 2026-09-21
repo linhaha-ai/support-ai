@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElAlert, ElButton, ElEmpty, ElSkeleton, ElTag } from 'element-plus'
+import { ElAlert, ElButton, ElEmpty, ElIcon, ElPopconfirm, ElSkeleton, ElTag } from 'element-plus'
+import { Delete } from '@element-plus/icons-vue'
 import 'element-plus/es/components/alert/style/css'
 import 'element-plus/es/components/button/style/css'
 import 'element-plus/es/components/empty/style/css'
+import 'element-plus/es/components/icon/style/css'
+import 'element-plus/es/components/popconfirm/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import type { DocumentChunk, DocumentIngestionJob, DocumentVersionStatus } from './document'
@@ -121,6 +124,10 @@ function closeDetail() {
   documents.resetSelection()
 }
 
+async function deleteSelectedDocument() {
+  if (await documents.deleteSelectedDocument()) versionUploadVisible.value = false
+}
+
 onMounted(documents.loadDocuments)
 </script>
 
@@ -160,6 +167,24 @@ onMounted(documents.loadDocuments)
       <template #default><ElButton text type="primary" @click="retryDetail">重试</ElButton></template>
     </ElAlert>
 
+    <ElAlert
+      v-if="documents.deleteError"
+      class="document-alert"
+      type="error"
+      :closable="false"
+      :title="documents.deleteError"
+      show-icon
+    />
+
+    <ElAlert
+      v-if="documents.deleteNotice"
+      class="document-alert"
+      type="success"
+      :closable="false"
+      :title="documents.deleteNotice"
+      show-icon
+    />
+
     <section v-if="!documents.selectedDocument" class="document-list-panel" aria-label="文档列表">
       <ElSkeleton v-if="documents.documentsLoading || documents.detailLoading" :rows="4" animated />
       <ElEmpty v-else-if="documents.documents.length === 0 && !documents.documentsError" description="当前知识库尚无文档" />
@@ -189,13 +214,36 @@ onMounted(documents.loadDocuments)
           <span>修订 {{ documents.selectedDocument.revision }}</span>
           <span>创建于 {{ formatDate(documents.selectedDocument.createdAt) }}</span>
           <span>更新于 {{ formatDate(documents.selectedDocument.updatedAt) }}</span>
-          <ElButton
-            v-if="writable"
-            class="document-version-upload-trigger"
-            type="primary"
-            :disabled="Boolean(documents.selectedDocument.pendingVersion)"
-            @click="versionUploadVisible = !versionUploadVisible"
-          >上传新版本</ElButton>
+          <div v-if="writable" class="document-detail-actions">
+            <ElButton
+              class="document-version-upload-trigger"
+              type="primary"
+              :disabled="Boolean(documents.selectedDocument.pendingVersion) || documents.deleting"
+              @click="versionUploadVisible = !versionUploadVisible"
+            >上传新版本</ElButton>
+            <ElPopconfirm
+              title="删除后资料会立即退出检索，历史来源仅保留失效标记，确认删除吗？"
+              confirm-button-text="删除文档"
+              cancel-button-text="取消"
+              width="320"
+              @confirm="deleteSelectedDocument"
+            >
+              <template #reference>
+                <ElButton
+                  class="document-delete-trigger"
+                  circle
+                  plain
+                  type="danger"
+                  title="删除文档"
+                  aria-label="删除文档"
+                  :loading="documents.deleting"
+                  :disabled="documents.deleting"
+                >
+                  <ElIcon><Delete /></ElIcon>
+                </ElButton>
+              </template>
+            </ElPopconfirm>
+          </div>
         </div>
 
         <section v-if="writable && versionUploadVisible" class="document-version-upload" aria-label="上传文档新版本">

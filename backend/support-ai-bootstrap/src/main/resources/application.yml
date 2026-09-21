@@ -128,6 +128,11 @@ support:
         parser-version: plain-text-v1
         chunker-version: token-budget-v1
         max-attempts: 3
+      cleanup:
+        enabled: true
+        poll-interval: 10s
+        lease-duration: 5m
+        retry-delay: 30s
       parsing:
         max-tokens: 512
         max-chunks: 20000

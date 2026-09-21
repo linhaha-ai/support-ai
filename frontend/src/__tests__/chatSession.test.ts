@@ -183,6 +183,7 @@ describe('流式问答接口', () => {
         chunkId,
         title: '支付排查手册',
         section: '状态更新',
+        available: true,
         isCurrent: true,
         previewPath: `/api/chunks/${chunkId}/source`,
       }] }),
@@ -232,6 +233,34 @@ describe('流式问答接口', () => {
       terminal: { event: 'error', data: { code: 'MODEL_UNAVAILABLE', status: 'FAILED' } },
     })
     expect(events.some((event) => event.event === 'done')).toBe(false)
+  })
+
+  it('保留已失效来源元数据，但拒绝失效来源携带预览路径', async () => {
+    const encoder = new TextEncoder()
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(streamResponse([encoder.encode(
+        sseEvent('start', { runId, assistantMessageId })
+        + sseEvent('sources', { sources: [{
+          number: 1,
+          type: 'DOCUMENT',
+          documentId: 'bf5cf7b1-1a5c-4e60-a22a-6e7736e19a2e',
+          versionId: 'cf5cf7b1-1a5c-4e60-a22a-6e7736e19a2f',
+          chunkId,
+          title: '已删除排查手册',
+          section: '状态更新',
+          available: false,
+          isCurrent: false,
+          previewPath: null,
+        }] })
+        + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+      )]))
+    const events: ChatStreamEvent[] = []
+
+    await submitChatMessage(sessionId, 'request-invalid-source', '查看旧回答', (event) => events.push(event))
+
+    expect(events.find((event) => event.event === 'sources')).toMatchObject({
+      data: { sources: [{ available: false, isCurrent: false, previewPath: null }] },
+    })
   })
 
   it('复用请求按 JSON 响应返回，不尝试读取 SSE', async () => {

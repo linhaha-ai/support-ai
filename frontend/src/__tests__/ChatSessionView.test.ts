@@ -117,6 +117,7 @@ describe('会话创建页面', () => {
         chunkId,
         title: '支付排查手册',
         section: '状态更新',
+        available: true,
         isCurrent: true,
         previewPath: `/api/chunks/${chunkId}/source`,
       }] })

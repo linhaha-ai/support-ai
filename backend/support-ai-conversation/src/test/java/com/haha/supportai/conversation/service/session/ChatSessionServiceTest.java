@@ -30,7 +30,7 @@ import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.security.ActiveAccountGuard;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
-import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
+import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -230,7 +230,7 @@ class ChatSessionServiceTest {
     }
 
     @Test
-    void returnsOnlyCitedSourcesThatAreStillReadable() {
+    void returnsCitedSourcesWithCurrentAuthorizationState() {
         UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440011");
         UUID chunkId = UUID.fromString("550e8400-e29b-41d4-a716-446655440021");
         ChatMessage assistantMessage = message(sessionId, 2, ChatMessageRoleEnum.ASSISTANT, "处理步骤[1]");
@@ -248,9 +248,9 @@ class ChatSessionServiceTest {
                 .willReturn(List.of(assistantMessage));
         given(messageSourceRepository.listByMessageId(assistantMessage.getId()))
                 .willReturn(List.of(cited, uncited));
-        given(documentSourceQueryService.findReadableSource(USER_ID, chunkId)).willReturn(Optional.of(
-                new DocumentSourceResponse(FIRST_KB_ID, UUID.randomUUID(), "退款手册", UUID.randomUUID(), 1,
-                        chunkId, 0, "退款", null, 0, 10, true, "来源正文")));
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, chunkId)).willReturn(Optional.of(
+                new DocumentSourceAvailabilityResponse(FIRST_KB_ID, UUID.randomUUID(), "退款手册", UUID.randomUUID(), 1,
+                        chunkId, 0, "退款", null, 0, 10, true, true)));
 
         var response = chatSessionService.listMessages(sessionId, null, null);
 
@@ -259,8 +259,41 @@ class ChatSessionServiceTest {
             assertThat(item.getSources()).singleElement().satisfies(source -> {
                 assertThat(source.getNumber()).isEqualTo(1);
                 assertThat(source.getChunkId()).isEqualTo(chunkId);
+                assertThat(source.isAvailable()).isTrue();
+                assertThat(source.getPreviewPath()).isNotBlank();
             });
         });
+    }
+
+    @Test
+    void keepsDeletedCitedSourceMetadataButMarksItUnavailable() {
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440011");
+        UUID chunkId = UUID.fromString("550e8400-e29b-41d4-a716-446655440021");
+        ChatMessage assistantMessage = message(sessionId, 2, ChatMessageRoleEnum.ASSISTANT, "历史回答[1]");
+        MessageSource cited = new MessageSource(UUID.randomUUID(), assistantMessage.getId(), null, 1, true,
+                MessageSourceTypeEnum.DOCUMENT, FIRST_KB_ID, chunkId, "{}", "{}", OffsetDateTime.now());
+        given(activeAccountGuard.currentUser()).willReturn(currentUser());
+        given(chatSessionRepository.findOwnedById(sessionId, USER_ID))
+                .willReturn(Optional.of(session(sessionId, OffsetDateTime.parse("2026-09-21T08:00:00Z"))));
+        given(chatSessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(sessionId))
+                .willReturn(List.of(FIRST_KB_ID));
+        given(knowledgeScopeAccess.allReadable(USER_ID, List.of(FIRST_KB_ID))).willReturn(true);
+        given(chatMessageRepository.listOwnedSessionPage(sessionId, USER_ID, 0, 21))
+                .willReturn(List.of(assistantMessage));
+        given(messageSourceRepository.listByMessageId(assistantMessage.getId())).willReturn(List.of(cited));
+        given(documentSourceQueryService.findAuthorizedSource(USER_ID, chunkId)).willReturn(Optional.of(
+                new DocumentSourceAvailabilityResponse(FIRST_KB_ID, UUID.randomUUID(), "已删除退款手册",
+                        UUID.randomUUID(), 1, chunkId, 0, "退款", null, 0, 10, false, false)));
+
+        var response = chatSessionService.listMessages(sessionId, null, null);
+
+        assertThat(response.getItems()).singleElement().satisfies(item ->
+                assertThat(item.getSources()).singleElement().satisfies(source -> {
+                    assertThat(source.getTitle()).isEqualTo("已删除退款手册");
+                    assertThat(source.isAvailable()).isFalse();
+                    assertThat(source.isCurrent()).isFalse();
+                    assertThat(source.getPreviewPath()).isNull();
+                }));
     }
 
     @Test

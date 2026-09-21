@@ -1,5 +1,6 @@
 package com.haha.supportai.data.knowledge.mapper;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -147,4 +148,26 @@ public interface DocumentVersionMapper extends BaseMapper<DocumentVersion> {
               AND version.status IN ('QUEUED', 'BUILDING')
             """)
     int markFailedIfQueuedOrBuilding(@Param("versionId") UUID versionId);
+
+    @Select("""
+            -- document_version、document：仅列出已删除文档的全部受控存储键，供清理任务幂等回收原文件。
+            SELECT version.storage_key
+            FROM document_version version
+            INNER JOIN document ON document.id = version.document_id
+            WHERE version.document_id = #{documentId,jdbcType=OTHER}
+              AND document.deleted_at IS NOT NULL
+            ORDER BY version.version_no
+            """)
+    List<String> selectStorageKeysForDeletedDocument(@Param("documentId") UUID documentId);
+
+    @Update("""
+            -- document_version：文档删除时取消仍处于排队或构建中的版本，历史终态版本继续保留。
+            UPDATE document_version
+            SET status = 'CANCELLED',
+                updated_at = #{cancelledAt}
+            WHERE document_id = #{documentId,jdbcType=OTHER}
+              AND status IN ('QUEUED', 'BUILDING')
+            """)
+    int cancelBuildingByDocumentId(@Param("documentId") UUID documentId,
+                                   @Param("cancelledAt") OffsetDateTime cancelledAt);
 }

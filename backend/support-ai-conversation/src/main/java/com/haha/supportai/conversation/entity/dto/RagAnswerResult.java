@@ -24,7 +24,7 @@ public class RagAnswerResult {
 
     private final boolean noEvidence; // 是否因没有可用证据而返回资料不足
 
-    private final List<RagSourceResponse> sources; // 发送前复核后仍可展示的已引用来源
+    private final List<RagSourceResponse> sources; // 发送前复核后的已引用来源状态
 
     private final ChatModelUsage usage; // 模型用量，提供方未返回时为空
 

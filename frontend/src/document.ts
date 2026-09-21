@@ -94,6 +94,11 @@ interface ApiEnvelope<T> {
   data?: T
 }
 
+interface CsrfData {
+  token: string
+  headerName: string
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -260,6 +265,28 @@ function errorFor(response: Response): DocumentApiError {
   return { kind: 'request', message: '文档信息暂时无法读取，请稍后重试。' }
 }
 
+function deleteErrorFor(response: Response): DocumentApiError {
+  if (response.status === 401) return { kind: 'unauthorized', message: '登录状态已失效，请重新登录。' }
+  if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有删除此文档的权限。' }
+  if (response.status === 404) return { kind: 'not-found', message: '文档不存在或已经删除。' }
+  if (response.status === 409) return { kind: 'request', message: '文档状态已变化，请刷新后重试。' }
+  return { kind: 'request', message: '文档暂时无法删除，请稍后重试。' }
+}
+
+async function requestCsrf(): Promise<CsrfData> {
+  const response = await fetch('/api/auth/csrf', {
+    method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store',
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const value = envelope?.data
+  if (response.ok && envelope?.code === 'OK' && isRecord(value)
+    && typeof value.token === 'string' && typeof value.headerName === 'string') {
+    return { token: value.token, headerName: value.headerName }
+  }
+  if (!response.ok) throw errorFor(response)
+  throw { kind: 'invalid-response', message: '安全校验响应格式无效，请刷新后重试。' } satisfies DocumentApiError
+}
+
 async function get<T>(path: string, parser: (value: unknown) => T | null, invalidMessage: string): Promise<T> {
   const response = await fetch(path, {
     method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store',
@@ -299,4 +326,16 @@ export function fetchDocumentContent(documentId: string, versionId: string): Pro
 
 export function fetchDocumentChunks(documentId: string, versionId: string, limit = 50, cursor?: string | null): Promise<DocumentChunkPage> {
   return get(withPage(`/api/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}/chunks`, limit, cursor), parseChunkPage, '文档分块响应格式无效，请刷新后重试。')
+}
+
+export async function deleteKnowledgeDocument(documentId: string): Promise<void> {
+  const csrf = await requestCsrf()
+  const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', [csrf.headerName]: csrf.token },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  if (response.status === 202) return
+  throw deleteErrorFor(response)
 }

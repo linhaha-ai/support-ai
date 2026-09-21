@@ -28,7 +28,11 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             WITH candidate AS (
                 SELECT job.id
                 FROM ingestion_job job
+                INNER JOIN document_version version ON version.id = job.version_id
+                INNER JOIN document document ON document.id = version.document_id
                 WHERE job.stage = #{stage,jdbcType=VARCHAR}
+                  AND document.deleted_at IS NULL
+                  AND document.pending_version_id = version.id
                   AND job.attempt < job.max_attempts
                   AND job.cancel_requested_at IS NULL
                   AND (
@@ -90,6 +94,27 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                                             @Param("leaseOwner") String leaseOwner,
                                             @Param("leaseToken") UUID leaseToken,
                                             @Param("leaseUntil") OffsetDateTime leaseUntil);
+
+    @Update("""
+            -- ingestion_job、document_version：文档删除时取消全部非终态导入并撤销旧 Worker 的执行租约。
+            UPDATE ingestion_job job
+            SET status = 'CANCELLED',
+                lease_owner = NULL,
+                lease_token = NULL,
+                lease_until = NULL,
+                heartbeat_at = NULL,
+                cancel_requested_at = #{cancelledAt},
+                error_code = 'DOCUMENT_DELETED',
+                error_detail = '文档已删除，导入任务已取消',
+                finished_at = #{cancelledAt},
+                updated_at = #{cancelledAt}
+            FROM document_version version
+            WHERE version.id = job.version_id
+              AND version.document_id = #{documentId,jdbcType=OTHER}
+              AND job.status IN ('QUEUED', 'RUNNING', 'RETRY_WAIT')
+            """)
+    int cancelNonTerminalByDocumentId(@Param("documentId") UUID documentId,
+                                      @Param("cancelledAt") OffsetDateTime cancelledAt);
 
     @Select("""
             <script>

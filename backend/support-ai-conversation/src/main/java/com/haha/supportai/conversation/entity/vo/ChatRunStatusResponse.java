@@ -41,8 +41,8 @@ public class ChatRunStatusResponse {
     @Schema(description = "当前是否仍可读取会话范围中的回答正文", requiredMode = Schema.RequiredMode.REQUIRED)
     private final boolean contentReadable; // 会话固定知识范围是否仍全部可读
 
-    @Schema(description = "当前仍有权限查看的已引用来源", requiredMode = Schema.RequiredMode.REQUIRED)
-    private final List<RagSourceResponse> sources; // 经过当前权限复核的引用来源
+    @Schema(description = "当前授权下的已引用来源；已删除资料保留不可用标记", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final List<RagSourceResponse> sources; // 经过当前权限复核的引用来源状态
 
     @Schema(description = "模型用量；提供方未返回或运行未结束时为空", nullable = true)
     private final ChatModelUsage usage; // 已保存的模型用量

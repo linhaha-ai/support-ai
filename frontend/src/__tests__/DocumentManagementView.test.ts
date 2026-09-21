@@ -129,6 +129,7 @@ describe('文档管理视图', () => {
     await readOnlyView.get('.document-list-item').trigger('click')
     await flushPromises()
     expect(readOnlyView.find('.document-version-upload-trigger').exists()).toBe(false)
+    expect(readOnlyView.find('.document-delete-trigger').exists()).toBe(false)
     readOnlyView.unmount()
 
     fetchMock.mockReset()
@@ -194,5 +195,35 @@ describe('文档管理视图', () => {
     expect(view.find('.document-version-upload-form').exists()).toBe(false)
     expect(view.text()).toContain('文件内容与当前版本一致，已复用当前可用版本。')
     expect(view.text()).toContain(`任务 ${versionReceipt.jobId}`)
+  })
+
+  it('写成员确认删除后返回列表并展示异步清理提示', async () => {
+    const active = activeDetail()
+    fetchMock.mockResolvedValueOnce(ok([active]))
+      .mockResolvedValueOnce(ok(active))
+      .mockResolvedValueOnce(ok({ items: [active.activeVersion], nextCursor: null }))
+      .mockResolvedValueOnce(ok({
+        documentId, versionId, versionNo: 2, active: true, pending: false,
+        originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
+      }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+      .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }))
+      .mockResolvedValueOnce(ok([]))
+    const view = mountView(true)
+    await flushPromises()
+    await view.get('.document-list-item').trigger('click')
+    await flushPromises()
+
+    expect(view.get('.document-delete-trigger').attributes('aria-label')).toBe('删除文档')
+    view.findComponent({ name: 'ElPopconfirm' }).vm.$emit('confirm')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledWith(`/api/documents/${documentId}`, expect.objectContaining({
+      method: 'DELETE',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
+    }))
+    expect(view.text()).toContain('文档已立即退出检索')
+    expect(view.find('.document-detail-panel').exists()).toBe(false)
   })
 })

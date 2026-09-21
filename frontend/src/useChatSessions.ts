@@ -532,6 +532,7 @@ export function useChatSessions() {
   }
 
   async function openSource(source: ChatSourceReference) {
+    if (!source.available || !source.previewPath) return
     const request = ++sourceRequest
     const controller = new AbortController()
     sourceAbortController?.abort()

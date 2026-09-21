@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-@Schema(name = "RagSourceResponse", description = "流式回答实际引用且当前仍可读取的来源")
+@Schema(name = "RagSourceResponse", description = "流式回答实际引用的当前授权来源状态")
 public class RagSourceResponse {
 
     @Schema(description = "回答中的引用编号", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -37,7 +37,10 @@ public class RagSourceResponse {
     @Schema(name = "isCurrent", description = "是否仍为文档当前版本", requiredMode = Schema.RequiredMode.REQUIRED)
     private final boolean current; // 是否仍为文档当前版本
 
-    @Schema(description = "按当前身份重新鉴权的来源预览路径", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "当前是否仍可预览来源正文", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final boolean available; // 是否仍可预览正文
+
+    @Schema(description = "按当前身份重新鉴权的来源预览路径；不可用来源为 null", nullable = true)
     private final String previewPath; // 点击来源时重新鉴权的预览路径
 
     @JsonProperty("isCurrent")

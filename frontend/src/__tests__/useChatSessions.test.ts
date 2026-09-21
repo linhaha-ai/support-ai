@@ -300,6 +300,7 @@ describe('历史会话状态', () => {
           chunkId: '4f5cf7b1-1a5c-4e60-a22a-6e7736e19a2f',
           title: '退款说明',
           section: '排查步骤',
+          available: true,
           isCurrent: true,
           previewPath: '/api/chunks/4f5cf7b1-1a5c-4e60-a22a-6e7736e19a2f/source',
         }],

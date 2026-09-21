@@ -1,5 +1,6 @@
 package com.haha.supportai.data.knowledge.repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,5 +50,14 @@ public class KnowledgeDocumentRepository {
 
     public Optional<KnowledgeDocument> findAccessibleByIdAndUserIdForUpdate(UUID documentId, UUID userId) {
         return knowledgeDocumentMapper.selectAccessibleByIdAndUserIdForUpdate(documentId, userId);
+    }
+
+    public Optional<KnowledgeDocument> findWritableByIdAndUserIdForUpdateIncludingDeleted(UUID documentId,
+            UUID userId) {
+        return knowledgeDocumentMapper.selectWritableByIdAndUserIdForUpdateIncludingDeleted(documentId, userId);
+    }
+
+    public boolean softDeleteAndClearVersions(UUID documentId, OffsetDateTime deletedAt) {
+        return knowledgeDocumentMapper.softDeleteAndClearVersions(documentId, deletedAt) == 1;
     }
 }

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haha.supportai.data.knowledge.entity.po.DocumentVector;
 import com.haha.supportai.data.typehandler.UuidTypeHandler;
 import com.haha.supportai.data.typehandler.VectorTypeHandler;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -88,4 +89,16 @@ public interface DocumentVectorMapper extends BaseMapper<DocumentVector> {
                     typeHandler = VectorTypeHandler.class)
     })
     DocumentVector selectVectorById(@Param("id") UUID id);
+
+    @Delete("""
+            -- vector_store、document_chunk、document_version、document：只清理指定已删除文档的向量，保留历史分块与来源证据。
+            DELETE FROM vector_store vector
+            USING document_chunk chunk, document_version version, document
+            WHERE vector.id = chunk.id
+              AND chunk.version_id = version.id
+              AND version.document_id = document.id
+              AND document.id = #{documentId,jdbcType=OTHER}
+              AND document.deleted_at IS NOT NULL
+            """)
+    int deleteByDeletedDocumentId(@Param("documentId") UUID documentId);
 }

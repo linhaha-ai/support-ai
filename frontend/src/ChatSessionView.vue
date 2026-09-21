@@ -243,10 +243,12 @@ onMounted(() => {
               v-for="source in message.sources"
               :key="source.number"
               class="chat-source-button"
+              :class="{ 'chat-source-button-unavailable': !source.available }"
               type="button"
+              :disabled="!source.available"
               @click="sessions.openSource(source)"
             >
-              [{{ source.number }}] {{ source.title }}
+              [{{ source.number }}] {{ source.title }}{{ source.available ? '' : ' · 已失效' }}
             </button>
           </div>
         </article>

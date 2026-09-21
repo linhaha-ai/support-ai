@@ -28,10 +28,12 @@ import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
-import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
-import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentCleanupJobRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVectorRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
+import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.identity.config.IdentityOpenApiConfiguration;
@@ -46,6 +48,7 @@ import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
+import com.haha.supportai.knowledge.service.document.DocumentDeletionService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import jakarta.servlet.http.Cookie;
@@ -75,7 +78,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
-        "spring.ai.dashscope.api-key=", "support.ai.ingestion.worker.enabled=false"
+        "spring.ai.dashscope.api-key=", "support.ai.ingestion.worker.enabled=false",
+        "support.ai.document.cleanup.enabled=false"
 })
 @AutoConfigureMockMvc
 class OpenApiDocumentationTest {
@@ -107,6 +111,12 @@ class OpenApiDocumentationTest {
     IngestionJobRepository ingestionJobRepository;
 
     @MockBean
+    DocumentCleanupJobRepository documentCleanupJobRepository;
+
+    @MockBean
+    DocumentVectorRepository documentVectorRepository;
+
+    @MockBean
     KbMemberRepository kbMemberRepository;
 
     @MockBean
@@ -120,6 +130,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     DocumentQueryService documentQueryService;
+
+    @MockBean
+    DocumentDeletionService documentDeletionService;
 
     @MockBean
     DocumentUploadPersistenceService documentUploadPersistenceService;
@@ -246,6 +259,12 @@ class OpenApiDocumentationTest {
                         + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}']['get']['operationId']")
                         .value("getKnowledgeDocument"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}']['delete']['operationId']")
+                        .value("deleteKnowledgeDocument"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}']['delete']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}']['delete']['responses']['202']")
+                        .exists())
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['get']['operationId']")
                         .value("listKnowledgeDocumentVersions"))
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['operationId']")
