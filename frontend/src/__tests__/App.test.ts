@@ -74,6 +74,23 @@ describe('运行概览', () => {
     expect(wrapper.get('.workspace-auth-error').text()).toBe('退出登录未完成，请重试。')
   })
 
+  it('侧栏可在运行概览与知识库之间切换', async () => {
+    fetchMock.mockResolvedValueOnce(response('UP')).mockResolvedValueOnce(new Response(JSON.stringify({
+      code: 'OK',
+      data: [],
+      traceId: 'trace-test',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    wrapper = mountDashboard()
+    await flushPromises()
+
+    await wrapper.findAll('.navigation-item')[1]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('#knowledge-heading').text()).toBe('知识库')
+    expect(wrapper.text()).toContain('暂未获得知识库访问权限')
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/knowledge-bases', expect.objectContaining({ method: 'GET' }))
+  })
+
   it('HTTP 503 的 DOWN 响应显示未就绪', async () => {
     fetchMock.mockResolvedValue(response('DOWN', 503))
     wrapper = mountDashboard()

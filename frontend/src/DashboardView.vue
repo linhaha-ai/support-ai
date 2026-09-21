@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElButton } from 'element-plus'
 import 'element-plus/es/components/button/style/css'
 import type { CurrentUser } from './useAuth'
 import { useHealthCheck } from './useHealthCheck'
+import KnowledgeBaseView from './KnowledgeBaseView.vue'
 
 defineProps<{
   user: CurrentUser
@@ -12,6 +13,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ logout: [] }>()
+const activeView = ref<'overview' | 'knowledge-base'>('overview')
 const { state, detail, lastChecked, check } = useHealthCheck()
 const statusTitle = computed(() => ({
   loading: '正在连接后端',
@@ -40,24 +42,40 @@ onMounted(check)
         <span>Support<span class="brand-ai">AI</span></span>
       </a>
       <div class="workspace-label">WORKSPACE <span>01</span></div>
-      <div class="navigation-item" aria-current="page">
+      <button
+        class="navigation-item"
+        :class="{ active: activeView === 'overview' }"
+        :aria-current="activeView === 'overview' ? 'page' : undefined"
+        type="button"
+        @click="activeView = 'overview'"
+      >
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="3.5" width="6" height="6" rx="1.5"/><rect x="14.5" y="3.5" width="6" height="6" rx="1.5"/><rect x="3.5" y="14.5" width="6" height="6" rx="1.5"/><rect x="14.5" y="14.5" width="6" height="6" rx="1.5"/></svg>
         运行概览
         <span class="navigation-dot"></span>
-      </div>
+      </button>
+      <button
+        class="navigation-item"
+        :class="{ active: activeView === 'knowledge-base' }"
+        :aria-current="activeView === 'knowledge-base' ? 'page' : undefined"
+        type="button"
+        @click="activeView = 'knowledge-base'"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg>
+        知识库
+      </button>
       <div class="sidebar-note">
         <span class="small-label">ACCOUNT SECURITY</span>
         <p>身份验证已启用。</p>
         <span>会话与请求验证已受保护。</span>
         <div class="phase-progress"><i></i><i></i><i></i><i></i><i></i></div>
-        <span class="phase-caption">当前阶段 · F02</span>
+        <span class="phase-caption">当前阶段 · F03</span>
       </div>
-      <div class="sidebar-bottom"><span class="local-dot"></span>本地开发工作空间<span>v0.2</span></div>
+      <div class="sidebar-bottom"><span class="local-dot"></span>本地开发工作空间<span>v0.3</span></div>
     </aside>
 
     <div class="main-shell">
       <header class="topbar">
-        <span><span class="breadcrumb-muted">工作空间</span><span class="breadcrumb-slash">/</span>运行概览</span>
+        <span><span class="breadcrumb-muted">工作空间</span><span class="breadcrumb-slash">/</span>{{ activeView === 'overview' ? '运行概览' : '知识库' }}</span>
         <div class="account-actions">
           <span class="account-name" :title="user.username">{{ user.displayName }} · {{ user.role }}</span>
           <ElButton text class="logout-button" :loading="loggingOut" @click="emit('logout')">退出</ElButton>
@@ -67,13 +85,16 @@ onMounted(check)
 
       <main>
         <p v-if="authError" class="auth-error workspace-auth-error" role="alert">{{ authError }}</p>
+        <KnowledgeBaseView v-if="activeView === 'knowledge-base'" :user="user" />
+
+        <template v-else>
         <div class="page-heading">
           <div>
             <span class="eyebrow">SYSTEM OVERVIEW</span>
             <h1>登录成功，工作空间已就绪。</h1>
             <p>当前身份已验证，可继续查看应用基础状态。</p>
           </div>
-          <span class="phase-badge">F02 <span>身份认证</span></span>
+          <span class="phase-badge">F03 <span>知识库基础</span></span>
         </div>
 
         <section class="status-card" :data-state="state" aria-labelledby="connection-heading">
@@ -111,7 +132,8 @@ onMounted(check)
           </section>
         </div>
 
-        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>身份认证 / F02</span></footer>
+        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>知识库基础 / F03</span></footer>
+        </template>
       </main>
     </div>
   </div>

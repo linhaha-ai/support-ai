@@ -3,6 +3,9 @@ package com.haha.supportai.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
+import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
+import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
+import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -36,6 +39,15 @@ class HealthSecurityTest {
 
     @MockBean
     AppUserRepository appUserRepository;
+
+    @MockBean
+    KnowledgeBaseRepository knowledgeBaseRepository;
+
+    @MockBean
+    KbMemberRepository kbMemberRepository;
+
+    @MockBean
+    KnowledgeBaseService knowledgeBaseService;
 
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {

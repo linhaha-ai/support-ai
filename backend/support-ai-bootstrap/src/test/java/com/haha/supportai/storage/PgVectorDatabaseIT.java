@@ -30,7 +30,7 @@ class PgVectorDatabaseIT {
     @Test
     void migratesEmptyDatabaseIdempotentlyAndStoresOnlyValidated1024Vectors() {
         var productionMigrations = PostgresFixture.migrations(DATABASE, false);
-        assertThat(productionMigrations.migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(productionMigrations.migrate().migrationsExecuted).isEqualTo(5);
         assertThat(productionMigrations.migrate().migrationsExecuted).isZero();
         var jdbc = PostgresFixture.jdbc(DATABASE);
         assertThat(jdbc.queryForObject("SELECT extversion FROM pg_extension WHERE extname='vector'", String.class))
@@ -39,6 +39,52 @@ class PgVectorDatabaseIT {
                 .isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_name = 'app_user'", Integer.class))
                 .isEqualTo(1);
+        assertThat(jdbc.queryForList("SELECT username FROM app_user ORDER BY username", String.class))
+                .containsExactly("admin");
+        assertThat(jdbc.queryForObject("SELECT role FROM app_user WHERE username = 'admin'", String.class))
+                .isEqualTo("ADMIN");
+        assertThat(jdbc.queryForObject("SELECT enabled FROM app_user WHERE username = 'admin'", Boolean.class))
+                .isTrue();
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*)
+                FROM information_schema.tables
+                WHERE table_name IN ('knowledge_base', 'kb_member')
+                """, Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*)
+                FROM information_schema.table_constraints
+                WHERE table_name = 'knowledge_base'
+                  AND constraint_name IN ('ck_knowledge_base_name_not_blank', 'ck_knowledge_base_status',
+                                          'ck_knowledge_base_revision_non_negative', 'fk_knowledge_base_owner')
+                """, Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*)
+                FROM information_schema.table_constraints
+                WHERE table_name = 'kb_member'
+                  AND constraint_name IN ('pk_kb_member', 'ck_kb_member_permission', 'fk_kb_member_knowledge_base',
+                                          'fk_kb_member_user', 'fk_kb_member_granted_by')
+                """, Integer.class)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*)
+                FROM pg_constraint
+                WHERE conname IN ('fk_knowledge_base_owner', 'fk_kb_member_knowledge_base', 'fk_kb_member_user',
+                                  'fk_kb_member_granted_by')
+                  AND confdeltype = 'a'
+                """, Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("SELECT obj_description('knowledge_base'::regclass)", String.class))
+                .isEqualTo("知识库表，保存知识空间元数据、负责人、状态和并发修订号");
+        assertThat(jdbc.queryForObject("""
+                SELECT col_description('kb_member'::regclass,
+                    (SELECT attnum FROM pg_attribute WHERE attrelid = 'kb_member'::regclass AND attname = 'permission'))
+                """, String.class)).isEqualTo("成员权限：READ 可读取，WRITE 可维护资料");
+        assertThat(jdbc.queryForList("""
+                SELECT indexname
+                FROM pg_indexes
+                WHERE tablename IN ('knowledge_base', 'kb_member')
+                """, String.class)).contains(
+                        "idx_knowledge_base_status_updated_at",
+                        "idx_knowledge_base_owner_id",
+                        "idx_kb_member_user_id_kb_id");
         assertThat(PostgresFixture.migrations(DATABASE, true).migrate().migrationsExecuted).isEqualTo(1);
 
         AtomicInteger calls = new AtomicInteger();

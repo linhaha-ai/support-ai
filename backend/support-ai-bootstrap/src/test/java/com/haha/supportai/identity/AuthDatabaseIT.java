@@ -53,11 +53,23 @@ class AuthDatabaseIT {
     }
 
     @BeforeAll
-    static void explicitlyInitializeAccountsAfterApplicationStartup(@Autowired DataSource dataSource) {
+    static void automaticallyInitializesAdminAndExplicitlyAddsSupportAccounts(@Autowired DataSource dataSource,
+            @Autowired PasswordHasher passwordHasher) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        // 普通启动仅迁移表结构，演示账号由测试显式执行独立 SQL 初始化。
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM app_user", Integer.class)).isZero();
+        // 默认启动仅创建管理员，支持账号仍由独立 SQL 按需补齐。
+        assertThat(jdbcTemplate.queryForList("SELECT username FROM app_user ORDER BY username", String.class))
+                .containsExactly("admin");
+        var defaultAdmin = jdbcTemplate.queryForMap("SELECT * FROM app_user WHERE username = ?", "admin");
+        assertThat(defaultAdmin.get("role")).isEqualTo("ADMIN");
+        assertThat(defaultAdmin.get("enabled")).isEqualTo(true);
+        assertThat(passwordHasher.matches(ADMIN_PASSWORD, (String) defaultAdmin.get("password_hash"))).isTrue();
+
         executeAccountSeed(dataSource);
+
+        assertThat(jdbcTemplate.queryForList("SELECT username FROM app_user ORDER BY username", String.class))
+                .containsExactly("admin", "support1", "support2");
+        assertThat(jdbcTemplate.queryForMap("SELECT * FROM app_user WHERE username = ?", "admin"))
+                .isEqualTo(defaultAdmin);
     }
 
     @Autowired
@@ -105,7 +117,7 @@ class AuthDatabaseIT {
     }
 
     @Test
-    void rerunningAccountSeedPreservesExistingAccountChanges() {
+    void rerunningDefaultAdminMigrationAndAccountSeedPreservesExistingAccountChanges() {
         var originalAccount = jdbcTemplate.queryForMap("SELECT * FROM app_user WHERE username = ?", "admin");
         try {
             // 先模拟已使用账号的修改，确认重复执行脚本不会把它恢复为默认值。
@@ -116,6 +128,10 @@ class AuthDatabaseIT {
                     WHERE username = ?
                     """, passwordHasher.hash("changed-account-test-password"), "已修改的展示名称", "USER", "admin");
             var existingAccounts = jdbcTemplate.queryForList("SELECT * FROM app_user ORDER BY username");
+
+            executeSql(dataSource, "db/migration/V4__initialize_default_admin.sql");
+            assertThat(jdbcTemplate.queryForList("SELECT * FROM app_user ORDER BY username"))
+                    .containsExactlyElementsOf(existingAccounts);
 
             executeAccountSeed(dataSource);
 
@@ -269,8 +285,12 @@ class AuthDatabaseIT {
     }
 
     private static void executeAccountSeed(DataSource dataSource) {
+        executeSql(dataSource, "db/seed/identity/init_app_user.sql");
+    }
+
+    private static void executeSql(DataSource dataSource, String resourcePath) {
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator(
-                new ClassPathResource("db/seed/identity/init_app_user.sql"));
+                new ClassPathResource(resourcePath));
         populator.setSqlScriptEncoding("UTF-8");
         populator.execute(dataSource);
     }

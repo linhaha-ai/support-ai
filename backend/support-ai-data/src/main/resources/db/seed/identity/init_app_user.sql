@@ -1,7 +1,7 @@
--- app_user：用户账号表，须先由 Flyway 完成表结构迁移，再按需手动执行本脚本。
--- 初始账号：admin、support1、support2，默认密码分别与用户名相同。
+-- app_user：演示账号补齐脚本，须先由 Flyway 完成表结构及默认 admin 迁移，再按需手动执行。
+-- 默认 admin 由 Flyway V4 自动补齐；本脚本同时保留 admin 作为幂等兜底，并补齐 support1、support2。
 -- password_hash 使用 jBCrypt 0.4 生成的 BCrypt 摘要，计算成本为 12，不存储明文密码。
--- 本脚本不在 Flyway 自动扫描目录内，应用启动不会创建用户。
+-- 本脚本不在 Flyway 自动扫描目录内，应用启动仅由 V4 创建默认管理员，不会自动创建其他演示用户。
 -- 仅插入缺失的用户名；重复执行不覆盖已有账号的密码、角色、启用状态或其他资料。
 BEGIN;
 

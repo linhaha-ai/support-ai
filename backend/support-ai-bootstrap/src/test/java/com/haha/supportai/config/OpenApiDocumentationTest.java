@@ -9,9 +9,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
+import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
+import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.identity.config.IdentityOpenApiConfiguration;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.service.AuthenticationService;
+import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +54,16 @@ class OpenApiDocumentationTest {
     AppUserRepository appUserRepository;
 
     @MockBean
+    KnowledgeBaseRepository knowledgeBaseRepository;
+
+    @MockBean
+    KbMemberRepository kbMemberRepository;
+
+    @MockBean
     AuthenticationService authenticationService;
+
+    @MockBean
+    KnowledgeBaseService knowledgeBaseService;
 
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
@@ -90,6 +102,25 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$['paths']['/api/auth/me']['get']['responses']['200']"
                         + "['content']['application/json']['schema']").exists())
                 .andExpect(jsonPath("$['paths']['/api/auth/me']['get']['security'][0]['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases']['get']['operationId']")
+                        .value("listAccessibleKnowledgeBases"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases']['post']['operationId']")
+                        .value("createKnowledgeBase"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases']['post']['parameters'][0]['name']")
+                        .value("X-CSRF-TOKEN"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases']['post']['requestBody']"
+                        + "['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/CreateKnowledgeBaseRequest"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases']['post']['responses']['201']").exists())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}']['get']['operationId']")
+                        .value("getKnowledgeBase"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}']['patch']['operationId']")
+                        .value("updateKnowledgeBase"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}']['patch']['requestBody']"
+                        + "['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/UpdateKnowledgeBaseRequest"))
+                .andExpect(jsonPath("$['paths']['/api/admin/knowledge-bases']['get']['operationId']")
+                        .value("listManagedKnowledgeBases"))
                 .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['type']")
                         .value("apiKey"))
                 .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['in']").value("cookie"))
@@ -103,6 +134,16 @@ class OpenApiDocumentationTest {
         assertResponseDataSchema(apiDocs, "/api/auth/csrf", "get", "CsrfTokenResponse");
         assertResponseDataSchema(apiDocs, "/api/auth/login", "post", "CurrentUserResponse");
         assertResponseDataSchema(apiDocs, "/api/auth/me", "get", "CurrentUserResponse");
+        assertResponseDataArrayItemSchema(apiDocs, "/api/knowledge-bases", "get",
+                "KnowledgeBaseSummaryResponse");
+        assertResponseDataSchema(apiDocs, "/api/knowledge-bases", "post", "201",
+                "KnowledgeBaseDetailResponse");
+        assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}", "get",
+                "KnowledgeBaseDetailResponse");
+        assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}", "patch",
+                "KnowledgeBaseManagementResponse");
+        assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",
+                "KnowledgeBaseManagementResponse");
 
         mvc.perform(get("/v3/api-docs/actuator")
                         .session(authenticatedRequest.session())
@@ -118,12 +159,29 @@ class OpenApiDocumentationTest {
     }
 
     private void assertResponseDataSchema(JsonNode apiDocs, String path, String method, String expectedSchemaName) {
-        JsonNode responseSchema = apiDocs.path("paths").path(path).path(method).path("responses").path("200")
+        assertResponseDataSchema(apiDocs, path, method, "200", expectedSchemaName);
+    }
+
+    private void assertResponseDataSchema(JsonNode apiDocs, String path, String method, String status,
+            String expectedSchemaName) {
+        JsonNode responseSchema = apiDocs.path("paths").path(path).path(method).path("responses").path(status)
                 .path("content").path(MediaType.APPLICATION_JSON_VALUE).path("schema");
         JsonNode dataSchema = findPropertySchema(apiDocs, responseSchema, "data");
         String expectedReference = "#/components/schemas/" + expectedSchemaName;
         if (!expectedReference.equals(dataSchema.path("$ref").asText())) {
             throw new AssertionError(path + " 的成功响应 data 应引用 " + expectedSchemaName);
+        }
+    }
+
+    private void assertResponseDataArrayItemSchema(JsonNode apiDocs, String path, String method,
+            String expectedSchemaName) {
+        JsonNode responseSchema = apiDocs.path("paths").path(path).path(method).path("responses").path("200")
+                .path("content").path(MediaType.APPLICATION_JSON_VALUE).path("schema");
+        JsonNode dataSchema = findPropertySchema(apiDocs, responseSchema, "data");
+        String expectedReference = "#/components/schemas/" + expectedSchemaName;
+        if (!"array".equals(dataSchema.path("type").asText())
+                || !expectedReference.equals(dataSchema.path("items").path("$ref").asText())) {
+            throw new AssertionError(path + " 的成功响应 data 数组元素应引用 " + expectedSchemaName);
         }
     }
 
