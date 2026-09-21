@@ -26,4 +26,10 @@ public class RagProperties {
     @Min(256)
     @Max(50000)
     private int historyMaxCharacters = 6000; // 历史问题和回答正文的字符预算
+
+    private boolean queryRewriteEnabled = true; // 是否启用追问检索问题改写
+
+    @Min(64)
+    @Max(2000)
+    private int queryRewriteMaxCharacters = 500; // 改写结果的最大字符数
 }

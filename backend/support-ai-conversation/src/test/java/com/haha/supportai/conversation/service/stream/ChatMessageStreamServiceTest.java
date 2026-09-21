@@ -14,8 +14,11 @@ import com.haha.supportai.conversation.config.ChatStreamProperties;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
+import com.haha.supportai.conversation.entity.dto.RetrievalQueryDiagnostics;
+import com.haha.supportai.conversation.entity.vo.ChatStreamDoneResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamErrorResponse;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.conversation.enums.RetrievalQueryRewriteStatusEnum;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatStreamCapacityException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
@@ -25,6 +28,8 @@ import com.haha.supportai.conversation.service.rag.RagStreamObserver;
 import com.haha.supportai.conversation.service.run.ChatRunExecutionRegistry;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
+import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
+import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,12 +60,19 @@ class ChatMessageStreamServiceTest {
     private static final UUID RUN_ID = UUID.fromString("30000000-0000-4000-8000-000000000001");
     private static final UUID USER_MESSAGE_ID = UUID.fromString("40000000-0000-4000-8000-000000000001");
     private static final UUID ASSISTANT_MESSAGE_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
+    private static final UUID KNOWLEDGE_BASE_ID = UUID.fromString("90000000-0000-4000-8000-000000000001");
 
     @Mock
     RagAnswerService ragAnswerService;
 
     @Mock
     RagRunPersistenceService persistenceService;
+
+    @Mock
+    ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository;
+
+    @Mock
+    KnowledgeScopeAccess knowledgeScopeAccess;
 
     @Mock
     ThreadPoolTaskExecutor taskExecutor;
@@ -88,8 +100,9 @@ class ChatMessageStreamServiceTest {
         eventNames = new ArrayList<>();
         eventPayloads = new ArrayList<>();
         executionRegistry = new ChatRunExecutionRegistry();
-        streamService = new RecordingChatMessageStreamService(ragAnswerService, persistenceService, properties,
-                taskExecutor, timeoutScheduler, executionRegistry, eventNames, eventPayloads);
+        streamService = new RecordingChatMessageStreamService(ragAnswerService, persistenceService,
+                sessionKnowledgeBaseRepository, knowledgeScopeAccess, properties, taskExecutor, timeoutScheduler,
+                executionRegistry, eventNames, eventPayloads);
     }
 
     @Test
@@ -267,6 +280,38 @@ class ChatMessageStreamServiceTest {
         assertThat(eventNames).containsExactly("start", "sources", "done");
     }
 
+    @Test
+    void revokedScopeRedactsQueryRewriteDiagnosticsBeforeDone() {
+        PreparedChatRunResponse preparedRun = preparedRun(false);
+        ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        RetrievalQueryDiagnostics diagnostics = new RetrievalQueryDiagnostics("这个错误怎么解决",
+                "ERR-1001 的处理步骤", RetrievalQueryRewriteStatusEnum.REWRITTEN);
+        RagMetrics metrics = new RagMetrics(1, 0, false, 10, 2L, diagnostics);
+        doAnswer(invocation -> {
+            invocation.<RagStreamObserver>getArgument(1).onStarted();
+            return completedResult(List.of(), metrics);
+        }).when(ragAnswerService).generateStreaming(eq(preparedRun), any(RagStreamObserver.class));
+        doAnswer(invocation -> List.of(KNOWLEDGE_BASE_ID))
+                .when(sessionKnowledgeBaseRepository).listKnowledgeBaseIdsBySessionId(SESSION_ID);
+        doAnswer(invocation -> false)
+                .when(knowledgeScopeAccess).allReadable(USER_ID, List.of(KNOWLEDGE_BASE_ID));
+
+        streamService.open(preparedRun, "trace-test");
+        verify(taskExecutor).execute(taskCaptor.capture());
+        taskCaptor.getValue().run();
+
+        ChatStreamDoneResponse done = eventPayloads.stream()
+                .filter(ChatStreamDoneResponse.class::isInstance)
+                .map(ChatStreamDoneResponse.class::cast)
+                .findFirst()
+                .orElseThrow();
+        assertThat(done.getMetrics().getQueryRewrite().getStatus())
+                .isEqualTo(RetrievalQueryRewriteStatusEnum.REWRITTEN);
+        assertThat(done.getMetrics().getQueryRewrite().getOriginalQuestion()).isNull();
+        assertThat(done.getMetrics().getQueryRewrite().getRetrievalQuestion()).isNull();
+        verify(knowledgeScopeAccess).allReadable(USER_ID, List.of(KNOWLEDGE_BASE_ID));
+    }
+
     private PreparedChatRunResponse preparedRun(boolean reused) {
         return new PreparedChatRunResponse(RUN_ID, SESSION_ID, USER_ID, USER_MESSAGE_ID, ASSISTANT_MESSAGE_ID,
                 "如何排查？", ChatRunStatusEnum.QUEUED, reused);
@@ -277,8 +322,12 @@ class ChatMessageStreamServiceTest {
     }
 
     private RagAnswerResult completedResult(List<RagSourceResponse> sources) {
+        return completedResult(sources, new RagMetrics(1, 0, false, 10, 2L));
+    }
+
+    private RagAnswerResult completedResult(List<RagSourceResponse> sources, RagMetrics metrics) {
         return new RagAnswerResult(RUN_ID, ASSISTANT_MESSAGE_ID, "回答", List.of(), ChatRunStatusEnum.COMPLETED,
-                false, sources, null, new RagMetrics(1, 0, false, 10, 2L));
+                false, sources, null, metrics);
     }
 
     private RagSourceResponse cachedSource() {
@@ -296,12 +345,14 @@ class ChatMessageStreamServiceTest {
         private final List<Object> eventPayloads;
 
         private RecordingChatMessageStreamService(RagAnswerService ragAnswerService,
-                RagRunPersistenceService persistenceService, ChatStreamProperties properties,
-                 ThreadPoolTaskExecutor taskExecutor, ThreadPoolTaskScheduler timeoutScheduler,
-                 ChatRunExecutionRegistry executionRegistry,
+                RagRunPersistenceService persistenceService,
+                ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository,
+                KnowledgeScopeAccess knowledgeScopeAccess, ChatStreamProperties properties,
+                ThreadPoolTaskExecutor taskExecutor, ThreadPoolTaskScheduler timeoutScheduler,
+                ChatRunExecutionRegistry executionRegistry,
                 List<String> eventNames, List<Object> eventPayloads) {
-            super(ragAnswerService, persistenceService, properties, taskExecutor, timeoutScheduler,
-                    executionRegistry);
+            super(ragAnswerService, persistenceService, sessionKnowledgeBaseRepository, knowledgeScopeAccess,
+                    properties, taskExecutor, timeoutScheduler, executionRegistry);
             this.eventNames = eventNames;
             this.eventPayloads = eventPayloads;
         }

@@ -137,6 +137,8 @@ support:
       top-k: 6
       history-max-rounds: 3
       history-max-characters: 6000
+      query-rewrite-enabled: true
+      query-rewrite-max-characters: 500
     chat:
       stream:
         pool-size: 4

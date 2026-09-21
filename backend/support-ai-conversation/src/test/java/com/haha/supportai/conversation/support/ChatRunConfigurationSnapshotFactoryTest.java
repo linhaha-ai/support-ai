@@ -26,6 +26,8 @@ class ChatRunConfigurationSnapshotFactoryTest {
         ragProperties.setTopK(8);
         ragProperties.setHistoryMaxRounds(4);
         ragProperties.setHistoryMaxCharacters(7200);
+        ragProperties.setQueryRewriteEnabled(true);
+        ragProperties.setQueryRewriteMaxCharacters(900);
         ChatRunConfigurationSnapshotFactory factory = new ChatRunConfigurationSnapshotFactory(environment,
                 objectMapper, ragProperties);
 
@@ -41,6 +43,11 @@ class ChatRunConfigurationSnapshotFactoryTest {
         assertThat(snapshot.path("prompt").path("historyMaxCharacters").asInt()).isEqualTo(7200);
         assertThat(snapshot.path("retrieval").path("strategy").asText()).isEqualTo("vector-cosine-exact");
         assertThat(snapshot.path("retrieval").path("topK").asInt()).isEqualTo(8);
+        assertThat(snapshot.path("retrieval").path("queryRewrite").path("enabled").asBoolean()).isTrue();
+        assertThat(snapshot.path("retrieval").path("queryRewrite").path("version").asText())
+                .isEqualTo(RetrievalQueryPromptFactory.PROMPT_VERSION);
+        assertThat(snapshot.path("retrieval").path("queryRewrite").path("maxCharacters").asInt())
+                .isEqualTo(900);
         assertThat(snapshot.path("index").path("store").asText()).isEqualTo("pgvector");
         assertThat(snapshot.path("index").path("embedding").path("provider").asText()).isEqualTo("ollama");
         assertThat(snapshot.path("index").path("embedding").path("model").asText()).isEqualTo("bge-m3");

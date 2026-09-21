@@ -8,6 +8,7 @@ import java.util.concurrent.FutureTask;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.entity.dto.ChatRunCancellationResult;
+import com.haha.supportai.conversation.enums.RetrievalQueryRewriteStatusEnum;
 import com.haha.supportai.conversation.exception.ChatRunNotFoundException;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
@@ -85,7 +86,11 @@ class ChatRunControlServiceTest {
 
     @Test
     void revokedKnowledgeScopeHidesAnswerAndSourcesButReturnsPersistedStatus() {
-        given(chatRunRepository.findOwnedById(RUN_ID, USER_ID)).willReturn(Optional.of(run(ChatRunStatusEnum.RUNNING)));
+        given(chatRunRepository.findOwnedById(RUN_ID, USER_ID)).willReturn(Optional.of(runWithMetrics(
+                ChatRunStatusEnum.RUNNING,
+                "{\"evidenceCount\":1,\"citedCount\":1,\"noEvidence\":false,\"totalMs\":12,"
+                        + "\"firstDeltaMs\":3,\"queryRewrite\":{\"originalQuestion\":\"敏感追问\","
+                        + "\"retrievalQuestion\":\"敏感检索词\",\"status\":\"REWRITTEN\"}}")));
         given(chatMessageRepository.listByRunId(RUN_ID)).willReturn(messages());
         given(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID)).willReturn(List.of(KB_ID));
         given(knowledgeScopeAccess.allReadable(USER_ID, List.of(KB_ID))).willReturn(false);
@@ -96,8 +101,33 @@ class ChatRunControlServiceTest {
         assertThat(response.isContentReadable()).isFalse();
         assertThat(response.getAnswer()).isNull();
         assertThat(response.getSources()).isEmpty();
+        assertThat(response.getMetrics()).isNotNull();
+        assertThat(response.getMetrics().getQueryRewrite()).isNotNull();
+        assertThat(response.getMetrics().getQueryRewrite().getOriginalQuestion()).isNull();
+        assertThat(response.getMetrics().getQueryRewrite().getRetrievalQuestion()).isNull();
+        assertThat(response.getMetrics().getQueryRewrite().getStatus())
+                .isEqualTo(RetrievalQueryRewriteStatusEnum.REWRITTEN);
         assertThat(response.isCancellable()).isTrue();
         then(messageSourceRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void readableKnowledgeScopeReturnsPersistedQueryRewriteDiagnostics() {
+        given(chatRunRepository.findOwnedById(RUN_ID, USER_ID)).willReturn(Optional.of(runWithMetrics(
+                ChatRunStatusEnum.COMPLETED,
+                "{\"evidenceCount\":1,\"citedCount\":1,\"noEvidence\":false,\"totalMs\":12,"
+                        + "\"firstDeltaMs\":3,\"queryRewrite\":{\"originalQuestion\":\"这个错误怎么解决\","
+                        + "\"retrievalQuestion\":\"ERR-1001 处理步骤\",\"status\":\"REWRITTEN\"}}")));
+        given(chatMessageRepository.listByRunId(RUN_ID)).willReturn(messages());
+        given(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID)).willReturn(List.of(KB_ID));
+        given(knowledgeScopeAccess.allReadable(USER_ID, List.of(KB_ID))).willReturn(true);
+
+        var response = controlService.getStatus(RUN_ID);
+
+        assertThat(response.getMetrics().getQueryRewrite().getOriginalQuestion()).isEqualTo("这个错误怎么解决");
+        assertThat(response.getMetrics().getQueryRewrite().getRetrievalQuestion()).isEqualTo("ERR-1001 处理步骤");
+        assertThat(response.getMetrics().getQueryRewrite().getStatus())
+                .isEqualTo(RetrievalQueryRewriteStatusEnum.REWRITTEN);
     }
 
     @Test
@@ -126,8 +156,12 @@ class ChatRunControlServiceTest {
     }
 
     private ChatRun run(ChatRunStatusEnum status) {
+        return runWithMetrics(status, "{}");
+    }
+
+    private ChatRun runWithMetrics(ChatRunStatusEnum status, String metrics) {
         OffsetDateTime now = OffsetDateTime.parse("2026-09-21T08:00:00Z");
-        return new ChatRun(RUN_ID, SESSION_ID, UUID.randomUUID(), "request", status, "{}", null, "{}", null,
+        return new ChatRun(RUN_ID, SESSION_ID, UUID.randomUUID(), "request", status, "{}", null, metrics, null,
                 null, null, now, null, now, now);
     }
 

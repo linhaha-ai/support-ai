@@ -8,13 +8,5 @@ public interface ChatModelGateway {
 
     void stream(String systemPrompt, String userPrompt, Consumer<ChatModelChunk> chunkConsumer);
 
-    default String generate(String systemPrompt, String userPrompt) {
-        StringBuilder content = new StringBuilder();
-        stream(systemPrompt, userPrompt, chunk -> {
-            if (chunk.getContent() != null) {
-                content.append(chunk.getContent());
-            }
-        });
-        return content.toString();
-    }
+    String generate(String systemPrompt, String userPrompt);
 }

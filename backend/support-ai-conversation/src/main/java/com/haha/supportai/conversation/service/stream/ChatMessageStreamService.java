@@ -3,6 +3,7 @@ package com.haha.supportai.conversation.service.stream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -12,6 +13,7 @@ import com.haha.supportai.conversation.config.ChatStreamConfiguration;
 import com.haha.supportai.conversation.config.ChatStreamProperties;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
+import com.haha.supportai.conversation.entity.dto.RagMetrics;
 import com.haha.supportai.conversation.entity.vo.ChatStreamDeltaResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamDoneResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamErrorResponse;
@@ -28,6 +30,8 @@ import com.haha.supportai.conversation.service.rag.RagStreamObserver;
 import com.haha.supportai.conversation.service.run.ChatRunExecutionRegistry;
 import com.haha.supportai.conversation.support.ChatStreamEventNameConstant;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
+import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.http.MediaType;
@@ -50,18 +54,23 @@ public class ChatMessageStreamService {
 
     private final RagAnswerService ragAnswerService;
     private final RagRunPersistenceService persistenceService;
+    private final ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository;
+    private final KnowledgeScopeAccess knowledgeScopeAccess;
     private final ChatStreamProperties properties;
     private final ThreadPoolTaskExecutor taskExecutor;
     private final ThreadPoolTaskScheduler timeoutScheduler;
     private final ChatRunExecutionRegistry executionRegistry;
 
     public ChatMessageStreamService(RagAnswerService ragAnswerService, RagRunPersistenceService persistenceService,
-            ChatStreamProperties properties,
+            ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository,
+            KnowledgeScopeAccess knowledgeScopeAccess, ChatStreamProperties properties,
             @Qualifier(ChatStreamConfiguration.TASK_EXECUTOR_BEAN_NAME) ThreadPoolTaskExecutor taskExecutor,
             @Qualifier(ChatStreamConfiguration.TIMEOUT_SCHEDULER_BEAN_NAME) ThreadPoolTaskScheduler timeoutScheduler,
             ChatRunExecutionRegistry executionRegistry) {
         this.ragAnswerService = ragAnswerService;
         this.persistenceService = persistenceService;
+        this.sessionKnowledgeBaseRepository = sessionKnowledgeBaseRepository;
+        this.knowledgeScopeAccess = knowledgeScopeAccess;
         this.properties = properties;
         this.taskExecutor = taskExecutor;
         this.timeoutScheduler = timeoutScheduler;
@@ -139,9 +148,10 @@ public class ChatMessageStreamService {
                 List<RagSourceResponse> sources = sourcesForDelivery(preparedRun, result);
                 send(emitter, connected, ChatStreamEventNameConstant.SOURCES,
                         new ChatStreamSourcesResponse(sources));
+                RagMetrics metrics = metricsForDelivery(preparedRun, result.getMetrics());
                 send(emitter, connected, ChatStreamEventNameConstant.DONE,
                         new ChatStreamDoneResponse(result.getRunId(), result.getStatus(), result.getUsage(),
-                                result.getMetrics()));
+                                metrics));
             }
         } catch (ChatRunCancelledException exception) {
             cancelStream(preparedRun, traceId, emitter, connected, started, terminalSent);
@@ -177,6 +187,22 @@ public class ChatMessageStreamService {
             // 运行已完成时来源展示必须失败关闭，不能因复核异常泄露缓存元数据或改写终态。
             return List.of();
         }
+    }
+
+    private RagMetrics metricsForDelivery(PreparedChatRunResponse preparedRun, RagMetrics metrics) {
+        if (metrics == null || metrics.getQueryRewrite() == null) {
+            return metrics;
+        }
+        try {
+            List<UUID> knowledgeBaseIds = sessionKnowledgeBaseRepository
+                    .listKnowledgeBaseIdsBySessionId(preparedRun.getSessionId());
+            if (knowledgeScopeAccess.allReadable(preparedRun.getUserId(), knowledgeBaseIds)) {
+                return metrics;
+            }
+        } catch (RuntimeException ignored) {
+            // 无法确认当前会话知识范围仍可读时，必须隐藏可能由历史内容生成的检索问题。
+        }
+        return metrics.withoutQueryRewriteText();
     }
 
     private void timeoutRun(PreparedChatRunResponse preparedRun, String traceId, SseEmitter emitter,

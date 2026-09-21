@@ -20,12 +20,15 @@ import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
 import com.haha.supportai.conversation.entity.dto.RagConversationContext;
 import com.haha.supportai.conversation.entity.dto.RagHistorySource;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
+import com.haha.supportai.conversation.entity.dto.RetrievalQueryDiagnostics;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.conversation.enums.RetrievalQueryRewriteStatusEnum;
 import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.exception.RagPersistenceException;
 import com.haha.supportai.conversation.service.context.ConversationContextService;
+import com.haha.supportai.conversation.service.rewrite.RetrievalQueryRewriteService;
 import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.conversation.support.RagPromptFactory.NumberedEvidence;
@@ -61,6 +64,7 @@ public class RagAnswerService {
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final DocumentSourceQueryService documentSourceQueryService;
     private final ConversationContextService conversationContextService;
+    private final RetrievalQueryRewriteService retrievalQueryRewriteService;
     private final ChatModelGateway chatModelGateway;
     private final RagRunPersistenceService persistenceService;
     private final RagPromptFactory promptFactory;
@@ -75,7 +79,7 @@ public class RagAnswerService {
     public RagAnswerResult generateStreaming(PreparedChatRunResponse preparedRun, RagStreamObserver observer) {
         validate(preparedRun);
         RagStreamObserver safeObserver = observer == null ? RagStreamObserver.NONE : observer;
-        GenerationContext context = new GenerationContext();
+        GenerationContext context = new GenerationContext(preparedRun.getQuestion());
         try {
             persistenceService.start(preparedRun);
         } catch (RuntimeException exception) {
@@ -90,11 +94,12 @@ public class RagAnswerService {
         } catch (RuntimeException exception) {
             throw failureOrCancellation(preparedRun, context, exception, CONTEXT_ERROR_CODE, CONTEXT_ERROR_DETAIL);
         }
+        context.queryRewrite = rewriteRetrievalQuery(preparedRun.getQuestion(), conversationContext);
 
         List<KnowledgeRetrievalEvidenceResponse> evidenceList;
         try {
             evidenceList = retrieveAndRevalidate(preparedRun.getUserId(), preparedRun.getSessionId(),
-                    preparedRun.getQuestion());
+                    context.queryRewrite.getRetrievalQuestion());
         } catch (RuntimeException exception) {
             throw failureOrCancellation(preparedRun, context, exception, RETRIEVAL_ERROR_CODE,
                     RETRIEVAL_ERROR_DETAIL);
@@ -195,6 +200,31 @@ public class RagAnswerService {
     private RagConversationContext loadConversationContext(PreparedChatRunResponse preparedRun) {
         RagConversationContext loaded = conversationContextService.load(preparedRun);
         return loaded == null ? RagConversationContext.empty() : loaded;
+    }
+
+    /**
+     * 改写异常只影响检索问题质量，不得让本轮问答失败或改变用户原始问题。
+     */
+    private RetrievalQueryDiagnostics rewriteRetrievalQuery(String originalQuestion,
+            RagConversationContext conversationContext) {
+        try {
+            RetrievalQueryDiagnostics diagnostics = retrievalQueryRewriteService.rewrite(originalQuestion,
+                    conversationContext.getTurns());
+            if (diagnostics != null && originalQuestion.equals(diagnostics.getOriginalQuestion())
+                    && diagnostics.getRetrievalQuestion() != null
+                    && !diagnostics.getRetrievalQuestion().isBlank()
+                    && diagnostics.getStatus() != null) {
+                return diagnostics;
+            }
+        } catch (RuntimeException ignored) {
+            // 改写属于可降级能力，任何异常均使用已持久化的原始问题继续授权检索。
+        }
+        return fallbackQuery(originalQuestion);
+    }
+
+    private RetrievalQueryDiagnostics fallbackQuery(String originalQuestion) {
+        return new RetrievalQueryDiagnostics(originalQuestion, originalQuestion,
+                RetrievalQueryRewriteStatusEnum.FALLBACK);
     }
 
     private KnowledgeRetrievalEvidenceResponse withRetrievalScore(KnowledgeRetrievalEvidenceResponse evidence,
@@ -434,7 +464,7 @@ public class RagAnswerService {
 
     private RagMetrics metrics(GenerationContext context, int citedCount, boolean noEvidence) {
         return new RagMetrics(context.evidenceCount, citedCount, noEvidence, context.elapsedMillis(),
-                context.firstDeltaMs);
+                context.firstDeltaMs, context.queryRewrite);
     }
 
     private RuntimeException failureOrCancellation(PreparedChatRunResponse preparedRun, GenerationContext context,
@@ -492,6 +522,12 @@ public class RagAnswerService {
         private ChatModelUsage usage;
         private Long firstDeltaMs;
         private int evidenceCount;
+        private RetrievalQueryDiagnostics queryRewrite;
+
+        private GenerationContext(String originalQuestion) {
+            this.queryRewrite = new RetrievalQueryDiagnostics(originalQuestion, originalQuestion,
+                    RetrievalQueryRewriteStatusEnum.NOT_ATTEMPTED);
+        }
 
         private long elapsedMillis() {
             return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);

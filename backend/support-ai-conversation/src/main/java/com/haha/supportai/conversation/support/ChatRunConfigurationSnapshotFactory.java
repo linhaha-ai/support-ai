@@ -52,6 +52,7 @@ public class ChatRunConfigurationSnapshotFactory {
         Map<String, Object> retrieval = new LinkedHashMap<>();
         retrieval.put("strategy", "vector-cosine-exact");
         retrieval.put("topK", ragProperties.getTopK());
+        retrieval.put("queryRewrite", queryRewriteSnapshot());
         Map<String, Object> index = new LinkedHashMap<>();
         index.put("store", "pgvector");
         index.put("metric", "cosine");
@@ -68,6 +69,14 @@ public class ChatRunConfigurationSnapshotFactory {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("无法生成问答运行配置快照", exception);
         }
+    }
+
+    private Map<String, Object> queryRewriteSnapshot() {
+        Map<String, Object> queryRewrite = new LinkedHashMap<>();
+        queryRewrite.put("enabled", ragProperties.isQueryRewriteEnabled());
+        queryRewrite.put("version", RetrievalQueryPromptFactory.PROMPT_VERSION);
+        queryRewrite.put("maxCharacters", ragProperties.getQueryRewriteMaxCharacters());
+        return queryRewrite;
     }
 
     private String provider(String role) {

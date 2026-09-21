@@ -14,11 +14,14 @@ import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagConversationContext;
 import com.haha.supportai.conversation.entity.dto.RagHistorySource;
 import com.haha.supportai.conversation.entity.dto.RagHistoryTurn;
+import com.haha.supportai.conversation.entity.dto.RetrievalQueryDiagnostics;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.conversation.enums.RetrievalQueryRewriteStatusEnum;
 import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.service.context.ConversationContextService;
+import com.haha.supportai.conversation.service.rewrite.RetrievalQueryRewriteService;
 import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
@@ -71,6 +74,9 @@ class RagAnswerServiceTest {
     ConversationContextService conversationContextService;
 
     @Mock
+    RetrievalQueryRewriteService retrievalQueryRewriteService;
+
+    @Mock
     ChatModelGateway chatModelGateway;
 
     @Mock
@@ -85,6 +91,9 @@ class RagAnswerServiceTest {
     @Captor
     ArgumentCaptor<String> userPromptCaptor;
 
+    @Captor
+    ArgumentCaptor<String> metricsCaptor;
+
     private RagAnswerService ragAnswerService;
 
     @BeforeEach
@@ -92,8 +101,63 @@ class RagAnswerServiceTest {
         RagProperties properties = new RagProperties();
         properties.setTopK(6);
         ragAnswerService = new RagAnswerService(knowledgeRetrievalService, documentSourceQueryService,
-                conversationContextService, chatModelGateway, persistenceService, new RagPromptFactory(),
-                new CitationParser(), properties, new ObjectMapper());
+                conversationContextService, retrievalQueryRewriteService, chatModelGateway, persistenceService,
+                new RagPromptFactory(), new CitationParser(), properties, new ObjectMapper());
+    }
+
+    @Test
+    void usesRewrittenQuestionOnlyForRetrievalAndKeepsOriginalQuestionInAnswerPrompt() {
+        String originalQuestion = "这个错误怎么解决？";
+        String retrievalQuestion = "检索专用词-ORDER-500";
+        RagHistoryTurn historyTurn = new RagHistoryTurn("订单服务发生了什么？", "订单请求处理失败。");
+        RagConversationContext history = new RagConversationContext(List.of(historyTurn), List.of());
+        KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "请检查订单服务日志");
+        given(conversationContextService.load(any(PreparedChatRunResponse.class))).willReturn(history);
+        given(retrievalQueryRewriteService.rewrite(originalQuestion, List.of(historyTurn)))
+                .willReturn(new RetrievalQueryDiagnostics(originalQuestion, retrievalQuestion,
+                        RetrievalQueryRewriteStatusEnum.REWRITTEN));
+        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, retrievalQuestion, 6))
+                .willReturn(List.of(evidence));
+        given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
+                List.of(evidence.getChunkId()))).willReturn(List.of(evidence));
+        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+                .willReturn(Optional.of(source(evidence, true)));
+        streamAnswer("请检查订单服务日志。[1]", null);
+
+        ragAnswerService.generate(preparedRun(originalQuestion));
+
+        then(chatModelGateway).should().stream(anyString(), userPromptCaptor.capture(), any());
+        assertThat(userPromptCaptor.getValue())
+                .contains("用户问题：\n" + originalQuestion)
+                .doesNotContain(retrievalQuestion);
+        then(persistenceService).should().complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), anyString(), eq(List.of(1)),
+                isNull(), metricsCaptor.capture());
+        assertThat(metricsCaptor.getValue())
+                .contains("\"originalQuestion\":\"" + originalQuestion + "\"")
+                .contains("\"retrievalQuestion\":\"" + retrievalQuestion + "\"")
+                .contains("\"status\":\"REWRITTEN\"");
+    }
+
+    @Test
+    void fallsBackToOriginalQuestionWhenRewriteServiceFailsUnexpectedly() {
+        String originalQuestion = "这个错误怎么解决？";
+        RagHistoryTurn historyTurn = new RagHistoryTurn("此前发生了什么？", "订单服务处理失败。");
+        given(conversationContextService.load(any(PreparedChatRunResponse.class)))
+                .willReturn(new RagConversationContext(List.of(historyTurn), List.of()));
+        willThrow(new IllegalStateException("改写服务异常"))
+                .given(retrievalQueryRewriteService).rewrite(originalQuestion, List.of(historyTurn));
+        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, originalQuestion, 6))
+                .willReturn(List.of());
+
+        ragAnswerService.generate(preparedRun(originalQuestion));
+
+        then(knowledgeRetrievalService).should()
+                .retrieveReadableWithinSession(USER_ID, SESSION_ID, originalQuestion, 6);
+        then(persistenceService).should().complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), anyString(), eq(List.of()),
+                isNull(), metricsCaptor.capture());
+        assertThat(metricsCaptor.getValue())
+                .contains("\"retrievalQuestion\":\"" + originalQuestion + "\"")
+                .contains("\"status\":\"FALLBACK\"");
     }
 
     @Test

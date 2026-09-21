@@ -61,10 +61,14 @@ public class ChatRunControlService {
         List<RagSourceResponse> sources = contentReadable
                 ? readableSources(currentUser.getId(), messages.assistant().getId())
                 : List.of();
+        RagMetrics metrics = deserialize(run.getMetrics(), RagMetrics.class);
+        if (!contentReadable && metrics != null) {
+            metrics = metrics.withoutQueryRewriteText();
+        }
         return new ChatRunStatusResponse(run.getId(), run.getSessionId(), messages.user().getId(),
                 messages.assistant().getId(), run.getStatus(), messages.assistant().getStatus(), answer,
                 contentReadable, sources, deserialize(run.getUsage(), ChatModelUsage.class),
-                deserialize(run.getMetrics(), RagMetrics.class), run.getErrorCode(), run.getErrorDetail(),
+                metrics, run.getErrorCode(), run.getErrorDetail(),
                 isActive(run.getStatus()), run.getCancelRequestedAt(), run.getStartedAt(), run.getFinishedAt());
     }
 
