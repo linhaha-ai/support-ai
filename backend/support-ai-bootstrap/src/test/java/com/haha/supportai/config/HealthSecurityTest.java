@@ -2,6 +2,11 @@ package com.haha.supportai.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.conversation.service.session.ChatSessionService;
+import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
+import com.haha.supportai.data.conversation.repository.ChatRunRepository;
+import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
+import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
@@ -77,6 +82,21 @@ class HealthSecurityTest {
     @MockBean
     IngestionJobQueryService ingestionJobQueryService;
 
+    @MockBean
+    ChatSessionRepository chatSessionRepository;
+
+    @MockBean
+    ChatSessionKnowledgeBaseRepository chatSessionKnowledgeBaseRepository;
+
+    @MockBean
+    ChatRunRepository chatRunRepository;
+
+    @MockBean
+    ChatMessageRepository chatMessageRepository;
+
+    @MockBean
+    ChatSessionService chatSessionService;
+
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
@@ -86,7 +106,8 @@ class HealthSecurityTest {
     @Test
     void anonymousBusinessEntriesRequireAuthenticationAndWritesRequireCsrf() throws Exception {
         for (String path : new String[] { "/api/chat", "/api/health/db", "/api/env", "/actuator", "/doc.html",
-                "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000", "/" }) {
+                "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
+                "/api/chat/sessions", "/" }) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))

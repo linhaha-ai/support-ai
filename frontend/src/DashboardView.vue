@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElButton } from 'element-plus'
 import 'element-plus/es/components/button/style/css'
 import type { CurrentUser } from './useAuth'
+import ChatSessionView from './ChatSessionView.vue'
 import { useHealthCheck } from './useHealthCheck'
 import KnowledgeBaseView from './KnowledgeBaseView.vue'
 
@@ -13,7 +14,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ logout: [] }>()
-const activeView = ref<'overview' | 'knowledge-base'>('overview')
+const activeView = ref<'overview' | 'knowledge-base' | 'chat-session'>('overview')
 const { state, detail, lastChecked, check } = useHealthCheck()
 const statusTitle = computed(() => ({
   loading: '正在连接后端',
@@ -63,19 +64,29 @@ onMounted(check)
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg>
         知识库
       </button>
+      <button
+        class="navigation-item"
+        :class="{ active: activeView === 'chat-session' }"
+        :aria-current="activeView === 'chat-session' ? 'page' : undefined"
+        type="button"
+        @click="activeView = 'chat-session'"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 18.5 3.5 21l4.3-1.6A8.2 8.2 0 1 0 5 18.5Z"/><path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01"/></svg>
+        会话
+      </button>
       <div class="sidebar-note">
         <span class="small-label">ACCOUNT SECURITY</span>
         <p>身份验证已启用。</p>
         <span>会话与请求验证已受保护。</span>
         <div class="phase-progress"><i></i><i></i><i></i><i></i><i></i></div>
-        <span class="phase-caption">当前阶段 · F09</span>
+        <span class="phase-caption">当前阶段 · F10</span>
       </div>
       <div class="sidebar-bottom"><span class="local-dot"></span>本地开发工作空间<span>v0.3</span></div>
     </aside>
 
     <div class="main-shell">
       <header class="topbar">
-        <span><span class="breadcrumb-muted">工作空间</span><span class="breadcrumb-slash">/</span>{{ activeView === 'overview' ? '运行概览' : '知识库' }}</span>
+        <span><span class="breadcrumb-muted">工作空间</span><span class="breadcrumb-slash">/</span>{{ activeView === 'overview' ? '运行概览' : activeView === 'knowledge-base' ? '知识库' : '会话' }}</span>
         <div class="account-actions">
           <span class="account-name" :title="user.username">{{ user.displayName }} · {{ user.role }}</span>
           <ElButton text class="logout-button" :loading="loggingOut" @click="emit('logout')">退出</ElButton>
@@ -86,6 +97,7 @@ onMounted(check)
       <main>
         <p v-if="authError" class="auth-error workspace-auth-error" role="alert">{{ authError }}</p>
         <KnowledgeBaseView v-if="activeView === 'knowledge-base'" :user="user" />
+        <ChatSessionView v-else-if="activeView === 'chat-session'" />
 
         <template v-else>
         <div class="page-heading">
@@ -94,7 +106,7 @@ onMounted(check)
             <h1>登录成功，工作空间已就绪。</h1>
             <p>当前身份已验证，可继续查看应用基础状态。</p>
           </div>
-          <span class="phase-badge">F09 <span>文档管理与检查</span></span>
+          <span class="phase-badge">F10 <span>个人会话约束</span></span>
         </div>
 
         <section class="status-card" :data-state="state" aria-labelledby="connection-heading">
@@ -132,7 +144,7 @@ onMounted(check)
           </section>
         </div>
 
-        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>文档管理与检查 / F09</span></footer>
+        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>个人会话约束 / F10</span></footer>
         </template>
       </main>
     </div>

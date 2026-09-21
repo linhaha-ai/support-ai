@@ -1,11 +1,19 @@
 package com.haha.supportai.config;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.conversation.entity.vo.ChatSessionResponse;
+import com.haha.supportai.conversation.service.session.ChatSessionService;
+import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
+import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
+import com.haha.supportai.data.conversation.repository.ChatRunRepository;
+import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
+import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
@@ -36,6 +44,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -98,6 +107,21 @@ class OpenApiDocumentationTest {
 
     @MockBean
     IngestionJobQueryService ingestionJobQueryService;
+
+    @MockBean
+    ChatSessionRepository chatSessionRepository;
+
+    @MockBean
+    ChatSessionKnowledgeBaseRepository chatSessionKnowledgeBaseRepository;
+
+    @MockBean
+    ChatRunRepository chatRunRepository;
+
+    @MockBean
+    ChatMessageRepository chatMessageRepository;
+
+    @MockBean
+    ChatSessionService chatSessionService;
 
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
@@ -187,6 +211,17 @@ class OpenApiDocumentationTest {
                         + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['responses']['200']")
                         .exists())
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['operationId']")
+                        .value("createChatSession"))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['parameters'][0]['name']")
+                        .value("X-CSRF-TOKEN"))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['requestBody']"
+                        + "['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/CreateChatSessionRequest"))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['responses']['201']").exists())
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']").doesNotExist())
                 .andExpect(jsonPath("$['paths']['/api/admin/knowledge-bases']['get']['operationId']")
                         .value("listManagedKnowledgeBases"))
                 .andExpect(jsonPath("$['paths']['/api/admin/users']['get']['operationId']")
@@ -211,6 +246,8 @@ class OpenApiDocumentationTest {
                         .value("support-ai-token"))
                 .andExpect(jsonPath("$['components']['schemas']['LoginRequest']['properties']['password']['writeOnly']")
                         .value(true))
+                .andExpect(jsonPath("$['components']['schemas']['CreateChatSessionRequest']['properties']['userId']")
+                        .doesNotExist())
                 .andReturn();
 
         JsonNode apiDocs = objectMapper.readTree(apiDocsResult.getResponse().getContentAsString());
@@ -239,6 +276,8 @@ class OpenApiDocumentationTest {
                 "DocumentContentResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
                 "IngestionJobStatusResponse");
+        assertResponseDataSchema(apiDocs, "/api/chat/sessions", "post", "201",
+                "ChatSessionResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",
                 "KnowledgeBaseManagementResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/users", "get", "UserSummaryResponse");
@@ -261,6 +300,37 @@ class OpenApiDocumentationTest {
                         .cookie(authenticatedRequest.cookie()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML));
+    }
+
+    @Test
+    void authenticatedUserCanCreateFixedRagSession() throws Exception {
+        UUID userId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440011");
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-21T08:00:00Z");
+        AppUser appUser = new AppUser(userId, "admin", "unused-hash", "系统管理员", UserRoleEnum.ADMIN, true,
+                now, now);
+        when(authenticationService.authenticate("admin", DOCUMENTATION_PASSWORD))
+                .thenReturn(AuthenticatedUser.from(appUser));
+        when(appUserRepository.findById(userId)).thenReturn(Optional.of(appUser));
+        when(chatSessionService.create(any()))
+                .thenReturn(new ChatSessionResponse(sessionId, "新会话", ChatSessionModeEnum.RAG,
+                        List.of(knowledgeBaseId), now, now));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        var body = objectMapper.createObjectNode();
+        body.putArray("kbIds").add(knowledgeBaseId.toString());
+        body.put("mode", "RAG");
+        mvc.perform(post("/api/chat/sessions")
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body.toString()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.sessionId").value(sessionId.toString()))
+                .andExpect(jsonPath("$.data.mode").value("RAG"))
+                .andExpect(jsonPath("$.data.knowledgeBaseIds[0]").value(knowledgeBaseId.toString()));
     }
 
     private void assertResponseDataSchema(JsonNode apiDocs, String path, String method, String expectedSchemaName) {

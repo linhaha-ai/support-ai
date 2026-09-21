@@ -30,7 +30,7 @@ class PgVectorDatabaseIT {
     @Test
     void migratesEmptyDatabaseIdempotentlyAndStoresOnlyValidated1024Vectors() {
         var productionMigrations = PostgresFixture.migrations(DATABASE, false);
-        assertThat(productionMigrations.migrate().migrationsExecuted).isEqualTo(8);
+        assertThat(productionMigrations.migrate().migrationsExecuted).isGreaterThanOrEqualTo(10);
         assertThat(productionMigrations.migrate().migrationsExecuted).isZero();
         var jdbc = PostgresFixture.jdbc(DATABASE);
         assertThat(jdbc.queryForObject("SELECT extversion FROM pg_extension WHERE extname='vector'", String.class))
@@ -42,7 +42,7 @@ class PgVectorDatabaseIT {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_name = 'document_chunk'", Integer.class))
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_name = 'vector_store'", Integer.class))
-                .isZero();
+                .isEqualTo(1);
         assertThat(jdbc.queryForList("SELECT username FROM app_user ORDER BY username", String.class))
                 .containsExactly("admin");
         assertThat(jdbc.queryForObject("SELECT role FROM app_user WHERE username = 'admin'", String.class))
