@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  cancelChatRun,
   createChatSession,
+  fetchChatRun,
   fetchDocumentSource,
   submitChatMessage,
   type ChatStreamEvent,
@@ -12,6 +14,29 @@ const sessionId = '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a'
 const runId = '8f5cf7b1-1a5c-4e60-a22a-6e7736e19a2b'
 const assistantMessageId = '9f5cf7b1-1a5c-4e60-a22a-6e7736e19a2c'
 const chunkId = 'af5cf7b1-1a5c-4e60-a22a-6e7736e19a2d'
+
+function runStatus(overrides: Record<string, unknown> = {}) {
+  return {
+    runId,
+    sessionId,
+    userMessageId: '7d5cf7b1-1a5c-4e60-a22a-6e7736e19a2a',
+    assistantMessageId,
+    status: 'RUNNING',
+    assistantStatus: 'STREAMING',
+    answer: '已经保存的部分回答。',
+    contentReadable: true,
+    sources: [],
+    usage: null,
+    metrics: null,
+    errorCode: null,
+    errorMessage: null,
+    cancellable: true,
+    cancelRequestedAt: null,
+    startedAt: '2026-09-21T10:00:00+08:00',
+    finishedAt: null,
+    ...overrides,
+  }
+}
 
 function ok(data: unknown, status = 200) {
   return new Response(JSON.stringify({ code: 'OK', data, traceId: 'trace-test' }), {
@@ -202,6 +227,37 @@ describe('来源预览接口', () => {
     })
     expect(fetchMock).toHaveBeenCalledWith(`/api/chunks/${chunkId}/source`, expect.objectContaining({
       method: 'GET', credentials: 'same-origin',
+    }))
+  })
+})
+
+describe('运行状态与停止接口', () => {
+  it('严格解析已持久化的运行状态，并只请求同源运行路径', async () => {
+    fetchMock.mockResolvedValueOnce(ok(runStatus()))
+
+    await expect(fetchChatRun(runId)).resolves.toMatchObject({
+      runId,
+      status: 'RUNNING',
+      answer: '已经保存的部分回答。',
+      cancellable: true,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(`/api/chat/runs/${runId}`, expect.objectContaining({
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    }))
+
+    fetchMock.mockResolvedValueOnce(ok(runStatus({ answer: 1 })))
+    await expect(fetchChatRun(runId)).rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('停止前获取 CSRF，接受异步取消响应', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok({ runId, status: 'CANCELLED', newlyCancelled: true }, 202))
+
+    await expect(cancelChatRun(runId)).resolves.toEqual({ runId, status: 'CANCELLED', newlyCancelled: true })
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/chat/runs/${runId}/cancel`, expect.objectContaining({
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
     }))
   })
 })

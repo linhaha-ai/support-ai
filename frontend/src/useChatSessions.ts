@@ -1,8 +1,12 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import {
+  cancelChatRun,
   createChatSession,
+  fetchChatRun,
   fetchDocumentSource,
   submitChatMessage,
+  type ChatAssistantStatus,
+  type ChatRunStatusResponse,
   type ChatSessionSummary,
   type ChatSourceReference,
   type ChatStreamEvent,
@@ -14,7 +18,7 @@ export interface ChatTranscriptMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  status: 'COMPLETED' | 'STREAMING' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
+  status: 'COMPLETED' | 'STREAMING' | 'BACKGROUND' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
   sources: ChatSourceReference[]
   errorMessage: string
 }
@@ -38,6 +42,12 @@ export function useChatSessions() {
   const sending = ref(false)
   const sendError = ref('')
   const sendNotice = ref('')
+  const activeRunId = ref<string | null>(null)
+  const activeRunCancellable = ref(false)
+  const backgroundProcessing = ref(false)
+  const backgroundStatusUnknown = ref(false)
+  const refreshingRun = ref(false)
+  const cancellingRun = ref(false)
   const sourceDrawerOpen = ref(false)
   const selectedSource = ref<ChatSourceReference | null>(null)
   const sourceDetail = ref<DocumentSource | null>(null)
@@ -50,10 +60,71 @@ export function useChatSessions() {
   let sourceRequest = 0
   let messageAbortController: AbortController | null = null
   let sourceAbortController: AbortController | null = null
+  let activeQuestion = ''
 
   const canCreate = computed(() => selectedKnowledgeBaseIds.value.length > 0 && !creating.value)
   const canSend = computed(() => createdSession.value !== null && messageInput.value.trim().length > 0
-    && !sending.value)
+    && !sending.value && activeRunId.value === null)
+  const canStartAnother = computed(() => activeRunId.value === null && !sending.value && !cancellingRun.value)
+  const canCancelRun = computed(() => activeRunId.value !== null && activeRunCancellable.value
+    && !cancellingRun.value)
+
+  function messageStatusFor(run: ChatRunStatusResponse, isBackground: boolean): ChatTranscriptMessage['status'] {
+    if (run.status === 'QUEUED' || run.status === 'RUNNING') return isBackground ? 'BACKGROUND' : 'STREAMING'
+    const status: ChatAssistantStatus = run.assistantStatus
+    return status
+  }
+
+  function clearActiveRun() {
+    activeRunId.value = null
+    activeRunCancellable.value = false
+    activeQuestion = ''
+    backgroundProcessing.value = false
+    backgroundStatusUnknown.value = false
+  }
+
+  function applyRunStatus(run: ChatRunStatusResponse, question = activeQuestion, isBackground = false) {
+    const existingAssistantIndex = messages.value.findIndex((message) => message.id === run.assistantMessageId)
+    let assistantIndex = existingAssistantIndex
+    if (assistantIndex < 0) {
+      if (!messages.value.some((message) => message.id === run.userMessageId)) {
+        messages.value.push({
+          id: run.userMessageId,
+          role: 'user',
+          content: question || '已提交的问题',
+          status: 'COMPLETED',
+          sources: [],
+          errorMessage: '',
+        })
+      }
+      messages.value.push({
+        id: run.assistantMessageId,
+        role: 'assistant',
+        content: '',
+        status: 'STREAMING',
+        sources: [],
+        errorMessage: '',
+      })
+      assistantIndex = messages.value.length - 1
+    }
+    const assistant = messages.value[assistantIndex]
+    if (!assistant) return
+    assistant.content = run.contentReadable ? run.answer ?? '' : ''
+    assistant.sources = run.contentReadable ? run.sources : []
+    assistant.status = messageStatusFor(run, isBackground)
+    assistant.errorMessage = run.contentReadable
+      ? run.errorMessage ?? ''
+      : '当前资料授权已变化，回答正文不可读取。'
+    if (run.status === 'QUEUED' || run.status === 'RUNNING') {
+      activeRunId.value = run.runId
+      activeRunCancellable.value = run.cancellable
+      activeQuestion = question || activeQuestion
+      backgroundProcessing.value = isBackground
+      backgroundStatusUnknown.value = false
+    } else {
+      clearActiveRun()
+    }
+  }
 
   async function loadKnowledgeBases() {
     const request = ++loadRequest
@@ -89,6 +160,7 @@ export function useChatSessions() {
   }
 
   function startAnother() {
+    if (!canStartAnother.value) return
     messageAbortController?.abort()
     sourceAbortController?.abort()
     createRequest += 1
@@ -102,6 +174,9 @@ export function useChatSessions() {
     sending.value = false
     sendError.value = ''
     sendNotice.value = ''
+    clearActiveRun()
+    refreshingRun.value = false
+    cancellingRun.value = false
     sourceDrawerOpen.value = false
     selectedSource.value = null
     sourceDetail.value = null
@@ -122,6 +197,11 @@ export function useChatSessions() {
         errorMessage: '',
       })
       assistantIndex.value = messages.value.length - 1
+      activeRunId.value = event.data.runId
+      activeRunCancellable.value = true
+      activeQuestion = question
+      backgroundProcessing.value = false
+      backgroundStatusUnknown.value = false
       messageInput.value = ''
       return
     }
@@ -133,16 +213,47 @@ export function useChatSessions() {
       assistant.sources = event.data.sources
     } else if (event.event === 'done') {
       assistant.status = 'COMPLETED'
+      clearActiveRun()
     } else {
       assistant.status = event.data.status
       assistant.errorMessage = event.data.message
+      clearActiveRun()
+    }
+  }
+
+  async function refreshRunStatus(isBackground = true, resetError = true): Promise<ChatRunStatusResponse | null> {
+    const runId = activeRunId.value
+    if (!runId || refreshingRun.value) return null
+    refreshingRun.value = true
+    if (resetError) sendError.value = ''
+    try {
+      const run = await fetchChatRun(runId)
+      if (disposed || activeRunId.value !== runId) return null
+      applyRunStatus(run, activeQuestion, isBackground)
+      if (run.status === 'QUEUED' || run.status === 'RUNNING') {
+        sendNotice.value = ''
+      } else if (run.status === 'CANCELLED') {
+        sendNotice.value = '回答已停止，已展示已保存的结果。'
+      } else if (run.status === 'COMPLETED') {
+        sendNotice.value = '回答已完成，已同步已保存的结果。'
+      }
+      return run
+    } catch (error) {
+      if (!disposed && activeRunId.value === runId) {
+        sendError.value = messageFor(error)
+        backgroundProcessing.value = true
+        backgroundStatusUnknown.value = true
+      }
+      return null
+    } finally {
+      if (!disposed) refreshingRun.value = false
     }
   }
 
   async function send() {
     const session = createdSession.value
     const question = messageInput.value.trim()
-    if (!session || !question || sending.value) return
+    if (!session || !question || sending.value || activeRunId.value !== null) return
     const request = ++messageRequest
     const assistantIndex = { value: -1 }
     const controller = new AbortController()
@@ -156,10 +267,30 @@ export function useChatSessions() {
         (event) => handleStreamEvent(question, event, assistantIndex), controller.signal)
       if (disposed || request !== messageRequest) return
       if (result.kind === 'reused') {
-        sendNotice.value = `该请求已存在，当前状态为 ${result.run.status}。`
+        activeRunId.value = result.run.runId
+        activeQuestion = question
+        messageInput.value = ''
+        const run = await refreshRunStatus(true)
+        if (run === null && !disposed && activeRunId.value === result.run.runId) {
+          sendNotice.value = `该请求已存在，当前状态为 ${result.run.status}。`
+        }
       }
     } catch (error) {
       if (disposed || request !== messageRequest || controller.signal.aborted) return
+      if (activeRunId.value) {
+        const recovered = await refreshRunStatus(true)
+        if (recovered) return
+        if (activeRunId.value) {
+          backgroundProcessing.value = true
+          backgroundStatusUnknown.value = true
+          const assistant = messages.value[assistantIndex.value]
+          if (assistant) {
+            assistant.status = 'BACKGROUND'
+            assistant.errorMessage = '回答连接中断，暂时无法确认后台运行状态。'
+          }
+          return
+        }
+      }
       const assistant = messages.value[assistantIndex.value]
       if (assistant) {
         assistant.status = 'INTERRUPTED'
@@ -169,6 +300,35 @@ export function useChatSessions() {
     } finally {
       if (!disposed && request === messageRequest) sending.value = false
       if (messageAbortController === controller) messageAbortController = null
+    }
+  }
+
+  async function cancelRun() {
+    const runId = activeRunId.value
+    if (!runId || !activeRunCancellable.value || cancellingRun.value) return
+    const wasCancellable = activeRunCancellable.value
+    activeRunCancellable.value = false
+    cancellingRun.value = true
+    messageAbortController?.abort()
+    messageAbortController = null
+    messageRequest += 1
+    sending.value = false
+    sendError.value = ''
+    sendNotice.value = '正在停止生成并同步运行状态。'
+    let cancelError = ''
+    try {
+      await cancelChatRun(runId)
+    } catch (error) {
+      cancelError = messageFor(error)
+      if (!disposed && activeRunId.value === runId) sendError.value = cancelError
+    } finally {
+      let refreshed: ChatRunStatusResponse | null = null
+      if (!disposed && activeRunId.value === runId) refreshed = await refreshRunStatus(true, false)
+      if (!disposed && cancelError) {
+        sendError.value = cancelError
+        if (!refreshed && activeRunId.value === runId) activeRunCancellable.value = wasCancellable
+      }
+      if (!disposed) cancellingRun.value = false
     }
   }
 
@@ -227,6 +387,12 @@ export function useChatSessions() {
     sending,
     sendError,
     sendNotice,
+    activeRunId,
+    activeRunCancellable,
+    backgroundProcessing,
+    backgroundStatusUnknown,
+    refreshingRun,
+    cancellingRun,
     sourceDrawerOpen,
     selectedSource,
     sourceDetail,
@@ -234,10 +400,14 @@ export function useChatSessions() {
     sourceError,
     canCreate,
     canSend,
+    canStartAnother,
+    canCancelRun,
     loadKnowledgeBases,
     create,
     startAnother,
     send,
+    refreshRunStatus,
+    cancelRun,
     openSource,
     retrySource,
     closeSource,

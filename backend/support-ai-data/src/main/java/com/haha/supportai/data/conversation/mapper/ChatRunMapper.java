@@ -71,6 +71,46 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
                                                           @Param("clientRequestId") UUID clientRequestId);
 
     @Select("""
+            -- chat_run：按运行标识读取持久化状态，供应用内部协调恢复和执行。
+            SELECT id, session_id, client_request_id, request_hash, status, config_snapshot, usage, metrics,
+                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at
+            FROM chat_run
+            WHERE id = #{runId,jdbcType=OTHER}
+            """)
+    @ResultMap("chatRunResultMap")
+    Optional<ChatRun> selectRunById(@Param("runId") UUID runId);
+
+    @Select("""
+            -- chat_run、chat_session：仅读取当前用户拥有且未删除会话中的运行，避免泄露已删除会话内容。
+            SELECT run.id, run.session_id, run.client_request_id, run.request_hash, run.status,
+                   run.config_snapshot, run.usage, run.metrics, run.error_code, run.error_detail,
+                   run.cancel_requested_at, run.started_at, run.finished_at, run.created_at, run.updated_at
+            FROM chat_run run
+            INNER JOIN chat_session session ON session.id = run.session_id
+            WHERE run.id = #{runId,jdbcType=OTHER}
+              AND session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+            """)
+    @ResultMap("chatRunResultMap")
+    Optional<ChatRun> selectOwnedByIdAndUserId(@Param("runId") UUID runId, @Param("userId") UUID userId);
+
+    @Select("""
+            -- chat_run、chat_session：锁定当前用户拥有且未删除会话中的运行，串行化取消与终态写入。
+            SELECT run.id, run.session_id, run.client_request_id, run.request_hash, run.status,
+                   run.config_snapshot, run.usage, run.metrics, run.error_code, run.error_detail,
+                   run.cancel_requested_at, run.started_at, run.finished_at, run.created_at, run.updated_at
+            FROM chat_run run
+            INNER JOIN chat_session session ON session.id = run.session_id
+            WHERE run.id = #{runId,jdbcType=OTHER}
+              AND session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+            FOR UPDATE OF run
+            """)
+    @ResultMap("chatRunResultMap")
+    Optional<ChatRun> selectOwnedByIdAndUserIdForUpdate(@Param("runId") UUID runId,
+                                                         @Param("userId") UUID userId);
+
+    @Select("""
             -- chat_run：读取会话中尚未结束的运行，应用层在会话锁内据此拒绝并发提问。
             SELECT id, session_id, client_request_id, request_hash, status, config_snapshot, usage, metrics,
                    error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at
@@ -155,4 +195,32 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
              @Param("usage") String usage,
              @Param("metrics") String metrics,
              @Param("finishedAt") OffsetDateTime finishedAt);
+
+    @Update("""
+            -- chat_run：仅将排队或执行中的运行取消，终态记录不可被覆盖，错误详情固定为脱敏文案。
+            UPDATE chat_run
+            SET status = 'CANCELLED',
+                error_code = 'RUN_CANCELLED',
+                error_detail = '用户已取消生成',
+                cancel_requested_at = #{cancelledAt},
+                finished_at = #{cancelledAt},
+                updated_at = #{cancelledAt}
+            WHERE id = #{runId,jdbcType=OTHER}
+              AND status IN ('QUEUED', 'RUNNING')
+            """)
+    int cancel(@Param("runId") UUID runId, @Param("cancelledAt") OffsetDateTime cancelledAt);
+
+    @Update("""
+            -- chat_run：启动恢复时仅终止本次启动边界前遗留的活跃运行，不自动重新提交模型调用。
+            UPDATE chat_run
+            SET status = 'FAILED',
+                error_code = 'RUN_INTERRUPTED',
+                error_detail = '应用重启导致运行中断',
+                finished_at = #{recoveredAt},
+                updated_at = #{recoveredAt}
+            WHERE status IN ('QUEUED', 'RUNNING')
+              AND created_at < #{startupBoundary}
+            """)
+    int interruptActiveBefore(@Param("startupBoundary") OffsetDateTime startupBoundary,
+                              @Param("recoveredAt") OffsetDateTime recoveredAt);
 }

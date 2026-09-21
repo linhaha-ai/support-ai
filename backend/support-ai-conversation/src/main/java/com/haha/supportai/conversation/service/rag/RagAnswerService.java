@@ -17,6 +17,7 @@ import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.exception.RagPersistenceException;
@@ -68,7 +69,8 @@ public class RagAnswerService {
         try {
             persistenceService.start(preparedRun);
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
         }
         notifyStarted(safeObserver);
 
@@ -77,7 +79,8 @@ public class RagAnswerService {
             evidenceList = retrieveAndRevalidate(preparedRun.getUserId(), preparedRun.getSessionId(),
                     preparedRun.getQuestion());
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, RETRIEVAL_ERROR_CODE, RETRIEVAL_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, RETRIEVAL_ERROR_CODE,
+                    RETRIEVAL_ERROR_DETAIL);
         }
 
         if (evidenceList.isEmpty()) {
@@ -90,26 +93,30 @@ public class RagAnswerService {
             persistenceService.registerEvidence(preparedRun,
                     createMessageSources(preparedRun.getAssistantMessageId(), numberedEvidence));
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
         }
 
         RagPrompt prompt;
         try {
             prompt = promptFactory.create(preparedRun.getQuestion(), numberedEvidence);
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
         }
         try {
             chatModelGateway.stream(prompt.systemPrompt(), prompt.userPrompt(),
                     chunk -> acceptChunk(preparedRun, safeObserver, context, chunk));
         } catch (RagPersistenceException exception) {
-            throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, MODEL_ERROR_CODE, MODEL_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, MODEL_ERROR_CODE, MODEL_ERROR_DETAIL);
         }
         String answer = context.content.toString();
         if (answer == null || answer.isBlank()) {
-            throw failAndCreateException(preparedRun, context, EMPTY_MODEL_ERROR_CODE, EMPTY_MODEL_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, null, EMPTY_MODEL_ERROR_CODE,
+                    EMPTY_MODEL_ERROR_DETAIL);
         }
 
         List<Integer> citedSourceNumbers;
@@ -122,7 +129,8 @@ public class RagAnswerService {
             persistenceService.complete(preparedRun.getRunId(), preparedRun.getAssistantMessageId(), answer,
                     citedSourceNumbers, serializeNullable(context.usage), serialize(metrics));
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
         }
         return new RagAnswerResult(preparedRun.getRunId(), preparedRun.getAssistantMessageId(), answer,
                 citedSourceNumbers, ChatRunStatusEnum.COMPLETED, false, sources, context.usage, metrics);
@@ -171,7 +179,8 @@ public class RagAnswerService {
             persistenceService.complete(preparedRun.getRunId(), preparedRun.getAssistantMessageId(),
                     NO_EVIDENCE_ANSWER, List.of(), null, serialize(metrics));
         } catch (RuntimeException exception) {
-            throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
         }
         return new RagAnswerResult(preparedRun.getRunId(), preparedRun.getAssistantMessageId(), NO_EVIDENCE_ANSWER,
                 List.of(), ChatRunStatusEnum.COMPLETED, true, List.of(), null, metrics);
@@ -191,6 +200,8 @@ public class RagAnswerService {
         }
         try {
             append(preparedRun, observer, context, delta);
+        } catch (ChatRunCancelledException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw new RagPersistenceException();
         }
@@ -282,6 +293,29 @@ public class RagAnswerService {
         return List.copyOf(sources);
     }
 
+    /**
+     * SSE 真正发送来源前再次复核权限，避免使用生成完成时缓存的授权结果。
+     */
+    public List<RagSourceResponse> revalidateReadableSources(UUID userId, List<RagSourceResponse> sources) {
+        if (userId == null || sources == null || sources.isEmpty()) {
+            return List.of();
+        }
+        List<RagSourceResponse> readableSources = new ArrayList<>();
+        for (RagSourceResponse source : sources) {
+            if (source == null || source.getType() != MessageSourceTypeEnum.DOCUMENT || source.getChunkId() == null) {
+                continue;
+            }
+            try {
+                documentSourceQueryService.findReadableSource(userId, source.getChunkId())
+                        .map(documentSource -> toSourceResponse(source.getNumber(), documentSource))
+                        .ifPresent(readableSources::add);
+            } catch (RuntimeException ignored) {
+                // 发送瞬间无法确认读取权限时直接隐藏，不使用先前缓存的来源信息。
+            }
+        }
+        return List.copyOf(readableSources);
+    }
+
     private RagSourceResponse toSourceResponse(int citationNumber, DocumentSourceResponse source) {
         return new RagSourceResponse(citationNumber, MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
                 source.getVersionId(), source.getChunkId(), source.getDocumentName(), source.getSection(),
@@ -318,12 +352,25 @@ public class RagAnswerService {
                 context.firstDeltaMs);
     }
 
-    private RagGenerationException failAndCreateException(PreparedChatRunResponse preparedRun,
+    private RuntimeException failureOrCancellation(PreparedChatRunResponse preparedRun, GenerationContext context,
+            RuntimeException cause, String errorCode, String errorDetail) {
+        if (cause instanceof ChatRunCancelledException || persistenceService.isCancelled(preparedRun.getRunId())) {
+            return new ChatRunCancelledException();
+        }
+        return failAndCreateException(preparedRun, context, errorCode, errorDetail);
+    }
+
+    private RuntimeException failAndCreateException(PreparedChatRunResponse preparedRun,
             GenerationContext context, String errorCode, String errorDetail) {
         try {
             persistenceService.fail(preparedRun.getRunId(), preparedRun.getAssistantMessageId(),
                     context.content.toString(), errorCode, errorDetail, serializeFailureUsage(context.usage),
                     serializeFailureMetrics(context));
+        } catch (ChatRunCancelledException exception) {
+            return exception;
+        } catch (RagGenerationException exception) {
+            // 总超时已先取得数据库终态时，流式通道必须沿用同一个稳定错误码。
+            return exception;
         } catch (RuntimeException ignored) {
             // 失败收口本身异常时仍只向上返回稳定错误，不泄露底层数据库或供应商信息。
         }

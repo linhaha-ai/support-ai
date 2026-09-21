@@ -70,14 +70,14 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 
     @Update("""
             -- chat_message：仅完成仍在生成中的助手消息，空白答案不得进入完成状态。
-            UPDATE chat_message
+            UPDATE chat_message message
             SET content = #{content},
                 status = 'COMPLETED',
                 updated_at = #{completedAt}
-            WHERE id = #{messageId,jdbcType=OTHER}
-              AND run_id = #{runId,jdbcType=OTHER}
-              AND role = 'ASSISTANT'
-              AND status = 'STREAMING'
+            WHERE message.id = #{messageId,jdbcType=OTHER}
+              AND message.run_id = #{runId,jdbcType=OTHER}
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
               AND LENGTH(BTRIM(#{content})) > 0
             """)
     int completeAssistant(@Param("runId") UUID runId,
@@ -86,7 +86,7 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
                           @Param("completedAt") OffsetDateTime completedAt);
 
     @Update("""
-            -- chat_message、chat_run：原子保存显式部分正文并失败仍在生成中的助手消息。
+            -- chat_message：运行已写入终态后，仍可按运行和消息标识保存部分正文并结束助手消息。
             UPDATE chat_message message
             SET content = COALESCE(#{partialContent,jdbcType=VARCHAR}, message.content),
                 status = 'FAILED',
@@ -95,15 +95,39 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
               AND message.run_id = #{runId,jdbcType=OTHER}
               AND message.role = 'ASSISTANT'
               AND message.status = 'STREAMING'
-              AND EXISTS (
-                  SELECT 1
-                  FROM chat_run run
-                  WHERE run.id = message.run_id
-                    AND run.status IN ('QUEUED', 'RUNNING')
-              )
             """)
     int failAssistant(@Param("runId") UUID runId,
                       @Param("messageId") UUID messageId,
                       @Param("partialContent") String partialContent,
                       @Param("failedAt") OffsetDateTime failedAt);
+
+    @Update("""
+            -- chat_message：仅取消指定运行中仍在生成的助手消息，保留已持久化的部分回答。
+            UPDATE chat_message message
+            SET status = 'CANCELLED',
+                updated_at = #{cancelledAt}
+            WHERE message.id = #{messageId,jdbcType=OTHER}
+              AND message.run_id = #{runId,jdbcType=OTHER}
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
+            """)
+    int cancelAssistant(@Param("runId") UUID runId,
+                        @Param("messageId") UUID messageId,
+                        @Param("cancelledAt") OffsetDateTime cancelledAt);
+
+    @Update("""
+            -- chat_message、chat_run：仅补偿本次启动恢复标记为 RUN_INTERRUPTED 的遗留助手流，避免覆盖普通失败记录。
+            UPDATE chat_message message
+            SET status = 'FAILED',
+                updated_at = #{recoveredAt}
+            FROM chat_run run
+            WHERE run.id = message.run_id
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
+              AND run.status = 'FAILED'
+              AND run.error_code = 'RUN_INTERRUPTED'
+              AND run.finished_at = #{recoveredAt}
+              AND run.updated_at = #{recoveredAt}
+            """)
+    int interruptAssistants(@Param("recoveredAt") OffsetDateTime recoveredAt);
 }

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class RagPromptFactory {
 
+    public static final String PROMPT_VERSION = "rag-cited-v1";
+
     private static final String SYSTEM_PROMPT = """
             你是企业技术支持助手。请严格遵守以下规则：
             1. 只能依据用户消息中提供的授权证据回答，不得补充证据之外的事实。

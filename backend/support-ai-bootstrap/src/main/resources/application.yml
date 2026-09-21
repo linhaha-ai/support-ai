@@ -140,6 +140,7 @@ support:
         pool-size: 4
         queue-capacity: 32
         timeout: 200s
+        execution-timeout: 180s
     ingestion:
       worker:
         enabled: true

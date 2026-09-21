@@ -3,6 +3,7 @@ package com.haha.supportai.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.service.run.ChatRunService;
+import com.haha.supportai.conversation.service.run.ChatRunControlService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
 import com.haha.supportai.conversation.service.stream.ChatMessageStreamService;
 import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
@@ -119,6 +120,9 @@ class HealthSecurityTest {
     ChatRunService chatRunService;
 
     @MockBean
+    ChatRunControlService chatRunControlService;
+
+    @MockBean
     ChatMessageStreamService chatMessageStreamService;
 
     @Test
@@ -132,6 +136,7 @@ class HealthSecurityTest {
         for (String path : new String[] { "/api/chat", "/api/health/db", "/api/env", "/actuator", "/doc.html",
                 "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
                 "/api/chat/sessions", "/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests",
+                "/api/chat/runs/550e8400-e29b-41d4-a716-446655440000",
                 "/api/chunks/550e8400-e29b-41d4-a716-446655440000/source",
                 "/" }) {
             mvc.perform(get(path))
@@ -155,6 +160,10 @@ class HealthSecurityTest {
         String messageBody = "{\"clientRequestId\":\"550e8400-e29b-41d4-a716-446655440002\","
                 + "\"content\":\"如何排查？\"}";
         mvc.perform(post(messagePath).contentType(MediaType.APPLICATION_JSON).content(messageBody))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
+
+        mvc.perform(post("/api/chat/runs/550e8400-e29b-41d4-a716-446655440000/cancel"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
 

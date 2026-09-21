@@ -24,6 +24,18 @@ public class ChatRunRepository {
         return chatRunMapper.selectBySessionIdAndClientRequestId(sessionId, clientRequestId);
     }
 
+    public Optional<ChatRun> findById(UUID runId) {
+        return chatRunMapper.selectRunById(runId);
+    }
+
+    public Optional<ChatRun> findOwnedById(UUID runId, UUID userId) {
+        return chatRunMapper.selectOwnedByIdAndUserId(runId, userId);
+    }
+
+    public Optional<ChatRun> findOwnedByIdForUpdate(UUID runId, UUID userId) {
+        return chatRunMapper.selectOwnedByIdAndUserIdForUpdate(runId, userId);
+    }
+
     public Optional<ChatRun> findActiveBySessionId(UUID sessionId) {
         return chatRunMapper.selectActiveBySessionId(sessionId);
     }
@@ -44,5 +56,13 @@ public class ChatRunRepository {
     public boolean fail(UUID runId, String errorCode, String errorDetail, String usage, String metrics,
             OffsetDateTime finishedAt) {
         return chatRunMapper.fail(runId, errorCode, errorDetail, usage, metrics, finishedAt) == 1;
+    }
+
+    public boolean cancel(UUID runId, OffsetDateTime cancelledAt) {
+        return chatRunMapper.cancel(runId, cancelledAt) == 1;
+    }
+
+    public int interruptActiveBefore(OffsetDateTime startupBoundary, OffsetDateTime recoveredAt) {
+        return chatRunMapper.interruptActiveBefore(startupBoundary, recoveredAt);
     }
 }

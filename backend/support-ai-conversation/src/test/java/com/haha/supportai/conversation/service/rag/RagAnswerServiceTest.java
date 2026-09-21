@@ -11,12 +11,15 @@ import com.haha.supportai.conversation.config.RagProperties;
 import com.haha.supportai.conversation.entity.dto.ChatModelChunk;
 import com.haha.supportai.conversation.entity.dto.ChatModelUsage;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
+import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -99,10 +102,11 @@ class RagAnswerServiceTest {
         then(knowledgeRetrievalService).should(never())
                 .revalidateReadableWithinSession(eq(USER_ID), eq(SESSION_ID), anyList());
         then(chatModelGateway).shouldHaveNoInteractions();
-        then(persistenceService).should().start(any(PreparedChatRunResponse.class));
-        then(persistenceService).should().append(RUN_ID, ASSISTANT_MESSAGE_ID,
+        InOrder noEvidencePersistence = inOrder(persistenceService);
+        noEvidencePersistence.verify(persistenceService).start(any(PreparedChatRunResponse.class));
+        noEvidencePersistence.verify(persistenceService).append(RUN_ID, ASSISTANT_MESSAGE_ID,
                 "资料不足：未找到可用于回答该问题的授权资料。");
-        then(persistenceService).should().complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID),
+        noEvidencePersistence.verify(persistenceService).complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID),
                 eq("资料不足：未找到可用于回答该问题的授权资料。"), eq(List.of()), isNull(), anyString());
         then(persistenceService).should(never()).registerEvidence(any(PreparedChatRunResponse.class), anyList());
     }
@@ -289,6 +293,33 @@ class RagAnswerServiceTest {
 
         assertThat(result.getCitedSourceNumbers()).containsExactly(1);
         assertThat(result.getSources()).isEmpty();
+    }
+
+    @Test
+    void hidesCachedSourceWhenPermissionIsRevokedImmediatelyBeforeDelivery() {
+        KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "可用资料");
+        RagSourceResponse cachedSource = new RagSourceResponse(1, MessageSourceTypeEnum.DOCUMENT,
+                evidence.getDocumentId(), evidence.getVersionId(), evidence.getChunkId(), evidence.getDocumentName(),
+                evidence.getSection(), true, "/api/chunks/" + evidence.getChunkId() + "/source");
+        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+                .willReturn(Optional.empty());
+
+        List<RagSourceResponse> sources = ragAnswerService.revalidateReadableSources(USER_ID,
+                List.of(cachedSource));
+
+        assertThat(sources).isEmpty();
+    }
+
+    @Test
+    void cancellationDuringInitialStateTransitionDoesNotBecomeModelFailure() {
+        willThrow(new ChatRunCancelledException()).given(persistenceService).start(any(PreparedChatRunResponse.class));
+
+        assertThatThrownBy(() -> ragAnswerService.generate(preparedRun("如何处理？")))
+                .isInstanceOf(ChatRunCancelledException.class);
+
+        then(knowledgeRetrievalService).shouldHaveNoInteractions();
+        then(chatModelGateway).shouldHaveNoInteractions();
+        then(persistenceService).should(never()).fail(any(), any(), any(), any(), any(), any(), any());
     }
 
     private void arrangeEvidence(List<KnowledgeRetrievalEvidenceResponse> evidenceList) {

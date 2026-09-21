@@ -39,4 +39,12 @@ public class ChatMessageRepository {
     public boolean failAssistant(UUID runId, UUID messageId, String partialContent, OffsetDateTime failedAt) {
         return chatMessageMapper.failAssistant(runId, messageId, partialContent, failedAt) == 1;
     }
+
+    public boolean cancelAssistant(UUID runId, UUID messageId, OffsetDateTime cancelledAt) {
+        return chatMessageMapper.cancelAssistant(runId, messageId, cancelledAt) == 1;
+    }
+
+    public int interruptAssistants(OffsetDateTime recoveredAt) {
+        return chatMessageMapper.interruptAssistants(recoveredAt);
+    }
 }

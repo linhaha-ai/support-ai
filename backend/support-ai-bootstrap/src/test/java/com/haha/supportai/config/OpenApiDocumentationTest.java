@@ -8,11 +8,16 @@ import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
+import com.haha.supportai.conversation.entity.dto.ChatRunCancellationResult;
+import com.haha.supportai.conversation.entity.vo.ChatRunStatusResponse;
 import com.haha.supportai.conversation.entity.vo.ChatSessionResponse;
+import com.haha.supportai.conversation.exception.ChatRunNotFoundException;
 import com.haha.supportai.conversation.service.run.ChatRunService;
+import com.haha.supportai.conversation.service.run.ChatRunControlService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
 import com.haha.supportai.conversation.service.stream.ChatMessageStreamService;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.enums.ChatMessageStatusEnum;
 import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
 import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
@@ -153,6 +158,9 @@ class OpenApiDocumentationTest {
     ChatRunService chatRunService;
 
     @MockBean
+    ChatRunControlService chatRunControlService;
+
+    @MockBean
     ChatMessageStreamService chatMessageStreamService;
 
     @Test
@@ -258,6 +266,10 @@ class OpenApiDocumentationTest {
                         .exists())
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['operationId']")
                         .value("createChatSession"))
+                .andExpect(jsonPath("$['paths']['/api/chat/runs/{runId}']['get']['operationId']")
+                        .value("getChatRunStatus"))
+                .andExpect(jsonPath("$['paths']['/api/chat/runs/{runId}/cancel']['post']['operationId']")
+                        .value("cancelChatRun"))
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['parameters'][0]['name']")
                         .value("X-CSRF-TOKEN"))
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['requestBody']"
@@ -341,6 +353,11 @@ class OpenApiDocumentationTest {
                 "IngestionJobStatusResponse");
         assertResponseDataSchema(apiDocs, "/api/chat/sessions", "post", "201",
                 "ChatSessionResponse");
+        assertResponseDataSchema(apiDocs, "/api/chat/runs/{runId}", "get", "ChatRunStatusResponse");
+        assertResponseDataSchema(apiDocs, "/api/chat/runs/{runId}/cancel", "post", "200",
+                "ChatRunCancelResponse");
+        assertResponseDataSchema(apiDocs, "/api/chat/runs/{runId}/cancel", "post", "202",
+                "ChatRunCancelResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",
                 "KnowledgeBaseManagementResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/users", "get", "UserSummaryResponse");
@@ -425,6 +442,52 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$.data.status").value("RUNNING"))
                 .andExpect(jsonPath("$.data.reused").value(true));
         verifyNoInteractions(chatMessageStreamService);
+    }
+
+    @Test
+    void authenticatedOwnerCanQueryAndCancelPersistedRun() throws Exception {
+        UUID runId = UUID.fromString("550e8400-e29b-41d4-a716-446655440050");
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440051");
+        UUID userMessageId = UUID.fromString("550e8400-e29b-41d4-a716-446655440052");
+        UUID assistantMessageId = UUID.fromString("550e8400-e29b-41d4-a716-446655440053");
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-21T08:00:00Z");
+        configureAuthenticatedUser();
+        when(chatRunControlService.getStatus(runId)).thenReturn(new ChatRunStatusResponse(runId, sessionId,
+                userMessageId, assistantMessageId, ChatRunStatusEnum.RUNNING,
+                ChatMessageStatusEnum.STREAMING, "部分回答", true,
+                List.of(), null, null, null, null, true, null, now, null));
+        when(chatRunControlService.cancel(runId))
+                .thenReturn(new ChatRunCancellationResult(runId, ChatRunStatusEnum.CANCELLED, true));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        mvc.perform(get("/api/chat/runs/{runId}", runId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.runId").value(runId.toString()))
+                .andExpect(jsonPath("$.data.answer").value("部分回答"));
+        mvc.perform(post("/api/chat/runs/{runId}/cancel", runId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.newlyCancelled").value(true));
+    }
+
+    @Test
+    void runNotFoundUsesConversationErrorContractWithoutExposingOwnership() throws Exception {
+        UUID runId = UUID.fromString("550e8400-e29b-41d4-a716-446655440054");
+        configureAuthenticatedUser();
+        when(chatRunControlService.getStatus(runId)).thenThrow(new ChatRunNotFoundException());
+
+        AuthenticatedRequest authenticatedRequest = login();
+        mvc.perform(get("/api/chat/runs/{runId}", runId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CHAT_RUN_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("问答运行不存在"));
     }
 
     @Test

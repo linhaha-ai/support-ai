@@ -52,6 +52,34 @@ export interface ChatRunReuse {
   reused: true
 }
 
+export type ChatAssistantStatus = 'STREAMING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+
+export interface ChatRunStatusResponse {
+  runId: string
+  sessionId: string
+  userMessageId: string
+  assistantMessageId: string
+  status: ChatRunStatus
+  assistantStatus: ChatAssistantStatus
+  answer: string | null
+  contentReadable: boolean
+  sources: ChatSourceReference[]
+  usage: Record<string, unknown> | null
+  metrics: Record<string, unknown> | null
+  errorCode: string | null
+  errorMessage: string | null
+  cancellable: boolean
+  cancelRequestedAt: string | null
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+export interface ChatRunCancelResponse {
+  runId: string
+  status: ChatRunStatus
+  newlyCancelled: boolean
+}
+
 export type SubmitChatMessageResult =
   | { kind: 'stream', terminal: Extract<ChatStreamEvent, { event: 'done' | 'error' }> }
   | { kind: 'reused', run: ChatRunReuse }
@@ -110,10 +138,77 @@ function parseRunStatus(value: unknown): ChatRunStatus | null {
     || value === 'FAILED' || value === 'CANCELLED' ? value : null
 }
 
+function parseAssistantStatus(value: unknown): ChatAssistantStatus | null {
+  return value === 'STREAMING' || value === 'COMPLETED' || value === 'FAILED' || value === 'CANCELLED'
+    ? value : null
+}
+
+function parseOptionalTimestamp(value: unknown): string | null {
+  return typeof value === 'string' || value === null ? value : null
+}
+
+function parseOptionalRecord(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) || value === null ? value : null
+}
+
 function parseReuse(value: unknown): ChatRunReuse | null {
   if (!isRecord(value) || typeof value.runId !== 'string' || value.reused !== true) return null
   const status = parseRunStatus(value.status)
   return status ? { runId: value.runId, status, reused: true } : null
+}
+
+function parseChatRunStatus(value: unknown): ChatRunStatusResponse | null {
+  if (!isRecord(value)
+    || typeof value.runId !== 'string'
+    || typeof value.sessionId !== 'string'
+    || typeof value.userMessageId !== 'string'
+    || typeof value.assistantMessageId !== 'string'
+    || !(typeof value.answer === 'string' || value.answer === null)
+    || typeof value.contentReadable !== 'boolean'
+    || !Array.isArray(value.sources)
+    || !(typeof value.errorCode === 'string' || value.errorCode === null)
+    || !(typeof value.errorMessage === 'string' || value.errorMessage === null)
+    || typeof value.cancellable !== 'boolean') return null
+  const status = parseRunStatus(value.status)
+  const assistantStatus = parseAssistantStatus(value.assistantStatus)
+  const sources = value.sources.map(parseSourceReference)
+  const usage = parseOptionalRecord(value.usage)
+  const metrics = parseOptionalRecord(value.metrics)
+  const cancelRequestedAt = parseOptionalTimestamp(value.cancelRequestedAt)
+  const startedAt = parseOptionalTimestamp(value.startedAt)
+  const finishedAt = parseOptionalTimestamp(value.finishedAt)
+  if (!status || !assistantStatus
+    || !sources.every((source): source is ChatSourceReference => source !== null)
+    || usage === null && value.usage !== null
+    || metrics === null && value.metrics !== null
+    || cancelRequestedAt === null && value.cancelRequestedAt !== null
+    || startedAt === null && value.startedAt !== null
+    || finishedAt === null && value.finishedAt !== null) return null
+  return {
+    runId: value.runId,
+    sessionId: value.sessionId,
+    userMessageId: value.userMessageId,
+    assistantMessageId: value.assistantMessageId,
+    status,
+    assistantStatus,
+    answer: value.answer,
+    contentReadable: value.contentReadable,
+    sources,
+    usage,
+    metrics,
+    errorCode: value.errorCode,
+    errorMessage: value.errorMessage,
+    cancellable: value.cancellable,
+    cancelRequestedAt,
+    startedAt,
+    finishedAt,
+  }
+}
+
+function parseChatRunCancel(value: unknown): ChatRunCancelResponse | null {
+  if (!isRecord(value) || typeof value.runId !== 'string' || typeof value.newlyCancelled !== 'boolean') return null
+  const status = parseRunStatus(value.status)
+  return status ? { runId: value.runId, status, newlyCancelled: value.newlyCancelled } : null
 }
 
 function expectedPreviewPath(chunkId: string): string {
@@ -292,17 +387,17 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function errorFor(response: Response, action: 'create' | 'message' | 'source'): ChatSessionApiError {
+function errorFor(response: Response, action: 'create' | 'message' | 'source' | 'run'): ChatSessionApiError {
   if (response.status === 401) return { kind: 'unauthorized', message: '登录状态已失效，请重新登录。' }
   if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有执行此操作的权限。' }
-  if (response.status === 404) return { kind: 'not-found', message: action === 'source' ? '来源已不可访问。' : '会话或知识范围不可用。' }
+  if (response.status === 404) return { kind: 'not-found', message: action === 'source' ? '来源已不可访问。' : action === 'run' ? '问答运行不存在或已不可访问。' : '会话或知识范围不可用。' }
   if (response.status === 409) return { kind: 'conflict', message: '当前会话状态已变化，请稍后重试。' }
   if (response.status === 429) return { kind: 'rate-limit', message: '当前请求较多，请稍后再试。' }
-  const label = action === 'create' ? '会话' : action === 'message' ? '回答' : '来源'
+  const label = action === 'create' ? '会话' : action === 'message' ? '回答' : action === 'source' ? '来源' : '运行状态'
   return { kind: 'request', message: `${label}请求未完成，请稍后重试。` }
 }
 
-async function requestCsrf(action: 'create' | 'message', signal?: AbortSignal): Promise<CsrfData> {
+async function requestCsrf(action: 'create' | 'message' | 'run', signal?: AbortSignal): Promise<CsrfData> {
   const response = await fetch('/api/auth/csrf', {
     method: 'GET',
     headers: { Accept: 'application/json' },
@@ -373,6 +468,42 @@ export async function submitChatMessage(
   }
   if (contentType !== 'text/event-stream') throw invalidStream()
   return { kind: 'stream', terminal: await consumeChatEventStream(response, onEvent) }
+}
+
+export async function fetchChatRun(runId: string, signal?: AbortSignal): Promise<ChatRunStatusResponse> {
+  const response = await fetch(`/api/chat/runs/${encodeURIComponent(runId)}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+    cache: 'no-store',
+    signal,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const run = response.ok && envelope?.code === 'OK' ? parseChatRunStatus(envelope.data) : null
+  if (run) return run
+  if (!response.ok) throw errorFor(response, 'run')
+  throw { kind: 'invalid-response', message: '运行状态响应格式无效，请稍后重试。' } satisfies ChatSessionApiError
+}
+
+export async function cancelChatRun(runId: string, signal?: AbortSignal): Promise<ChatRunCancelResponse> {
+  const csrf = await requestCsrf('run', signal)
+  const response = await fetch(`/api/chat/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      [csrf.headerName]: csrf.token,
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
+    signal,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const result = (response.status === 200 || response.status === 202) && envelope?.code === 'OK'
+    ? parseChatRunCancel(envelope.data)
+    : null
+  if (result) return result
+  if (!response.ok) throw errorFor(response, 'run')
+  throw { kind: 'invalid-response', message: '停止回答响应格式无效，请稍后重试。' } satisfies ChatSessionApiError
 }
 
 export async function fetchDocumentSource(chunkId: string, signal?: AbortSignal): Promise<DocumentSource> {

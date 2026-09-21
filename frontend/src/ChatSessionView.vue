@@ -7,16 +7,21 @@ import {
   ElCheckboxGroup,
   ElDrawer,
   ElEmpty,
+  ElIcon,
   ElInput,
+  ElPopconfirm,
   ElSkeleton,
   ElTag,
 } from 'element-plus'
+import { VideoPause } from '@element-plus/icons-vue'
 import 'element-plus/es/components/alert/style/css'
 import 'element-plus/es/components/button/style/css'
 import 'element-plus/es/components/checkbox/style/css'
 import 'element-plus/es/components/drawer/style/css'
 import 'element-plus/es/components/empty/style/css'
+import 'element-plus/es/components/icon/style/css'
 import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/popconfirm/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import { useChatSessions } from './useChatSessions'
@@ -35,6 +40,7 @@ function formatDate(value: string): string {
 
 function statusLabel(status: string): string {
   if (status === 'STREAMING') return '生成中'
+  if (status === 'BACKGROUND') return '后台处理中'
   if (status === 'COMPLETED') return '已完成'
   if (status === 'CANCELLED') return '已停止'
   return '未完整'
@@ -42,7 +48,7 @@ function statusLabel(status: string): string {
 
 function statusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
   if (status === 'COMPLETED') return 'success'
-  if (status === 'STREAMING') return 'info'
+  if (status === 'STREAMING' || status === 'BACKGROUND') return 'info'
   if (status === 'CANCELLED') return 'warning'
   return 'danger'
 }
@@ -71,7 +77,7 @@ onMounted(sessions.loadKnowledgeBases)
         <div class="chat-session-scope" aria-label="固定知识库范围">
           <span v-for="knowledgeBase in selectedKnowledgeBases" :key="knowledgeBase.id">{{ knowledgeBase.name }}</span>
         </div>
-        <ElButton @click="sessions.startAnother">新建会话</ElButton>
+        <ElButton :disabled="!sessions.canStartAnother" @click="sessions.startAnother">新建会话</ElButton>
       </div>
 
       <ElAlert
@@ -82,6 +88,20 @@ onMounted(sessions.loadKnowledgeBases)
         :title="sessions.sendError"
         show-icon
       />
+      <ElAlert
+        v-if="sessions.backgroundProcessing"
+        class="chat-session-alert"
+        type="info"
+        :closable="false"
+        :title="sessions.backgroundStatusUnknown
+          ? '回答连接已断开，暂时无法确认后台状态。'
+          : '回答连接已断开，后台仍在处理中。'"
+        show-icon
+      >
+        <template #default>
+          <ElButton text type="primary" :loading="sessions.refreshingRun" @click="sessions.refreshRunStatus()">刷新状态</ElButton>
+        </template>
+      </ElAlert>
       <ElAlert
         v-if="sessions.sendNotice"
         class="chat-session-alert"
@@ -137,9 +157,25 @@ onMounted(sessions.loadKnowledgeBases)
           aria-label="问题内容"
           :disabled="sessions.sending"
         />
-        <ElButton type="primary" native-type="submit" :loading="sessions.sending" :disabled="!sessions.canSend">
-          发送
-        </ElButton>
+        <div class="chat-composer-actions">
+          <ElPopconfirm
+            v-if="sessions.canCancelRun"
+            title="停止后将保留已生成的内容，确认停止吗？"
+            confirm-button-text="停止生成"
+            cancel-button-text="继续生成"
+            @confirm="sessions.cancelRun"
+          >
+            <template #reference>
+              <ElButton class="chat-stop-button" type="warning" :loading="sessions.cancellingRun">
+                <ElIcon><VideoPause /></ElIcon>
+                停止
+              </ElButton>
+            </template>
+          </ElPopconfirm>
+          <ElButton type="primary" native-type="submit" :loading="sessions.sending" :disabled="!sessions.canSend">
+            发送
+          </ElButton>
+        </div>
       </form>
     </section>
 
