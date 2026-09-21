@@ -29,8 +29,12 @@ import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentQueryService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
+import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
+import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
+import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +49,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -107,6 +112,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     IngestionJobQueryService ingestionJobQueryService;
+
+    @MockBean
+    KnowledgeRetrievalService knowledgeRetrievalService;
 
     @MockBean
     ChatSessionRepository chatSessionRepository;
@@ -195,6 +203,15 @@ class OpenApiDocumentationTest {
                         .value("listKnowledgeDocuments"))
                 .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['get']['security'][0]"
                         + "['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/retrieval-tests']['post']['operationId']")
+                        .value("testKnowledgeBaseRetrieval"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/retrieval-tests']['post']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/retrieval-tests']['post']"
+                        + "['requestBody']['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/KnowledgeRetrievalTestRequest"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/retrieval-tests']['post']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}']['get']['operationId']")
                         .value("getKnowledgeDocument"))
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['get']['operationId']")
@@ -266,6 +283,8 @@ class OpenApiDocumentationTest {
                 "DocumentUploadReceiptResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/knowledge-bases/{kbId}/documents", "get",
                 "DocumentSummaryResponse");
+        assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}/retrieval-tests", "post",
+                "KnowledgeRetrievalTestResponse");
         assertResponseDataSchema(apiDocs, "/api/documents/{documentId}", "get",
                 "DocumentDetailResponse");
         assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions", "get",
@@ -331,6 +350,75 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$.data.sessionId").value(sessionId.toString()))
                 .andExpect(jsonPath("$.data.mode").value("RAG"))
                 .andExpect(jsonPath("$.data.knowledgeBaseIds[0]").value(knowledgeBaseId.toString()));
+    }
+
+    @Test
+    void authenticatedWriterWithCsrfCanRunKnowledgeRetrievalTest() throws Exception {
+        UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440021");
+        configureAuthenticatedUser();
+        when(knowledgeRetrievalService.testWritableKnowledgeBase(eq(knowledgeBaseId), any()))
+                .thenReturn(new KnowledgeRetrievalTestResponse(knowledgeBaseId, "退款状态", 3, 12L, List.of()));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"退款状态\",\"topK\":3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.knowledgeBaseId").value(knowledgeBaseId.toString()))
+                .andExpect(jsonPath("$.data.matches").isArray());
+    }
+
+    @Test
+    void retrievalTestMapsAccessDeniedAndUnknownFieldsToClientErrors() throws Exception {
+        UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440022");
+        configureAuthenticatedUser();
+        when(knowledgeRetrievalService.testWritableKnowledgeBase(eq(knowledgeBaseId), any()))
+                .thenThrow(new KnowledgeBaseAccessDeniedException());
+
+        AuthenticatedRequest authenticatedRequest = login();
+        mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"退款状态\",\"topK\":3}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+        mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"退款状态\",\"topK\":3,\"kbIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void retrievalTestUnavailableErrorDoesNotExposeModelFailureCause() throws Exception {
+        UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440023");
+        configureAuthenticatedUser();
+        when(knowledgeRetrievalService.testWritableKnowledgeBase(eq(knowledgeBaseId), any()))
+                .thenThrow(new KnowledgeRetrievalUnavailableException(
+                        new IllegalStateException("embedding-provider-secret")));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        MvcResult result = mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"退款状态\",\"topK\":3}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("KNOWLEDGE_RETRIEVAL_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value("知识库检索暂时不可用"))
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("embedding-provider-secret");
     }
 
     private void assertResponseDataSchema(JsonNode apiDocs, String path, String method, String expectedSchemaName) {
@@ -400,8 +488,27 @@ class OpenApiDocumentationTest {
                                 .toString()))
                 .andExpect(status().isOk())
                 .andReturn();
-        return new AuthenticatedRequest((MockHttpSession) loginResult.getRequest().getSession(false),
-                loginCookie(loginResult));
+        MockHttpSession authenticatedSession = (MockHttpSession) loginResult.getRequest().getSession(false);
+        Cookie authenticatedCookie = loginCookie(loginResult);
+        MvcResult authenticatedCsrfResult = mvc.perform(get("/api/auth/csrf")
+                        .session(authenticatedSession)
+                        .cookie(authenticatedCookie))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode authenticatedCsrf = objectMapper.readTree(authenticatedCsrfResult.getResponse().getContentAsString())
+                .path("data");
+        return new AuthenticatedRequest(authenticatedSession, authenticatedCookie,
+                authenticatedCsrf.path("headerName").asText(), authenticatedCsrf.path("token").asText());
+    }
+
+    private void configureAuthenticatedUser() {
+        UUID userId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-21T08:00:00Z");
+        AppUser appUser = new AppUser(userId, "admin", "unused-hash", "系统管理员", UserRoleEnum.ADMIN, true,
+                now, now);
+        when(authenticationService.authenticate("admin", DOCUMENTATION_PASSWORD))
+                .thenReturn(AuthenticatedUser.from(appUser));
+        when(appUserRepository.findById(userId)).thenReturn(Optional.of(appUser));
     }
 
     private Cookie loginCookie(MvcResult loginResult) {
@@ -416,6 +523,6 @@ class OpenApiDocumentationTest {
         return new Cookie(IdentityOpenApiConfiguration.SA_TOKEN_COOKIE_NAME, tokenValue);
     }
 
-    private record AuthenticatedRequest(MockHttpSession session, Cookie cookie) {
+    private record AuthenticatedRequest(MockHttpSession session, Cookie cookie, String csrfHeader, String csrfToken) {
     }
 }

@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F10 已实现待后端与场景验收**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F11 已实现待后端与场景验收**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与会话创建页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05—F08 已形成上传、持久任务、解析分块、向量生成与原子发布链路；F09 新增授权文档列表、详情、版本游标分页、受控原文读取和分块正文检查，前端覆盖加载、空数据、处理中、失败和重试状态。F10 新增 `chat_session`、`chat_session_kb`、`chat_run`、`chat_message` 四表、固定 RAG 知识库范围与 `POST /api/chat/sessions`；浏览器只能选择一个或多个可读知识库并创建 RAG 会话，消息提交、SSE、检索、来源和历史均未开放。会话创建在事务内锁定全部可读知识库与成员关系，避免授权变更穿透创建过程；分块正文继续以 `vector_store.content` 为唯一权威副本，READ 成员可查看，管理员身份不绕过成员授权；F11 授权检索尚未实现。当前开发库已确认 Flyway V1—V10 全部成功、pgvector 0.8.6、`vector(1024)` 与 V10 的四张会话表、关键幂等/消息序号/run 角色/复合外键/请求哈希约束、`uq_chat_run_active_session` 部分唯一索引和 `chat_session` 中文表注释均有效；F10 的后端单元、OpenAPI 与 Testcontainers 测试代码已补充，前端 9 个测试文件共 45 项测试和生产构建已通过，但本轮未运行 Maven、Testcontainers、真实 API 或浏览器场景。F09 依赖仍未验收，故 F10 也不能勾选。本轮 M1/M2 复核还发现 Ollama 未启动、当前验收会话未提供 DashScope 配置、认证后的 OpenAPI JSON 返回 500，且开发库没有文档、分块或向量，因此 F01—F09 不能勾选。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F09 结果见 [F09 验收记录](doc/验收记录/F09验收记录.md)，F10 实现与待验收项见 [F10 验收记录](doc/验收记录/F10验收记录.md)；完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与会话创建页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05—F08 已形成上传、持久任务、解析分块、向量生成与原子发布链路；F09 新增授权文档列表、详情、版本游标分页、受控原文读取和分块正文检查；F10 新增固定 RAG 知识库范围、会话持久化与 `POST /api/chat/sessions`。F11 新增 `POST /api/knowledge-bases/{kbId}/retrieval-tests`：仅 WRITE 成员可调用，查询向量由当前 EmbeddingModel 生成，SQL 在精确余弦排序与 TopK 截取前联合校验启用账号、成员权限、ACTIVE 知识库、未删除文档、active READY 版本及 provider/model/1024 维向量空间；内部会话检索只接收 `sessionId`，由数据库在服务端保存的会话范围与当前可读权限交集中召回。消息提交、ChatModel 回答、来源、SSE 和历史仍未开放。当前开发库已确认 Flyway V1—V10 全部成功；F11 不新增迁移，后端单元、OpenAPI、安全与 Testcontainers 测试代码已补充，但本轮按项目规则未运行 Maven、Testcontainers、真实模型、真实 API 或浏览器场景。F09 依赖仍未验收，因此 F10、F11 均不能勾选。本轮 M1/M2 复核还发现 Ollama 未启动、当前验收会话未提供 DashScope 配置、认证后的 OpenAPI JSON 返回 500，且开发库没有文档、分块或向量，因此 F01—F09 不能勾选。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F10 结果见 [F10 验收记录](doc/验收记录/F10验收记录.md)，F11 实现与待验收项见 [F11 验收记录](doc/验收记录/F11验收记录.md)；完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -152,14 +152,14 @@ support-ai/
 │   ├── support-ai-storage/     # FileStore 与受控本地原文件存储
 │   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
 │   ├── support-ai-ai/          # Ollama / DashScope 模型接入
-│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量发布与授权查看；检索待实现
+│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量发布、授权查看与授权检索
 │   ├── support-ai-conversation/ # 个人 RAG 会话与内部 run 约束；检索、SSE、历史待后续实现
 │   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
 │   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
 │       ├── src/main/java/com/haha/supportai/
 │       │   ├── SupportAiApplication.java
 │       │   ├── controller/identity/ # 认证与管理员账号目录接口
-│       │   ├── controller/knowledge/ # 知识库元数据、成员、文档与任务接口
+│       │   ├── controller/knowledge/ # 知识库、成员、文档、任务与检索调试接口
 │       │   ├── controller/conversation/ # 个人 RAG 会话创建接口
 │       │   └── config/
 │       └── src/main/resources/
@@ -178,9 +178,9 @@ support-ai/
 
 `data` 统一提供 MyBatis-Plus、数据库驱动、连接池与类型映射，并按业务分包承载实体 PO、持久化枚举、Repository 和 Mapper；当前 `AppUser`、`UserRoleEnum`、`AppUserRepository`、`AppUserMapper` 分别位于 `com.haha.supportai.data.identity` 下的 `entity.po`、`enums`、`repository`、`mapper` 包。业务服务通过 Repository 调用 Mapper，不直接使用 JdbcTemplate 或 RowMapper。业务授权、事务编排、认证流程与 DTO/VO 留在所属业务模块，跨业务调用仍通过业务服务，不能绕过服务直接访问其他域的 Repository/Mapper。data 不反向依赖 identity；连接参数、Flyway 生产迁移与应用配置集中在 bootstrap。全局 OpenAPI 元信息与 Knife4j 运行装配归 bootstrap，身份配置与异常处理归 identity。F06 的任务租约 SQL 同样由 data 的 Repository/Mapper 承载，业务层只通过服务编排，不绕过租约条件直接更新任务。详细结构见[后端模块结构](doc/后端模块结构.md)。
 
-data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge` 与 `data.conversation` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store` 以及会话、运行、消息的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行。后续 F11 授权检索继续使用显式 Mapper SQL。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；版本组合、MyBatis 映射与事务回滚仍待运行验收。
+data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge` 与 `data.conversation` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store` 以及会话、运行、消息的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行。F11 的 `AuthorizedRetrievalRepository` 使用显式 Mapper SQL，在相似度排序前完成实时成员授权、发布状态、固定范围和向量空间过滤。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；版本组合、MyBatis 映射与事务回滚仍待运行验收。
 
-认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档上传和导入任务查询控制器位于 `controller.knowledge`；会话创建控制器位于 `controller.conversation`，当前仅开放 `POST /api/chat/sessions`。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘与短数据库事务。F06 的 `GET /api/ingestion-jobs/{jobId}` 先按 jobId、当前用户和知识库成员关系查询，找不到或无权访问统一返回资源不存在；响应仅暴露状态、阶段、attempt、进度、可重试/可取消标识和白名单错误，不返回内部错误详情。F10 的 `ChatRunService` 仅供内部用例准备 run 与成对消息，未公开消息提交 HTTP 接口。Worker 采用有界线程池，领取与状态更新使用短事务，解析、分块和模型调用留在事务外；租约写入必须同时匹配 owner、token 和有效期。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。common 使用 `entity.vo`、`filter`、`handler`、`support`；ai 使用 `config` 和 `model`。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
+认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档、任务与 F11 检索调试控制器位于 `controller.knowledge`；会话创建控制器位于 `controller.conversation`，当前仅开放 `POST /api/chat/sessions`。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘、短数据库事务和授权检索。F11 调试请求只接受 `query/topK`，拒绝客户端附带的用户、范围、SQL 或自由过滤字段；模型调用位于事务外，最终 SQL 再次校验 WRITE 权限。F10 的 `ChatRunService` 仅供内部用例准备 run 与成对消息，未公开消息提交 HTTP 接口。Worker 采用有界线程池，领取与状态更新使用短事务，解析、分块和模型调用留在事务外；租约写入必须同时匹配 owner、token 和有效期。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
 
 ## 数据与接口设计
 
@@ -336,7 +336,7 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 
 以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。多模块迁移尚未执行 Maven 验证，迁移前的成功记录不代表当前结构已验收通过。
 
-MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务与会话事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构，但 Maven、Testcontainers、依赖树和真实模型检查仍未运行，F01—F10 继续待完整验收。
+MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务与会话事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构，但 Maven、Testcontainers、依赖树和真实模型检查仍未运行，F01—F11 继续待完整验收。
 
 ## 验证与交付标准
 

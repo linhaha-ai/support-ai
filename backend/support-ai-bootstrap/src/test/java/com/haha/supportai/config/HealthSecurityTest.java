@@ -18,6 +18,7 @@ import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceSe
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
+import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -83,6 +84,9 @@ class HealthSecurityTest {
     IngestionJobQueryService ingestionJobQueryService;
 
     @MockBean
+    KnowledgeRetrievalService knowledgeRetrievalService;
+
+    @MockBean
     ChatSessionRepository chatSessionRepository;
 
     @MockBean
@@ -107,7 +111,8 @@ class HealthSecurityTest {
     void anonymousBusinessEntriesRequireAuthenticationAndWritesRequireCsrf() throws Exception {
         for (String path : new String[] { "/api/chat", "/api/health/db", "/api/env", "/actuator", "/doc.html",
                 "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
-                "/api/chat/sessions", "/" }) {
+                "/api/chat/sessions", "/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests",
+                "/" }) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
@@ -115,6 +120,12 @@ class HealthSecurityTest {
                     .andExpect(jsonPath("$.traceId").isNotEmpty());
         }
         mvc.perform(post("/api/health"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+        mvc.perform(post("/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"退款状态\",\"topK\":3}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
