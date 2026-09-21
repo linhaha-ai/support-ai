@@ -137,10 +137,11 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
                  @Param("finishedAt") OffsetDateTime finishedAt);
 
     @Update("""
-            -- chat_run：排队或执行中的运行失败时写入脱敏错误，并保持既有指标用于排查。
+            -- chat_run：排队或执行中的运行失败时写入脱敏错误、可用模型用量和可选执行指标。
             UPDATE chat_run
             SET status = 'FAILED',
-                usage = NULL,
+                usage = CAST(#{usage,jdbcType=VARCHAR} AS JSONB),
+                metrics = COALESCE(CAST(#{metrics,jdbcType=VARCHAR} AS JSONB), metrics),
                 error_code = #{errorCode},
                 error_detail = #{errorDetail},
                 finished_at = #{finishedAt},
@@ -151,5 +152,7 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
     int fail(@Param("runId") UUID runId,
              @Param("errorCode") String errorCode,
              @Param("errorDetail") String errorDetail,
+             @Param("usage") String usage,
+             @Param("metrics") String metrics,
              @Param("finishedAt") OffsetDateTime finishedAt);
 }

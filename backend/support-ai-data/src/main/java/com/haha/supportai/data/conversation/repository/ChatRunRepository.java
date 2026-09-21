@@ -38,6 +38,11 @@ public class ChatRunRepository {
     }
 
     public boolean fail(UUID runId, String errorCode, String errorDetail, OffsetDateTime finishedAt) {
-        return chatRunMapper.fail(runId, errorCode, errorDetail, finishedAt) == 1;
+        return fail(runId, errorCode, errorDetail, null, null, finishedAt);
+    }
+
+    public boolean fail(UUID runId, String errorCode, String errorDetail, String usage, String metrics,
+            OffsetDateTime finishedAt) {
+        return chatRunMapper.fail(runId, errorCode, errorDetail, usage, metrics, finishedAt) == 1;
     }
 }

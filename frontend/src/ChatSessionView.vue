@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElEmpty, ElSkeleton, ElTag } from 'element-plus'
+import {
+  ElAlert,
+  ElButton,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElDrawer,
+  ElEmpty,
+  ElInput,
+  ElSkeleton,
+  ElTag,
+} from 'element-plus'
 import 'element-plus/es/components/alert/style/css'
 import 'element-plus/es/components/button/style/css'
 import 'element-plus/es/components/checkbox/style/css'
+import 'element-plus/es/components/drawer/style/css'
 import 'element-plus/es/components/empty/style/css'
+import 'element-plus/es/components/input/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import { useChatSessions } from './useChatSessions'
@@ -21,6 +33,20 @@ function formatDate(value: string): string {
   }).format(date)
 }
 
+function statusLabel(status: string): string {
+  if (status === 'STREAMING') return '生成中'
+  if (status === 'COMPLETED') return '已完成'
+  if (status === 'CANCELLED') return '已停止'
+  return '未完整'
+}
+
+function statusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
+  if (status === 'COMPLETED') return 'success'
+  if (status === 'STREAMING') return 'info'
+  if (status === 'CANCELLED') return 'warning'
+  return 'danger'
+}
+
 onMounted(sessions.loadKnowledgeBases)
 </script>
 
@@ -35,16 +61,86 @@ onMounted(sessions.loadKnowledgeBases)
       <ElTag type="info" effect="plain">RAG</ElTag>
     </div>
 
-    <section v-if="sessions.createdSession" class="chat-session-created" aria-label="已创建会话">
-      <div class="chat-session-summary">
-        <span>会话标识</span>
-        <strong>{{ sessions.createdSession.sessionId }}</strong>
-        <span>创建于 {{ formatDate(sessions.createdSession.createdAt) }}</span>
+    <section v-if="sessions.createdSession" class="chat-conversation" aria-label="当前会话">
+      <div class="chat-session-created">
+        <div class="chat-session-summary">
+          <span>会话标识</span>
+          <strong>{{ sessions.createdSession.sessionId }}</strong>
+          <span>创建于 {{ formatDate(sessions.createdSession.createdAt) }}</span>
+        </div>
+        <div class="chat-session-scope" aria-label="固定知识库范围">
+          <span v-for="knowledgeBase in selectedKnowledgeBases" :key="knowledgeBase.id">{{ knowledgeBase.name }}</span>
+        </div>
+        <ElButton @click="sessions.startAnother">新建会话</ElButton>
       </div>
-      <div class="chat-session-scope" aria-label="固定知识库范围">
-        <span v-for="knowledgeBase in selectedKnowledgeBases" :key="knowledgeBase.id">{{ knowledgeBase.name }}</span>
+
+      <ElAlert
+        v-if="sessions.sendError"
+        class="chat-session-alert"
+        type="error"
+        :closable="false"
+        :title="sessions.sendError"
+        show-icon
+      />
+      <ElAlert
+        v-if="sessions.sendNotice"
+        class="chat-session-alert"
+        type="info"
+        :closable="false"
+        :title="sessions.sendNotice"
+        show-icon
+      />
+
+      <div class="chat-transcript" aria-live="polite" aria-label="问答消息">
+        <ElEmpty v-if="sessions.messages.length === 0" description="还没有消息" />
+        <article
+          v-for="message in sessions.messages"
+          :key="message.id"
+          class="chat-message"
+          :class="`chat-message-${message.role}`"
+        >
+          <header class="chat-message-heading">
+            <strong>{{ message.role === 'user' ? '你' : 'SupportAI' }}</strong>
+            <ElTag
+              v-if="message.role === 'assistant'"
+              size="small"
+              effect="plain"
+              :type="statusType(message.status)"
+            >
+              {{ statusLabel(message.status) }}
+            </ElTag>
+          </header>
+          <p v-if="message.content" class="chat-message-content">{{ message.content }}</p>
+          <p v-else-if="message.status === 'STREAMING'" class="chat-message-pending">正在生成回答...</p>
+          <p v-if="message.errorMessage" class="chat-message-error">{{ message.errorMessage }}</p>
+          <div v-if="message.sources.length > 0" class="chat-sources" aria-label="回答来源">
+            <button
+              v-for="source in message.sources"
+              :key="source.number"
+              class="chat-source-button"
+              type="button"
+              @click="sessions.openSource(source)"
+            >
+              [{{ source.number }}] {{ source.title }}
+            </button>
+          </div>
+        </article>
       </div>
-      <ElButton type="primary" @click="sessions.startAnother">新建会话</ElButton>
+
+      <form class="chat-composer" @submit.prevent="sessions.send">
+        <ElInput
+          v-model="sessions.messageInput"
+          type="textarea"
+          :autosize="{ minRows: 2, maxRows: 6 }"
+          resize="none"
+          placeholder="输入你的问题"
+          aria-label="问题内容"
+          :disabled="sessions.sending"
+        />
+        <ElButton type="primary" native-type="submit" :loading="sessions.sending" :disabled="!sessions.canSend">
+          发送
+        </ElButton>
+      </form>
     </section>
 
     <template v-else>
@@ -83,5 +179,36 @@ onMounted(sessions.loadKnowledgeBases)
         </div>
       </form>
     </template>
+
+    <ElDrawer
+      v-model="sessions.sourceDrawerOpen"
+      class="chat-source-drawer"
+      :title="sessions.sourceDetail?.documentName || sessions.selectedSource?.title || '回答来源'"
+      direction="rtl"
+      size="min(520px, 92vw)"
+      @closed="sessions.closeSource"
+    >
+      <ElSkeleton v-if="sessions.sourceLoading" :rows="6" animated />
+      <ElAlert
+        v-else-if="sessions.sourceError"
+        type="error"
+        :closable="false"
+        :title="sessions.sourceError"
+        show-icon
+      >
+        <template #default><ElButton text type="primary" @click="sessions.retrySource">重试</ElButton></template>
+      </ElAlert>
+      <div v-else-if="sessions.sourceDetail" class="chat-source-detail">
+        <div class="chat-source-metadata">
+          <ElTag size="small" effect="plain">版本 {{ sessions.sourceDetail.versionNo }}</ElTag>
+          <ElTag size="small" effect="plain" :type="sessions.sourceDetail.isCurrent ? 'success' : 'warning'">
+            {{ sessions.sourceDetail.isCurrent ? '当前版本' : '历史版本' }}
+          </ElTag>
+          <span v-if="sessions.sourceDetail.section">{{ sessions.sourceDetail.section }}</span>
+          <span v-if="sessions.sourceDetail.pageNo !== null">第 {{ sessions.sourceDetail.pageNo }} 页</span>
+        </div>
+        <pre class="chat-source-content">{{ sessions.sourceDetail.content }}</pre>
+      </div>
+    </ElDrawer>
   </section>
 </template>

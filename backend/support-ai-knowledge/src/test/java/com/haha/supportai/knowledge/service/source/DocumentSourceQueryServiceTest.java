@@ -62,6 +62,18 @@ class DocumentSourceQueryServiceTest {
     }
 
     @Test
+    void backgroundLookupUsesTrustedUserWithoutReadingRequestContext() {
+        when(authorizedDocumentSourceRepository.findReadableByChunkId(USER_ID, CHUNK_ID))
+                .thenReturn(Optional.of(source(true)));
+
+        var response = service().findReadableSource(USER_ID, CHUNK_ID);
+
+        assertThat(response).isPresent();
+        assertThat(response.orElseThrow().getChunkId()).isEqualTo(CHUNK_ID);
+        verify(accessPolicy, never()).currentUser();
+    }
+
+    @Test
     void nullChunkIsHiddenBeforeLoadingCurrentUser() {
         assertThatThrownBy(() -> service().getReadableSource(null))
                 .isInstanceOf(DocumentNotFoundException.class);

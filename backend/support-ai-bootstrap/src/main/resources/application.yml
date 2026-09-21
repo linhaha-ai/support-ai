@@ -135,6 +135,11 @@ support:
         batch-size: 10
     rag:
       top-k: 6
+    chat:
+      stream:
+        pool-size: 4
+        queue-capacity: 32
+        timeout: 200s
     ingestion:
       worker:
         enabled: true

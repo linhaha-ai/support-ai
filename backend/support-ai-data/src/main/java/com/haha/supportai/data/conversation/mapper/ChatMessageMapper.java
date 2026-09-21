@@ -46,6 +46,29 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
     List<ChatMessage> selectByRunId(@Param("runId") UUID runId);
 
     @Update("""
+            -- chat_message、chat_run：仅为执行中的运行原子追加非空助手增量，终态消息不得再写入。
+            UPDATE chat_message message
+            SET content = message.content || #{delta,jdbcType=VARCHAR},
+                updated_at = #{updatedAt}
+            WHERE message.id = #{messageId,jdbcType=OTHER}
+              AND message.run_id = #{runId,jdbcType=OTHER}
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
+              AND #{delta,jdbcType=VARCHAR} IS NOT NULL
+              AND LENGTH(#{delta,jdbcType=VARCHAR}) > 0
+              AND EXISTS (
+                  SELECT 1
+                  FROM chat_run run
+                  WHERE run.id = message.run_id
+                    AND run.status = 'RUNNING'
+              )
+            """)
+    int appendAssistantContent(@Param("runId") UUID runId,
+                               @Param("messageId") UUID messageId,
+                               @Param("delta") String delta,
+                               @Param("updatedAt") OffsetDateTime updatedAt);
+
+    @Update("""
             -- chat_message：仅完成仍在生成中的助手消息，空白答案不得进入完成状态。
             UPDATE chat_message
             SET content = #{content},
@@ -63,16 +86,24 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
                           @Param("completedAt") OffsetDateTime completedAt);
 
     @Update("""
-            -- chat_message：仅将仍在生成中的助手消息置为失败，保留可能已写入的部分正文。
-            UPDATE chat_message
-            SET status = 'FAILED',
+            -- chat_message、chat_run：原子保存显式部分正文并失败仍在生成中的助手消息。
+            UPDATE chat_message message
+            SET content = COALESCE(#{partialContent,jdbcType=VARCHAR}, message.content),
+                status = 'FAILED',
                 updated_at = #{failedAt}
-            WHERE id = #{messageId,jdbcType=OTHER}
-              AND run_id = #{runId,jdbcType=OTHER}
-              AND role = 'ASSISTANT'
-              AND status = 'STREAMING'
+            WHERE message.id = #{messageId,jdbcType=OTHER}
+              AND message.run_id = #{runId,jdbcType=OTHER}
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
+              AND EXISTS (
+                  SELECT 1
+                  FROM chat_run run
+                  WHERE run.id = message.run_id
+                    AND run.status IN ('QUEUED', 'RUNNING')
+              )
             """)
     int failAssistant(@Param("runId") UUID runId,
                       @Param("messageId") UUID messageId,
+                      @Param("partialContent") String partialContent,
                       @Param("failedAt") OffsetDateTime failedAt);
 }

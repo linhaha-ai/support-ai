@@ -40,6 +40,7 @@ public class ChatRunService {
     private static final String REQUEST_HASH_VERSION = "f10-v1";
     private static final String CONFIG_SNAPSHOT = "{\"mode\":\"RAG\"}";
     private static final String EMPTY_JSON = "{}";
+    private static final int MAX_QUESTION_LENGTH = 2000;
 
     private final ChatSessionRepository chatSessionRepository;
     private final ChatSessionKnowledgeBaseRepository chatSessionKnowledgeBaseRepository;
@@ -67,7 +68,7 @@ public class ChatRunService {
             if (!existingRun.getRequestHash().equals(validatedMessage.requestHash())) {
                 throw new ChatIdempotencyConflictException();
             }
-            return responseForExistingRun(existingRun);
+            return responseForExistingRun(existingRun, currentUser.getId());
         }
         if (chatRunRepository.findActiveBySessionId(sessionId).isPresent()) {
             throw new ChatRunInProgressException();
@@ -89,11 +90,11 @@ public class ChatRunService {
                 ChatMessageRoleEnum.ASSISTANT, "", ChatMessageStatusEnum.STREAMING, now, now);
         chatMessageRepository.insert(userMessage);
         chatMessageRepository.insert(assistantMessage);
-        return new PreparedChatRunResponse(run.getId(), sessionId, userMessage.getId(), assistantMessage.getId(),
-                userMessage.getContent(), run.getStatus(), false);
+        return new PreparedChatRunResponse(run.getId(), sessionId, currentUser.getId(), userMessage.getId(),
+                assistantMessage.getId(), userMessage.getContent(), run.getStatus(), false);
     }
 
-    private PreparedChatRunResponse responseForExistingRun(ChatRun run) {
+    private PreparedChatRunResponse responseForExistingRun(ChatRun run, UUID userId) {
         ChatMessage userMessage = null;
         ChatMessage assistantMessage = null;
         for (ChatMessage message : chatMessageRepository.listByRunId(run.getId())) {
@@ -106,7 +107,7 @@ public class ChatRunService {
         if (userMessage == null || assistantMessage == null) {
             throw new IllegalStateException("会话运行缺少成对消息记录");
         }
-        return new PreparedChatRunResponse(run.getId(), run.getSessionId(), userMessage.getId(),
+        return new PreparedChatRunResponse(run.getId(), run.getSessionId(), userId, userMessage.getId(),
                 assistantMessage.getId(), userMessage.getContent(), run.getStatus(), true);
     }
 
@@ -115,7 +116,7 @@ public class ChatRunService {
             throw new ChatSessionInvalidRequestException();
         }
         String content = command.getContent().trim();
-        if (content.isEmpty()) {
+        if (content.isEmpty() || content.length() > MAX_QUESTION_LENGTH) {
             throw new ChatSessionInvalidRequestException();
         }
         return new ValidatedMessage(command.getClientRequestId(), content, requestHash(content));

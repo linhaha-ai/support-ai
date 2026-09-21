@@ -1,5 +1,6 @@
 package com.haha.supportai.knowledge.service.source;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.entity.po.AuthorizedDocumentSource;
@@ -24,8 +25,22 @@ public class DocumentSourceQueryService {
             throw new DocumentNotFoundException();
         }
         UUID userId = accessPolicy.currentUser().getId();
-        AuthorizedDocumentSource source = authorizedDocumentSourceRepository.findReadableByChunkId(userId, chunkId)
-                .orElseThrow(DocumentNotFoundException::new);
+        return findReadableSource(userId, chunkId).orElseThrow(DocumentNotFoundException::new);
+    }
+
+    /**
+     * 后台流式线程使用准备阶段确认的用户标识，只返回当前仍可读取的来源。
+     */
+    @Transactional(readOnly = true)
+    public Optional<DocumentSourceResponse> findReadableSource(UUID userId, UUID chunkId) {
+        if (userId == null || chunkId == null) {
+            throw new DocumentNotFoundException();
+        }
+        return authorizedDocumentSourceRepository.findReadableByChunkId(userId, chunkId)
+                .map(this::toResponse);
+    }
+
+    private DocumentSourceResponse toResponse(AuthorizedDocumentSource source) {
         return new DocumentSourceResponse(source.getKnowledgeBaseId(), source.getDocumentId(),
                 source.getDocumentName(), source.getVersionId(), source.getVersionNo(), source.getChunkId(),
                 source.getChunkIndex(), source.getSection(), source.getPageNo(), source.getStartOffset(),

@@ -118,6 +118,23 @@ class KnowledgeRetrievalServiceTest {
     }
 
     @Test
+    void backgroundRetrievalUsesTrustedUserWithoutReadingRequestContext() {
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+        float[] embedding = embedding();
+        when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
+        when(embeddingModel.embed("退款状态")).thenReturn(embedding);
+        when(authorizedRetrievalRepository.searchReadableWithinSession(USER_ID, sessionId,
+                embedding, 2, "ollama", "bge-m3", 1024)).thenReturn(List.of(hit()));
+
+        var matches = service().retrieveReadableWithinSession(USER_ID, sessionId, "退款状态", 2);
+
+        assertThat(matches).hasSize(1);
+        verify(accessPolicy, never()).currentUser();
+        verify(authorizedRetrievalRepository).searchReadableWithinSession(USER_ID, sessionId,
+                embedding, 2, "ollama", "bge-m3", 1024);
+    }
+
+    @Test
     void nullSessionIsRejectedBeforeEmbeddingModel() {
         assertThatThrownBy(() -> service().retrieveReadableWithinSession(null, "退款状态", 2))
                 .isInstanceOf(KnowledgeRetrievalInvalidRequestException.class);
@@ -149,6 +166,20 @@ class KnowledgeRetrievalServiceTest {
         verify(embeddingModel, never()).embed(any(String.class));
         verify(authorizedRetrievalRepository).revalidateReadableWithinSession(USER_ID, sessionId,
                 List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024);
+    }
+
+    @Test
+    void backgroundRevalidationUsesTrustedUserWithoutReadingRequestContext() {
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+        AuthorizedRetrievalHit hit = hit();
+        when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
+        when(authorizedRetrievalRepository.revalidateReadableWithinSession(USER_ID, sessionId,
+                List.of(hit.getChunkId()), "ollama", "bge-m3", 1024)).thenReturn(List.of(hit));
+
+        var matches = service().revalidateReadableWithinSession(USER_ID, sessionId, List.of(hit.getChunkId()));
+
+        assertThat(matches).hasSize(1);
+        verify(accessPolicy, never()).currentUser();
     }
 
     @Test

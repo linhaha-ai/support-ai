@@ -139,12 +139,23 @@ class ChatConversationMapperDatabaseIT {
         MessageSource secondSource = new MessageSource(UUID.randomUUID(), assistantMessage.getId(), null, 2, false,
                 MessageSourceTypeEnum.DOCUMENT, secondKnowledgeBaseId, secondChunkId,
                 "{\"section\":\"批量映射测试\"}", "{\"documentName\":\"映射测试文档二\"}", now);
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "领取前增量",
+                now.plusSeconds(1))).isFalse();
         assertThat(chatRunRepository.markRunning(run.getId(), session.getId(), userMessage.getId(),
                 assistantMessage.getId(), "错误问题", now.plusSeconds(1))).isFalse();
         assertThat(chatRunRepository.markRunning(run.getId(), session.getId(), userMessage.getId(),
                 assistantMessage.getId(), userMessage.getContent(), now.plusSeconds(1))).isTrue();
         assertThat(chatRunRepository.markRunning(run.getId(), session.getId(), userMessage.getId(),
                 assistantMessage.getId(), userMessage.getContent(), now.plusSeconds(1))).isFalse();
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "请核对",
+                now.plusSeconds(2))).isTrue();
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "来源。[1]",
+                now.plusSeconds(3))).isTrue();
+        assertThat(chatMessageRepository.listByRunId(run.getId()))
+                .filteredOn(message -> message.getRole() == ChatMessageRoleEnum.ASSISTANT)
+                .singleElement()
+                .extracting(ChatMessage::getContent)
+                .isEqualTo("请核对来源。[1]");
         MessageSource mismatchedSource = new MessageSource(UUID.randomUUID(), assistantMessage.getId(), null, 1,
                 false, MessageSourceTypeEnum.DOCUMENT, secondKnowledgeBaseId, firstChunkId,
                 "{\"section\":\"伪造归属\"}", "{\"documentName\":\"映射测试文档\"}", now);
@@ -164,16 +175,18 @@ class ChatConversationMapperDatabaseIT {
                 });
         assertThat(messageSourceRepository.markCited(assistantMessage.getId(), List.of(1))).isEqualTo(1);
         assertThat(chatMessageRepository.completeAssistant(run.getId(), assistantMessage.getId(), "   ",
-                now.plusSeconds(2))).isFalse();
+                now.plusSeconds(4))).isFalse();
         assertThat(chatMessageRepository.completeAssistant(run.getId(), assistantMessage.getId(), "请核对来源。[1]",
-                now.plusSeconds(2))).isTrue();
+                now.plusSeconds(4))).isTrue();
         assertThat(chatRunRepository.complete(run.getId(), null,
-                "{\"evidenceCount\":2,\"citedCount\":1}", now.plusSeconds(2))).isTrue();
+                "{\"evidenceCount\":2,\"citedCount\":1}", now.plusSeconds(4))).isTrue();
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "终态后增量",
+                now.plusSeconds(5))).isFalse();
         assertThat(chatMessageRepository.failAssistant(run.getId(), assistantMessage.getId(),
-                now.plusSeconds(3))).isFalse();
-        assertThat(chatRunRepository.complete(run.getId(), null, "{}", now.plusSeconds(3))).isFalse();
+                now.plusSeconds(5))).isFalse();
+        assertThat(chatRunRepository.complete(run.getId(), null, "{}", now.plusSeconds(5))).isFalse();
         assertThat(chatRunRepository.fail(run.getId(), "LATE_FAILURE", "终态不可覆盖",
-                now.plusSeconds(3))).isFalse();
+                now.plusSeconds(5))).isFalse();
         assertThat(chatRunRepository.findBySessionIdAndClientRequestId(session.getId(), run.getClientRequestId())
                 .orElseThrow().getStatus()).isEqualTo(ChatRunStatusEnum.COMPLETED);
         assertThat(chatMessageRepository.listByRunId(run.getId()))
@@ -185,6 +198,70 @@ class ChatConversationMapperDatabaseIT {
                 });
         assertThat(jdbcTemplate.queryForObject("SELECT next_message_seq FROM chat_session WHERE id = ?",
                 Long.class, session.getId())).isEqualTo(3L);
+    }
+
+    @Test
+    @Transactional
+    void persistsPartialAssistantAndOptionalFailureTelemetryAtomically() {
+        UUID userId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        createAuthorizedKnowledgeBase(userId, knowledgeBaseId, "流式失败映射知识库", true);
+
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-21T10:00:00Z");
+        ChatSession session = new ChatSession(UUID.randomUUID(), userId, "流式失败会话", ChatSessionModeEnum.RAG,
+                3, null, now, now);
+        chatSessionRepository.insert(session);
+        chatSessionKnowledgeBaseRepository.insert(session.getId(), List.of(knowledgeBaseId), now);
+
+        ChatRun run = new ChatRun(UUID.randomUUID(), session.getId(), UUID.randomUUID(), "c".repeat(64),
+                ChatRunStatusEnum.QUEUED, "{\"mode\":\"RAG\"}", null, "{\"phase\":\"prepared\"}", null,
+                null, null, null, null, now, now);
+        chatRunRepository.insert(run);
+        ChatMessage userMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(), 1,
+                ChatMessageRoleEnum.USER, "如何验证流式失败？", ChatMessageStatusEnum.COMPLETED, now, now);
+        ChatMessage assistantMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(), 2,
+                ChatMessageRoleEnum.ASSISTANT, "", ChatMessageStatusEnum.STREAMING, now, now);
+        chatMessageRepository.insert(userMessage);
+        chatMessageRepository.insert(assistantMessage);
+
+        assertThat(chatRunRepository.markRunning(run.getId(), session.getId(), userMessage.getId(),
+                assistantMessage.getId(), userMessage.getContent(), now.plusSeconds(1))).isTrue();
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "已展示",
+                now.plusSeconds(2))).isTrue();
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "",
+                now.plusSeconds(3))).isFalse();
+        assertThat(chatMessageRepository.failAssistant(run.getId(), assistantMessage.getId(), "已展示部分回答",
+                now.plusSeconds(4))).isTrue();
+        assertThat(chatRunRepository.fail(run.getId(), "MODEL_STREAM_FAILED", "模型流式输出失败",
+                "{\"outputTokens\":2}", null, now.plusSeconds(4))).isTrue();
+
+        ChatRun failedRun = chatRunRepository.findBySessionIdAndClientRequestId(session.getId(),
+                run.getClientRequestId()).orElseThrow();
+        assertThat(failedRun.getStatus()).isEqualTo(ChatRunStatusEnum.FAILED);
+        assertThat(failedRun.getUsage()).contains("outputTokens").contains("2");
+        assertThat(failedRun.getMetrics()).contains("phase").contains("prepared");
+        assertThat(failedRun.getErrorCode()).isEqualTo("MODEL_STREAM_FAILED");
+        assertThat(failedRun.getErrorDetail()).isEqualTo("模型流式输出失败");
+        assertThat(chatMessageRepository.listByRunId(run.getId()))
+                .filteredOn(message -> message.getRole() == ChatMessageRoleEnum.ASSISTANT)
+                .singleElement()
+                .satisfies(message -> {
+                    assertThat(message.getStatus()).isEqualTo(ChatMessageStatusEnum.FAILED);
+                    assertThat(message.getContent()).isEqualTo("已展示部分回答");
+                });
+        assertThat(chatMessageRepository.appendAssistantContent(run.getId(), assistantMessage.getId(), "失败后增量",
+                now.plusSeconds(5))).isFalse();
+
+        ChatRun unknownUsageRun = new ChatRun(UUID.randomUUID(), session.getId(), UUID.randomUUID(), "d".repeat(64),
+                ChatRunStatusEnum.QUEUED, "{\"mode\":\"RAG\"}", null, "{\"phase\":\"queued\"}", null,
+                null, null, null, null, now.plusSeconds(6), now.plusSeconds(6));
+        chatRunRepository.insert(unknownUsageRun);
+        assertThat(chatRunRepository.fail(unknownUsageRun.getId(), "QUEUE_FAILED", "排队阶段失败", null,
+                "{\"failureStage\":\"queue\"}", now.plusSeconds(7))).isTrue();
+        ChatRun storedUnknownUsageRun = chatRunRepository.findBySessionIdAndClientRequestId(session.getId(),
+                unknownUsageRun.getClientRequestId()).orElseThrow();
+        assertThat(storedUnknownUsageRun.getUsage()).isNull();
+        assertThat(storedUnknownUsageRun.getMetrics()).contains("failureStage").contains("queue");
     }
 
     @Test

@@ -12,6 +12,7 @@ import java.util.UUID;
 import com.haha.supportai.conversation.entity.dto.SubmitMessageCommand;
 import com.haha.supportai.conversation.exception.ChatIdempotencyConflictException;
 import com.haha.supportai.conversation.exception.ChatRunInProgressException;
+import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionScopeRevokedException;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
@@ -93,6 +94,7 @@ class ChatRunServiceTest {
         assertThat(response.isReused()).isFalse();
         assertThat(response.getRunId()).isEqualTo(run.getId());
         assertThat(response.getSessionId()).isEqualTo(SESSION_ID);
+        assertThat(response.getUserId()).isEqualTo(USER_ID);
         assertThat(response.getQuestion()).isEqualTo("如何处理退款失败？");
         assertThat(run.getStatus()).isEqualTo(ChatRunStatusEnum.QUEUED);
         assertThat(run.getRequestHash()).hasSize(64);
@@ -120,6 +122,7 @@ class ChatRunServiceTest {
         assertThat(response.isReused()).isTrue();
         assertThat(response.getRunId()).isEqualTo(existingRun.getId());
         assertThat(response.getSessionId()).isEqualTo(SESSION_ID);
+        assertThat(response.getUserId()).isEqualTo(USER_ID);
         assertThat(response.getQuestion()).isEqualTo("同一问题");
         then(chatSessionRepository).should(never()).advanceNextMessageSeq(SESSION_ID, 1);
         then(chatRunRepository).should(never()).insert(any());
@@ -159,6 +162,16 @@ class ChatRunServiceTest {
                 new SubmitMessageCommand(CLIENT_REQUEST_ID, "撤权后的问题")))
                 .isInstanceOf(ChatSessionScopeRevokedException.class);
 
+        then(chatRunRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void rejectsOverlongQuestionBeforeLoadingCurrentUserOrCreatingRun() {
+        assertThatThrownBy(() -> chatRunService.prepare(SESSION_ID,
+                new SubmitMessageCommand(CLIENT_REQUEST_ID, "问".repeat(2001))))
+                .isInstanceOf(ChatSessionInvalidRequestException.class);
+
+        then(activeAccountGuard).shouldHaveNoInteractions();
         then(chatRunRepository).shouldHaveNoInteractions();
     }
 

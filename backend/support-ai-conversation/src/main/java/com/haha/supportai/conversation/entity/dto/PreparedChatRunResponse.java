@@ -14,6 +14,8 @@ public class PreparedChatRunResponse {
 
     private final UUID sessionId; // 运行所属会话标识
 
+    private final UUID userId; // 服务端鉴权后确认的运行用户标识
+
     private final UUID userMessageId; // 用户消息标识
 
     private final UUID assistantMessageId; // 助手占位消息标识
@@ -23,4 +25,9 @@ public class PreparedChatRunResponse {
     private final ChatRunStatusEnum status; // 运行当前状态
 
     private final boolean reused; // 是否命中同一幂等请求
+
+    public PreparedChatRunResponse(UUID runId, UUID sessionId, UUID userMessageId, UUID assistantMessageId,
+            String question, ChatRunStatusEnum status, boolean reused) {
+        this(runId, sessionId, null, userMessageId, assistantMessageId, question, status, reused);
+    }
 }

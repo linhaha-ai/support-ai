@@ -61,9 +61,20 @@ public class KnowledgeRetrievalService {
         if (sessionId == null) {
             throw new KnowledgeRetrievalInvalidRequestException();
         }
+        UUID userId = accessPolicy.currentUser().getId();
+        return retrieveReadableWithinSession(userId, sessionId, query, topK);
+    }
+
+    /**
+     * 后台问答线程使用准备阶段确认的用户标识，避免依赖请求线程登录上下文。
+     */
+    public List<KnowledgeRetrievalEvidenceResponse> retrieveReadableWithinSession(UUID userId, UUID sessionId,
+            String query, int topK) {
+        if (userId == null || sessionId == null) {
+            throw new KnowledgeRetrievalInvalidRequestException();
+        }
         String normalizedQuery = normalizeQuery(query);
         int validatedTopK = validateTopK(topK);
-        UUID userId = accessPolicy.currentUser().getId();
         ProcessingConfigurationSnapshot snapshot = currentSnapshot();
         float[] queryEmbedding = createQueryEmbedding(normalizedQuery);
         return authorizedRetrievalRepository.searchReadableWithinSession(userId, sessionId, queryEmbedding, validatedTopK,
@@ -78,15 +89,28 @@ public class KnowledgeRetrievalService {
      */
     public List<KnowledgeRetrievalEvidenceResponse> revalidateReadableWithinSession(UUID sessionId,
             List<UUID> chunkIds) {
-        if (sessionId == null || chunkIds == null || chunkIds.stream().anyMatch(Objects::isNull)) {
+        validateRevalidationRequest(sessionId, chunkIds);
+        if (chunkIds.isEmpty()) {
+            return List.of();
+        }
+        UUID userId = accessPolicy.currentUser().getId();
+        return revalidateReadableWithinSession(userId, sessionId, chunkIds);
+    }
+
+    /**
+     * 后台问答线程以服务端可信用户重新校验证据，不接受客户端提供的权限范围。
+     */
+    public List<KnowledgeRetrievalEvidenceResponse> revalidateReadableWithinSession(UUID userId, UUID sessionId,
+            List<UUID> chunkIds) {
+        if (userId == null) {
             throw new KnowledgeRetrievalInvalidRequestException();
         }
+        validateRevalidationRequest(sessionId, chunkIds);
         if (chunkIds.isEmpty()) {
             return List.of();
         }
 
         List<UUID> orderedChunkIds = List.copyOf(new LinkedHashSet<>(chunkIds));
-        UUID userId = accessPolicy.currentUser().getId();
         ProcessingConfigurationSnapshot snapshot = currentSnapshot();
         List<AuthorizedRetrievalHit> readableHits = authorizedRetrievalRepository.revalidateReadableWithinSession(
                 userId, sessionId, orderedChunkIds, embeddingProvider(snapshot), snapshot.getEmbeddingModel(),
@@ -99,6 +123,12 @@ public class KnowledgeRetrievalService {
                 .filter(Objects::nonNull)
                 .map(this::toEvidence)
                 .toList();
+    }
+
+    private void validateRevalidationRequest(UUID sessionId, List<UUID> chunkIds) {
+        if (sessionId == null || chunkIds == null || chunkIds.stream().anyMatch(Objects::isNull)) {
+            throw new KnowledgeRetrievalInvalidRequestException();
+        }
     }
 
     private float[] createQueryEmbedding(String query) {

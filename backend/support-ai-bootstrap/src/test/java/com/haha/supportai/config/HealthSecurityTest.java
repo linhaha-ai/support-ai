@@ -2,7 +2,9 @@ package com.haha.supportai.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.conversation.service.run.ChatRunService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
+import com.haha.supportai.conversation.service.stream.ChatMessageStreamService;
 import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
@@ -113,6 +115,12 @@ class HealthSecurityTest {
     @MockBean
     ChatSessionService chatSessionService;
 
+    @MockBean
+    ChatRunService chatRunService;
+
+    @MockBean
+    ChatMessageStreamService chatMessageStreamService;
+
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
@@ -142,6 +150,25 @@ class HealthSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
+
+        String messagePath = "/api/chat/sessions/550e8400-e29b-41d4-a716-446655440001/messages";
+        String messageBody = "{\"clientRequestId\":\"550e8400-e29b-41d4-a716-446655440002\","
+                + "\"content\":\"如何排查？\"}";
+        mvc.perform(post(messagePath).contentType(MediaType.APPLICATION_JSON).content(messageBody))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
+
+        var csrfRequest = mvc.perform(get("/api/auth/csrf"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode csrf = objectMapper.readTree(csrfRequest.getResponse().getContentAsString()).path("data");
+        mvc.perform(post(messagePath)
+                        .session((MockHttpSession) csrfRequest.getRequest().getSession(false))
+                        .header(csrf.path("headerName").asText(), csrf.path("token").asText())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(messageBody))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @Test

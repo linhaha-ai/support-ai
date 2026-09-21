@@ -24,11 +24,19 @@ public class ChatMessageRepository {
         return chatMessageMapper.selectByRunId(runId);
     }
 
+    public boolean appendAssistantContent(UUID runId, UUID messageId, String delta, OffsetDateTime updatedAt) {
+        return chatMessageMapper.appendAssistantContent(runId, messageId, delta, updatedAt) == 1;
+    }
+
     public boolean completeAssistant(UUID runId, UUID messageId, String content, OffsetDateTime completedAt) {
         return chatMessageMapper.completeAssistant(runId, messageId, content, completedAt) == 1;
     }
 
     public boolean failAssistant(UUID runId, UUID messageId, OffsetDateTime failedAt) {
-        return chatMessageMapper.failAssistant(runId, messageId, failedAt) == 1;
+        return failAssistant(runId, messageId, null, failedAt);
+    }
+
+    public boolean failAssistant(UUID runId, UUID messageId, String partialContent, OffsetDateTime failedAt) {
+        return chatMessageMapper.failAssistant(runId, messageId, partialContent, failedAt) == 1;
     }
 }

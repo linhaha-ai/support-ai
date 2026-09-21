@@ -62,6 +62,8 @@ describe('运行概览', () => {
     expect(wrapper.text()).toContain('后端连接成功')
     expect(wrapper.text()).toContain('服务健康状态不代表模型已完成验收')
     expect(wrapper.text()).toContain('身份会话')
+    expect(wrapper.text()).toContain('当前阶段 · F13')
+    expect(wrapper.text()).toContain('流式问答')
     expect(wrapper.get('.check-button').text()).toContain('重新检查')
     expect(wrapper.get('[role="status"]').attributes('aria-busy')).toBe('false')
   })

@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F12 已实现待后端与场景验收**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F13 已实现待后端与场景验收**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与会话创建页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05—F08 已形成上传、持久任务、解析分块、向量生成与原子发布链路；F09 新增授权文档查看；F10 新增固定 RAG 知识库范围、会话持久化与 `POST /api/chat/sessions`；F11 新增 WRITE 检索调试接口和会话授权检索。F12 新增 V11 `message_source`、模型调用前证据复核与全量来源登记、同步 RAG 应用服务、引用编号校验、资料不足分支，以及受登录和当前知识库成员权限保护的 `GET /api/chunks/{chunkId}/source`。来源预览允许核对仍可访问的 READY 历史版本并返回 `isCurrent`，历史版本不会重新进入当前检索。消息提交、SSE、取消和历史仍未开放，F12 的生成编排暂由内部服务承载。当前开发库只确认 Flyway V1—V10 成功，V11 尚未同步；本轮按项目规则未运行 Maven、Testcontainers、真实模型、真实 API 或浏览器场景。F09 前置依赖仍未验收，因此 F10—F12 均不能勾选。本轮 M1/M2 复核还发现 Ollama 未启动、当前验收会话未提供 DashScope 配置、认证后的 OpenAPI JSON 返回 500，且开发库没有文档、分块或向量，因此 F01—F09 不能勾选。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F10—F12 的实现与待验收项分别见对应验收记录；完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与流式问答页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05—F08 已形成上传、持久任务、解析分块、向量生成与原子发布链路；F09 新增授权文档查看；F10 新增固定 RAG 知识库范围、会话持久化与 `POST /api/chat/sessions`；F11 新增 WRITE 检索调试接口和会话授权检索；F12 新增 V11 `message_source`、模型调用前证据复核与全量来源登记、引用编号校验、资料不足分支，以及受权限保护的来源预览。F13 开放 `POST /api/chat/sessions/{sessionId}/messages`，新请求返回 start/delta/sources/done/error SSE，幂等复用返回 JSON；每个增量先追加到助手消息再发送，完成或失败先持久化终态再发送事件，未知模型用量保持 `null`。前端可逐步阅读、保留失败前部分回答并从来源抽屉核对正文。取消、run 状态查询和断线恢复仍属于 F14。当前开发库只确认 Flyway V1—V10 成功，V11 尚未同步；本轮按项目规则未运行 Maven、Testcontainers、真实模型、真实 API 或浏览器场景，前端 53 项测试和生产构建已通过。F09 前置依赖仍未验收，因此 F10—F13 均不能勾选。本轮 M1/M2 复核还发现 Ollama 未启动、当前验收会话未提供 DashScope 配置、认证后的 OpenAPI JSON 返回 500，且开发库没有文档、分块或向量，因此 F01—F09 不能勾选。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F10—F13 的实现与待验收项分别见对应验收记录；完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -153,14 +153,14 @@ support-ai/
 │   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
 │   ├── support-ai-ai/          # Ollama / DashScope 模型接入
 │   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量发布、授权查看与授权检索
-│   ├── support-ai-conversation/ # 个人 RAG 会话、运行约束、来源登记与同步回答编排
+│   ├── support-ai-conversation/ # 个人 RAG 会话、运行约束、来源登记与流式回答编排
 │   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
 │   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
 │       ├── src/main/java/com/haha/supportai/
 │       │   ├── SupportAiApplication.java
 │       │   ├── controller/identity/ # 认证与管理员账号目录接口
 │       │   ├── controller/knowledge/ # 知识库、成员、文档、任务与检索调试接口
-│       │   ├── controller/conversation/ # 个人 RAG 会话创建接口
+│       │   ├── controller/conversation/ # 个人 RAG 会话创建与流式消息接口
 │       │   └── config/
 │       └── src/main/resources/
 │           ├── application*.yml
@@ -180,7 +180,7 @@ support-ai/
 
 data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge` 与 `data.conversation` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store` 以及会话、运行、消息和来源的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行。F11 的 `AuthorizedRetrievalRepository` 使用显式 Mapper SQL，在相似度排序前完成实时成员授权、发布状态、固定范围和向量空间过滤。F12 在模型调用前按候选 chunk 再次执行相同边界校验，并在 `REQUIRES_NEW` 独立短事务中核对 run、会话、成对消息、问题及 `chat_session_kb` 后写入所有 `message_source`；回答完成后只将已登记且实际出现的引用编号标为 `is_cited`。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；版本组合、MyBatis 映射与事务回滚仍待运行验收。
 
-认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档、任务、检索调试与来源预览控制器位于 `controller.knowledge`；会话创建控制器位于 `controller.conversation`，当前仅开放 `POST /api/chat/sessions`。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘、短数据库事务、授权检索和来源读取。F11 调试请求只接受 `query/topK`，拒绝客户端附带的用户、范围、SQL 或自由过滤字段。F12 的 `RagAnswerService` 只接收包含会话、规范化问题和成对消息标识的准备结果，在事务外调用 EmbeddingModel/ChatClient，调用 ChatClient 前通过独立短事务登记全部证据；无证据时不调用生成模型，模型异常或空回答进入 FAILED。F10 的 `ChatRunService` 继续只供内部用例准备 run 与成对消息，且准备事务在交给 RAG 前独立提交；F13 才公开消息提交和 SSE。Worker 采用有界线程池，领取与状态更新使用短事务，解析、分块和模型调用留在事务外；租约写入必须同时匹配 owner、token 和有效期。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
+认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档、任务、检索调试与来源预览控制器位于 `controller.knowledge`；会话创建和流式消息控制器位于 `controller.conversation`，当前开放 `POST /api/chat/sessions` 与 `POST /api/chat/sessions/{sessionId}/messages`。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘、短数据库事务、授权检索和来源读取。F11 调试请求只接受 `query/topK`，拒绝客户端附带的用户、范围、SQL 或自由过滤字段。F13 由 `ChatRunService` 同步完成身份、会话、幂等与 run 准备，再交给有界执行器异步调用 `RagAnswerService`；可信 userId 随准备结果传递，不依赖异步线程中的 Sa-Token 上下文。模型调用位于事务外，来源登记、每个回答增量、成功终态和失败部分文本分别使用短事务持久化；SSE 发送失败只停止推送，不取消后台运行。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
 
 ## 数据与接口设计
 
@@ -336,7 +336,7 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 
 以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。多模块迁移尚未执行 Maven 验证，迁移前的成功记录不代表当前结构已验收通过。
 
-MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证 V11、模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构，但 Maven、V11、Testcontainers、依赖树和真实模型检查仍未运行，F01—F12 继续待完整验收。
+MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证 V11、模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态；F13 还需验证真实流式模型、逐增量落库、事件顺序、部分回答、来源二次鉴权、线程池过载和模型用量未知场景。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构，但 Maven、V11、Testcontainers、依赖树和真实模型检查仍未运行，F01—F13 继续待完整验收。
 
 ## 验证与交付标准
 

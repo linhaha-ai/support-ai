@@ -79,7 +79,7 @@ onMounted(check)
         <p>身份验证已启用。</p>
         <span>会话与请求验证已受保护。</span>
         <div class="phase-progress"><i></i><i></i><i></i><i></i><i></i></div>
-        <span class="phase-caption">当前阶段 · F10</span>
+        <span class="phase-caption">当前阶段 · F13</span>
       </div>
       <div class="sidebar-bottom"><span class="local-dot"></span>本地开发工作空间<span>v0.3</span></div>
     </aside>
@@ -106,7 +106,7 @@ onMounted(check)
             <h1>登录成功，工作空间已就绪。</h1>
             <p>当前身份已验证，可继续查看应用基础状态。</p>
           </div>
-          <span class="phase-badge">F10 <span>个人会话约束</span></span>
+          <span class="phase-badge">F13 <span>流式问答</span></span>
         </div>
 
         <section class="status-card" :data-state="state" aria-labelledby="connection-heading">
@@ -144,7 +144,7 @@ onMounted(check)
           </section>
         </div>
 
-        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>个人会话约束 / F10</span></footer>
+        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>逐步显示回答 / F13</span></footer>
         </template>
       </main>
     </div>

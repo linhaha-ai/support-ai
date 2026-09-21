@@ -7,8 +7,12 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.vo.ChatSessionResponse;
+import com.haha.supportai.conversation.service.run.ChatRunService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
+import com.haha.supportai.conversation.service.stream.ChatMessageStreamService;
+import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
 import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
@@ -54,6 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -143,6 +148,12 @@ class OpenApiDocumentationTest {
 
     @MockBean
     ChatSessionService chatSessionService;
+
+    @MockBean
+    ChatRunService chatRunService;
+
+    @MockBean
+    ChatMessageStreamService chatMessageStreamService;
 
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
@@ -255,7 +266,21 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['responses']['201']").exists())
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['security'][0]"
                         + "['SaTokenCookie']").isArray())
-                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']").doesNotExist())
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']['operationId']")
+                        .value("submitChatMessage"))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']"
+                        + "['parameters'][*]['name']").value(hasItem("sessionId")))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']"
+                        + "['parameters'][*]['name']").value(hasItem("X-CSRF-TOKEN")))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']['requestBody']"
+                        + "['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/SubmitMessageCommand"))
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']['responses']['200']"
+                        + "['content']['text/event-stream']").exists())
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']['responses']['200']"
+                        + "['content']['application/json']").exists())
+                .andExpect(jsonPath("$['paths']['/api/chat/sessions/{sessionId}/messages']['post']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/admin/knowledge-bases']['get']['operationId']")
                         .value("listManagedKnowledgeBases"))
                 .andExpect(jsonPath("$['paths']['/api/admin/users']['get']['operationId']")
@@ -369,6 +394,37 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$.data.sessionId").value(sessionId.toString()))
                 .andExpect(jsonPath("$.data.mode").value("RAG"))
                 .andExpect(jsonPath("$.data.knowledgeBaseIds[0]").value(knowledgeBaseId.toString()));
+    }
+
+    @Test
+    void repeatedMessageSubmissionReturnsJsonWithoutOpeningAnotherStream() throws Exception {
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440041");
+        UUID runId = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+        UUID userMessageId = UUID.fromString("550e8400-e29b-41d4-a716-446655440043");
+        UUID assistantMessageId = UUID.fromString("550e8400-e29b-41d4-a716-446655440044");
+        UUID clientRequestId = UUID.fromString("550e8400-e29b-41d4-a716-446655440045");
+        configureAuthenticatedUser();
+        when(chatRunService.prepare(eq(sessionId), any())).thenReturn(new PreparedChatRunResponse(
+                runId, sessionId, userMessageId, assistantMessageId, "如何排查退款状态？",
+                ChatRunStatusEnum.RUNNING, true));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        mvc.perform(post("/api/chat/sessions/{sessionId}/messages", sessionId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie())
+                        .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON)
+                        .content(objectMapper.createObjectNode()
+                                .put("clientRequestId", clientRequestId.toString())
+                                .put("content", "如何排查退款状态？")
+                                .toString()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data.runId").value(runId.toString()))
+                .andExpect(jsonPath("$.data.status").value("RUNNING"))
+                .andExpect(jsonPath("$.data.reused").value(true));
+        verifyNoInteractions(chatMessageStreamService);
     }
 
     @Test
