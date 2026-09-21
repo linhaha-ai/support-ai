@@ -10,10 +10,15 @@ import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
+import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
+import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.identity.config.IdentityOpenApiConfiguration;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.service.AuthenticationService;
+import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
+import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -27,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -58,6 +64,15 @@ class OpenApiDocumentationTest {
     KnowledgeBaseRepository knowledgeBaseRepository;
 
     @MockBean
+    KnowledgeDocumentRepository knowledgeDocumentRepository;
+
+    @MockBean
+    DocumentVersionRepository documentVersionRepository;
+
+    @MockBean
+    IngestionJobRepository ingestionJobRepository;
+
+    @MockBean
     KbMemberRepository kbMemberRepository;
 
     @MockBean
@@ -65,6 +80,12 @@ class OpenApiDocumentationTest {
 
     @MockBean
     KnowledgeBaseService knowledgeBaseService;
+
+    @MockBean
+    DocumentUploadService documentUploadService;
+
+    @MockBean
+    DocumentUploadPersistenceService documentUploadPersistenceService;
 
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
@@ -120,6 +141,20 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}']['patch']['requestBody']"
                         + "['content']['application/json']['schema']['$ref']")
                         .value("#/components/schemas/UpdateKnowledgeBaseRequest"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']['operationId']")
+                        .value("uploadKnowledgeDocument"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['requestBody']['required']").value(true))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['requestBody']['content']['multipart/form-data']['schema']['required']")
+                        .value(hasItem("file")))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['requestBody']['content']['multipart/form-data']['schema']['properties']['file']"
+                        + "['format']").value("binary"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['responses']['202']").exists())
                 .andExpect(jsonPath("$['paths']['/api/admin/knowledge-bases']['get']['operationId']")
                         .value("listManagedKnowledgeBases"))
                 .andExpect(jsonPath("$['paths']['/api/admin/users']['get']['operationId']")
@@ -158,6 +193,8 @@ class OpenApiDocumentationTest {
                 "KnowledgeBaseDetailResponse");
         assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}", "patch",
                 "KnowledgeBaseManagementResponse");
+        assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}/documents", "post", "202",
+                "DocumentUploadReceiptResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",
                 "KnowledgeBaseManagementResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/users", "get", "UserSummaryResponse");

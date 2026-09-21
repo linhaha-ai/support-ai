@@ -15,6 +15,8 @@ import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException
 import com.haha.supportai.knowledge.exception.KnowledgeBaseNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -56,5 +58,19 @@ public class AccessPolicy {
             throw new KnowledgeBaseAccessDeniedException();
         }
         return accessContext;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public KnowledgeBaseAccessContext requireWriteForUpdate(UUID knowledgeBaseId) {
+        AuthenticatedUser currentUser = currentUser();
+        KnowledgeBase knowledgeBase = knowledgeBaseRepository
+                .findActiveByIdAndUserForUpdate(knowledgeBaseId, currentUser.getId())
+                .orElseThrow(KnowledgeBaseNotFoundException::new);
+        KbMember member = kbMemberRepository.findByKbIdAndUserId(knowledgeBaseId, currentUser.getId())
+                .orElseThrow(KnowledgeBaseNotFoundException::new);
+        if (member.getPermission() != KbPermissionEnum.WRITE) {
+            throw new KnowledgeBaseAccessDeniedException();
+        }
+        return new KnowledgeBaseAccessContext(knowledgeBase, member);
     }
 }

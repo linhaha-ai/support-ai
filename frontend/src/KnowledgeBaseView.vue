@@ -11,6 +11,7 @@ import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import type { KnowledgeBaseManagement, KnowledgeBaseMember, KnowledgeBasePermission, KnowledgeBaseStatus } from './knowledgeBase'
 import type { CurrentUser } from './useAuth'
+import { useDocumentUpload } from './useDocumentUpload'
 import { useKnowledgeBases } from './useKnowledgeBases'
 import { useKnowledgeBaseMembers } from './useKnowledgeBaseMembers'
 
@@ -19,6 +20,7 @@ const props = defineProps<{ user: CurrentUser }>()
 const isAdmin = computed(() => props.user.role === 'ADMIN')
 const knowledgeBases = reactive(useKnowledgeBases(() => isAdmin.value))
 const memberManagement = reactive(useKnowledgeBaseMembers())
+const documentUpload = useDocumentUpload()
 const editorVisible = ref(false)
 const editingId = ref<string | null>(null)
 const editor = reactive({
@@ -147,6 +149,19 @@ async function submit() {
   }
   const created = await knowledgeBases.create(input)
   if (created) closeEditor()
+}
+
+function selectDocumentFile(knowledgeBaseId: string, event: Event) {
+  const input = event.target
+  if (!(input instanceof HTMLInputElement)) return
+  const selected = documentUpload.selectFile(knowledgeBaseId, input.files?.[0] ?? null)
+  if (!selected) input.value = ''
+}
+
+async function submitDocument(knowledgeBaseId: string, event: Event) {
+  const form = event.currentTarget instanceof HTMLFormElement ? event.currentTarget : null
+  const receipt = await documentUpload.submit(knowledgeBaseId)
+  if (receipt) form?.reset()
 }
 
 onMounted(knowledgeBases.load)
@@ -366,6 +381,54 @@ onMounted(knowledgeBases.load)
           <span>权限 {{ item.permission }}</span>
           <span>更新于 {{ formatDate(item.updatedAt) }}</span>
         </div>
+        <section v-if="item.permission === 'WRITE'" class="document-upload" :aria-labelledby="`document-upload-${item.id}`">
+          <div class="document-upload-heading">
+            <div>
+              <h3 :id="`document-upload-${item.id}`">上传文档</h3>
+              <p>仅支持 UTF-8 Markdown 或 TXT，单个文件不超过 5 MB。</p>
+            </div>
+            <ElTag v-if="documentUpload.stateFor(item.id).receipt" size="small" type="warning">处理中</ElTag>
+          </div>
+          <form class="document-upload-form" @submit.prevent="submitDocument(item.id, $event)">
+            <label :for="`document-file-${item.id}`">文档文件</label>
+            <input
+              :id="`document-file-${item.id}`"
+              class="document-file-input"
+              type="file"
+              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              :disabled="documentUpload.stateFor(item.id).submitting"
+              @change="selectDocumentFile(item.id, $event)"
+            >
+            <span class="document-file-name">{{ documentUpload.stateFor(item.id).file?.name ?? '尚未选择文件' }}</span>
+            <label :for="`document-display-name-${item.id}`">展示名称（可选）</label>
+            <ElInput
+              :id="`document-display-name-${item.id}`"
+              v-model="documentUpload.stateFor(item.id).displayName"
+              maxlength="255"
+              placeholder="默认使用文件名"
+              :disabled="documentUpload.stateFor(item.id).submitting"
+            />
+            <div class="document-upload-actions">
+              <ElButton
+                type="primary"
+                native-type="submit"
+                :loading="documentUpload.stateFor(item.id).submitting"
+                :disabled="!documentUpload.stateFor(item.id).file || documentUpload.stateFor(item.id).submitting"
+              >
+                {{ documentUpload.stateFor(item.id).error ? '重新提交' : '提交上传' }}
+              </ElButton>
+            </div>
+          </form>
+          <p v-if="documentUpload.stateFor(item.id).error" class="document-upload-error" role="alert">
+            {{ documentUpload.stateFor(item.id).error }}
+          </p>
+          <div v-if="documentUpload.stateFor(item.id).receipt" class="document-upload-receipt" role="status">
+            <strong>文档已接收，正在处理中。</strong>
+            <span>文档 {{ documentUpload.stateFor(item.id).receipt?.documentId }}</span>
+            <span>版本 {{ documentUpload.stateFor(item.id).receipt?.versionId }}</span>
+            <span>任务 {{ documentUpload.stateFor(item.id).receipt?.jobId }}</span>
+          </div>
+        </section>
       </article>
     </section>
   </section>

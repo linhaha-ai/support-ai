@@ -80,6 +80,32 @@ class AccessPolicyTest {
     }
 
     @Test
+    void transactionalWriteCheckLocksMembershipBeforeAcceptingUpload() {
+        KbMember member = member(KbPermissionEnum.WRITE);
+        when(activeAccountGuard.currentUser()).thenReturn(user);
+        when(knowledgeBaseRepository.findActiveByIdAndUserForUpdate(KNOWLEDGE_BASE_ID, USER_ID))
+                .thenReturn(Optional.of(knowledgeBase));
+        when(kbMemberRepository.findByKbIdAndUserId(KNOWLEDGE_BASE_ID, USER_ID))
+                .thenReturn(Optional.of(member));
+
+        KnowledgeBaseAccessContext result = accessPolicy.requireWriteForUpdate(KNOWLEDGE_BASE_ID);
+
+        assertThat(result.getMember()).isSameAs(member);
+    }
+
+    @Test
+    void transactionalWriteCheckRejectsReadMemberAfterLock() {
+        when(activeAccountGuard.currentUser()).thenReturn(user);
+        when(knowledgeBaseRepository.findActiveByIdAndUserForUpdate(KNOWLEDGE_BASE_ID, USER_ID))
+                .thenReturn(Optional.of(knowledgeBase));
+        when(kbMemberRepository.findByKbIdAndUserId(KNOWLEDGE_BASE_ID, USER_ID))
+                .thenReturn(Optional.of(member(KbPermissionEnum.READ)));
+
+        assertThatThrownBy(() -> accessPolicy.requireWriteForUpdate(KNOWLEDGE_BASE_ID))
+                .isInstanceOf(KnowledgeBaseAccessDeniedException.class);
+    }
+
+    @Test
     void administratorWithoutMembershipCannotDiscoverDataResource() {
         AuthenticatedUser administrator = new AuthenticatedUser(USER_ID, "admin", "系统管理员", UserRoleEnum.ADMIN);
         when(activeAccountGuard.currentUser()).thenReturn(administrator);

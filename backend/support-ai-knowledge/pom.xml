@@ -9,7 +9,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>support-ai-knowledge</artifactId>
-    <description>知识库元数据与访问边界；文档、导入和检索随后续阶段实现</description>
+    <description>知识库元数据、成员访问边界与文档上传受理</description>
     <dependencies>
         <dependency>
             <groupId>com.haha</groupId>
@@ -34,6 +34,14 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>

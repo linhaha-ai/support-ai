@@ -10,6 +10,7 @@ import com.haha.supportai.data.knowledge.entity.po.KnowledgeBase;
 import com.haha.supportai.data.knowledge.enums.KbPermissionEnum;
 import com.haha.supportai.data.knowledge.enums.KnowledgeBaseStatusEnum;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
+import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.knowledge.access.AccessPolicy;
@@ -32,6 +33,7 @@ public class KnowledgeBaseService {
 
     private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final KbMemberRepository kbMemberRepository;
+    private final KnowledgeDocumentRepository knowledgeDocumentRepository;
     private final AccessPolicy accessPolicy;
 
     public List<KnowledgeBaseSummaryResponse> listAccessible() {
@@ -70,8 +72,9 @@ public class KnowledgeBaseService {
 
     public KnowledgeBaseDetailResponse getAccessible(UUID knowledgeBaseId) {
         KnowledgeBaseAccessContext accessContext = accessPolicy.requireRead(knowledgeBaseId);
+        long documentCount = knowledgeDocumentRepository.countActiveByKnowledgeBaseId(knowledgeBaseId);
         return KnowledgeBaseDetailResponse.from(accessContext.getKnowledgeBase(),
-                accessContext.getMember().getPermission());
+                accessContext.getMember().getPermission(), documentCount);
     }
 
     @Transactional

@@ -16,6 +16,7 @@ const adminUser = { ...ordinaryUser, id: '9f7bf95e-e7e5-4d09-ac60-43e03c16a2c3',
 const summary = {
   id: '4f8ac4b4-1c89-452c-a5be-f3a8cb0d1234', name: '产品支持', description: '产品使用说明', status: 'ACTIVE', permission: 'READ', revision: 1, updatedAt: '2026-09-21T10:00:00+08:00',
 }
+const writableSummary = { ...summary, permission: 'WRITE' as const }
 const management = {
   ...summary, ownerId: adminUser.id, createdAt: '2026-09-20T10:00:00+08:00',
 }
@@ -62,6 +63,21 @@ function failure(code: string, status: number) {
   })
 }
 
+function queuedReceipt() {
+  return {
+    documentId: '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a',
+    versionId: '43ec5c35-baf0-467f-b671-6ad6e9b8d4a8',
+    jobId: '4e151efd-4c49-4263-8c43-a5589261d52b',
+    status: 'QUEUED',
+  }
+}
+
+async function selectDocument(view: VueWrapper, file: File) {
+  const input = view.get('.document-file-input')
+  Object.defineProperty(input.element, 'files', { configurable: true, value: [file] })
+  await input.trigger('change')
+}
+
 function mountView(user = ordinaryUser) {
   wrapper = mount(KnowledgeBaseView, { props: { user } })
   return wrapper
@@ -88,9 +104,90 @@ describe('知识库视图', () => {
     expect(view.text()).toContain('权限 READ')
     expect(view.text()).not.toContain('管理全部')
     expect(view.text()).not.toContain('新建知识库')
+    expect(view.find('.document-upload').exists()).toBe(false)
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/knowledge-bases', expect.objectContaining({
       method: 'GET', credentials: 'same-origin',
     }))
+  })
+
+  it('可写知识库使用 CSRF 提交 multipart，并展示处理中回执', async () => {
+    const receipt = queuedReceipt()
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockResolvedValueOnce(ok(csrf))
+      .mockResolvedValueOnce(ok(receipt, 202))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+    await view.get('.document-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/csrf', expect.objectContaining({
+      method: 'GET', credentials: 'same-origin',
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, `/api/knowledge-bases/${writableSummary.id}/documents`, expect.objectContaining({
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: expect.objectContaining({ Accept: 'application/json', 'X-CSRF-TOKEN': 'csrf-token' }),
+    }))
+    const request = fetchMock.mock.calls[2]?.[1]
+    expect(request?.body).toBeInstanceOf(FormData)
+    expect((request?.body as FormData).get('file')).toBeInstanceOf(File)
+    expect((request?.headers as Record<string, string>)['Content-Type']).toBeUndefined()
+    expect(view.text()).toContain('文档已接收，正在处理中。')
+    expect(view.text()).toContain(receipt.documentId)
+    expect(view.text()).toContain(receipt.versionId)
+    expect(view.text()).toContain(receipt.jobId)
+    expect(view.text()).not.toContain('可问答')
+  })
+
+  it('只读知识库不展示文档上传入口', async () => {
+    fetchMock.mockResolvedValueOnce(ok([summary]))
+    const view = mountView()
+    await flushPromises()
+
+    expect(view.find('.document-upload').exists()).toBe(false)
+    expect(view.text()).not.toContain('提交上传')
+  })
+
+  it('文档上传失败后保留错误和文件，允许重新提交', async () => {
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockResolvedValueOnce(ok(csrf))
+      .mockResolvedValueOnce(failure('DOCUMENT_FILE_TOO_LARGE', 413))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.txt', { type: 'text/plain' }))
+    await view.get('.document-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(view.text()).toContain('文件超过 5 MB 限制，请压缩或拆分后重试。')
+    expect(view.text()).toContain('guide.txt')
+    expect(view.get('.document-upload-actions .el-button').attributes('disabled')).toBeUndefined()
+  })
+
+  it('同一知识库上传期间阻止重复提交', async () => {
+    let resolveCsrf: ((response: Response) => void) | undefined
+    const csrfPending = new Promise<Response>((resolve) => {
+      resolveCsrf = resolve
+    })
+    fetchMock.mockResolvedValueOnce(ok([writableSummary]))
+      .mockImplementationOnce(() => csrfPending)
+      .mockResolvedValueOnce(ok(queuedReceipt(), 202))
+    const view = mountView()
+    await flushPromises()
+
+    await selectDocument(view, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+    const form = view.get('.document-upload-form')
+    await form.trigger('submit')
+    await form.trigger('submit')
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    resolveCsrf?.(ok(csrf))
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls.filter(([url]) => url === `/api/knowledge-bases/${writableSummary.id}/documents`)).toHaveLength(1)
   })
 
   it('管理员可切换到管理列表并携带状态筛选参数', async () => {

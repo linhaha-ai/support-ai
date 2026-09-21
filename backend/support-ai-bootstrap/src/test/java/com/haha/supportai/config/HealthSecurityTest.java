@@ -4,7 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
+import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
+import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
+import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
+import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,10 +49,25 @@ class HealthSecurityTest {
     KnowledgeBaseRepository knowledgeBaseRepository;
 
     @MockBean
+    KnowledgeDocumentRepository knowledgeDocumentRepository;
+
+    @MockBean
+    DocumentVersionRepository documentVersionRepository;
+
+    @MockBean
+    IngestionJobRepository ingestionJobRepository;
+
+    @MockBean
     KbMemberRepository kbMemberRepository;
 
     @MockBean
     KnowledgeBaseService knowledgeBaseService;
+
+    @MockBean
+    DocumentUploadService documentUploadService;
+
+    @MockBean
+    DocumentUploadPersistenceService documentUploadPersistenceService;
 
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {

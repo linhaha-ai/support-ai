@@ -60,6 +60,13 @@ export interface UpdateKnowledgeBaseInput extends CreateKnowledgeBaseInput {
   revision: number
 }
 
+export interface DocumentUploadReceipt {
+  documentId: string
+  versionId: string
+  jobId: string
+  status: 'QUEUED'
+}
+
 export interface KnowledgeBaseApiError {
   kind: 'unauthorized' | 'forbidden' | 'conflict' | 'request' | 'invalid-response'
   message: string
@@ -194,6 +201,20 @@ function parseMember(value: unknown): KnowledgeBaseMember | null {
   }
 }
 
+function parseDocumentUploadReceipt(value: unknown): DocumentUploadReceipt | null {
+  if (!isRecord(value)
+    || typeof value.documentId !== 'string'
+    || typeof value.versionId !== 'string'
+    || typeof value.jobId !== 'string'
+    || value.status !== 'QUEUED') return null
+  return {
+    documentId: value.documentId,
+    versionId: value.versionId,
+    jobId: value.jobId,
+    status: value.status,
+  }
+}
+
 function parseList<T>(value: unknown, parser: (item: unknown) => T | null): T[] | null {
   if (!Array.isArray(value)) return null
   const items = value.map(parser)
@@ -213,6 +234,28 @@ function errorFor(response: Response): KnowledgeBaseApiError {
   if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有执行此操作的权限。' }
   if (response.status === 409) return { kind: 'conflict', message: '知识库已被其他操作更新，请刷新后再保存。' }
   return { kind: 'request', message: '知识库请求未完成，请稍后重试。' }
+}
+
+function uploadErrorFor(response: Response, code?: string): KnowledgeBaseApiError {
+  if (response.status === 413 || code === 'DOCUMENT_FILE_TOO_LARGE') {
+    return { kind: 'request', message: '文件超过 5 MB 限制，请压缩或拆分后重试。' }
+  }
+  if (response.status === 415 || code === 'DOCUMENT_FILE_TYPE_UNSUPPORTED') {
+    return { kind: 'request', message: '仅支持 UTF-8 编码的 Markdown 或 TXT 文件。' }
+  }
+  if (code === 'DOCUMENT_FILE_ENCODING_INVALID') {
+    return { kind: 'request', message: '文件不是有效的 UTF-8 编码，请转换编码后重试。' }
+  }
+  if (code === 'DOCUMENT_FILE_REQUIRED' || code === 'DOCUMENT_FILE_EMPTY') {
+    return { kind: 'request', message: '请选择包含内容的 Markdown 或 TXT 文件。' }
+  }
+  if (code === 'DOCUMENT_NAME_INVALID') {
+    return { kind: 'request', message: '文档名称不合法，请缩短名称或移除控制字符。' }
+  }
+  if (code === 'DOCUMENT_STORAGE_UNAVAILABLE' || code === 'DOCUMENT_UPLOAD_FAILED') {
+    return { kind: 'request', message: '文档暂时无法受理，请稍后重试。' }
+  }
+  return errorFor(response)
 }
 
 async function requestCsrf(): Promise<CsrfData> {
@@ -306,6 +349,35 @@ export async function createKnowledgeBase(input: CreateKnowledgeBaseInput): Prom
   if (data) return data
   if (!response.ok) throw errorFor(response)
   throw { kind: 'invalid-response', message: '创建知识库的响应格式无效，请刷新后重试。' } satisfies KnowledgeBaseApiError
+}
+
+export async function uploadKnowledgeDocument(
+  knowledgeBaseId: string,
+  file: File,
+  displayName: string,
+): Promise<DocumentUploadReceipt> {
+  const csrf = await requestCsrf()
+  const body = new FormData()
+  body.append('file', file)
+  if (displayName) body.append('displayName', displayName)
+
+  const response = await fetch(`/api/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      [csrf.headerName]: csrf.token,
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
+    body,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const data = response.status === 202 && envelope?.code === 'OK'
+    ? parseDocumentUploadReceipt(envelope.data)
+    : null
+  if (data) return data
+  if (!response.ok) throw uploadErrorFor(response, envelope?.code)
+  throw { kind: 'invalid-response', message: '上传文档的响应格式无效，请稍后重试。' } satisfies KnowledgeBaseApiError
 }
 
 export async function updateKnowledgeBase(id: string, input: UpdateKnowledgeBaseInput): Promise<KnowledgeBaseManagement> {

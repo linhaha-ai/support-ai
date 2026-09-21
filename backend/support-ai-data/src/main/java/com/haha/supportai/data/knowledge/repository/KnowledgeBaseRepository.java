@@ -41,6 +41,10 @@ public class KnowledgeBaseRepository {
         return knowledgeBaseMapper.selectActiveByIdAndUserId(id, userId);
     }
 
+    public Optional<KnowledgeBase> findActiveByIdAndUserForUpdate(UUID id, UUID userId) {
+        return knowledgeBaseMapper.selectActiveByIdAndUserIdForUpdate(id, userId);
+    }
+
     public boolean updateMetadataByIdAndRevision(UUID id, long revision, String name, String description,
                                                  KnowledgeBaseStatusEnum status) {
         return knowledgeBaseMapper.updateMetadataByIdAndRevision(id, revision, name, description, status) == 1;

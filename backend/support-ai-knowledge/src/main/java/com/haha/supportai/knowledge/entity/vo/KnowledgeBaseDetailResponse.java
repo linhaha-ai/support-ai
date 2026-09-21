@@ -36,7 +36,7 @@ public class KnowledgeBaseDetailResponse {
     @Schema(description = "当前用户在知识库中的权限", example = "WRITE", requiredMode = Schema.RequiredMode.REQUIRED)
     private final KbPermissionEnum currentPermission; // 当前用户成员权限
 
-    @Schema(description = "当前文档数量；F03 尚未引入文档实体，固定为 0", example = "0", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "当前未删除文档数量", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private final long documentCount; // 当前文档数量
 
     @Schema(description = "创建时间", format = "date-time", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -46,8 +46,14 @@ public class KnowledgeBaseDetailResponse {
     private final OffsetDateTime updatedAt; // 最近更新时间
 
     public static KnowledgeBaseDetailResponse from(KnowledgeBase knowledgeBase, KbPermissionEnum permission) {
+        return from(knowledgeBase, permission, 0);
+    }
+
+    public static KnowledgeBaseDetailResponse from(KnowledgeBase knowledgeBase, KbPermissionEnum permission,
+            long documentCount) {
         return new KnowledgeBaseDetailResponse(knowledgeBase.getId(), knowledgeBase.getName(),
                 knowledgeBase.getDescription(), knowledgeBase.getOwnerId(), knowledgeBase.getStatus(),
-                knowledgeBase.getRevision(), permission, 0, knowledgeBase.getCreatedAt(), knowledgeBase.getUpdatedAt());
+                knowledgeBase.getRevision(), permission, documentCount, knowledgeBase.getCreatedAt(),
+                knowledgeBase.getUpdatedAt());
     }
 }

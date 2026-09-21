@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F04 已实现待后端与场景验收**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F05 已实现待后端与场景验收**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态与知识库页面和 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 账号/知识库数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03 已交付知识库创建与元数据维护，F04 新增管理员账号目录、成员查询、幂等授权/改权、撤权、统一 `AccessPolicy` 和成员管理界面。后端已按 9 个子模块整理，Controller 统一归 bootstrap；后端 Maven、真实应用 API、MyBatis 映射、Sa-Token 权限边界和浏览器三账号场景验收尚待执行。前端 3 个测试文件共 26 项测试和生产构建已通过。阶段产出和逐项核对结果见 [F04 验收记录](doc/F04验收记录.md)、[F03 验收记录](doc/F03验收记录.md)、[F02 验收记录](doc/F02验收记录.md)，模型前置证据见 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态与知识库页面和 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 账号/知识库数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05 新增 Markdown/TXT 上传、受控本地 FileStore、文档/版本/持久任务三表、数据库失败文件补偿和处理中回执。后端已按 9 个子模块整理，Controller 统一归 bootstrap；后端 Maven、真实 PostgreSQL API、MyBatis 映射及浏览器权限场景仍待验收。前端 3 个测试文件共 30 项测试和生产构建已通过。阶段产出见 [F05 验收记录](doc/F05验收记录.md)、[F04 验收记录](doc/F04验收记录.md)、[F03 验收记录](doc/F03验收记录.md)、[F02 验收记录](doc/F02验收记录.md)，模型前置证据见 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -141,7 +141,7 @@ flowchart TD
 | security / access / model / support | 身份安全、资源授权、模型适配及其他有明确职责的支撑代码 |
 | data 下的业务域 entity.po / enums / repository / mapper | 数据库实体、持久化枚举、业务查询门面与 MyBatis Mapper |
 
-后端采用 9 个子模块，加父工程共 10 个 Maven 工程。只有 bootstrap 生成可执行 Spring Boot JAR；F03—F04 知识库与成员授权代码已落入 knowledge、identity、data 和 bootstrap，尚未实现的业务继续使用包说明预留职责：
+后端采用 9 个子模块，加父工程共 10 个 Maven 工程。只有 bootstrap 生成可执行 Spring Boot JAR；F03—F05 的知识库、成员授权和文档上传代码已落入 knowledge、identity、data、storage 和 bootstrap，尚未实现的业务继续使用包说明预留职责：
 
 ```text
 support-ai/
@@ -149,10 +149,10 @@ support-ai/
 │   ├── pom.xml                 # support-ai-parent：聚合、版本与构建规则
 │   ├── support-ai-common/      # 响应、异常、traceId 与公共 Web 支撑
 │   ├── support-ai-data/        # MyBatis-Plus、类型映射、按业务分包的实体与数据访问
-│   ├── support-ai-storage/     # 文件存储边界，待 F05 实现
+│   ├── support-ai-storage/     # FileStore 与受控本地原文件存储
 │   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
 │   ├── support-ai-ai/          # Ollama / DashScope 模型接入
-│   ├── support-ai-knowledge/   # F03—F04 知识库、成员授权、AccessPolicy；导入和检索待实现
+│   ├── support-ai-knowledge/   # 知识库、成员授权、文档上传；Worker 和检索待实现
 │   ├── support-ai-conversation/ # 会话、运行与 RAG 边界，待 F10 起实现
 │   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
 │   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
@@ -172,15 +172,16 @@ support-ai/
 │   ├── 技术设计大纲.md
 │   ├── 开发计划.md
 │   ├── F03验收记录.md
-│   └── F04验收记录.md
+│   ├── F04验收记录.md
+│   └── F05验收记录.md
 └── README.md
 ```
 
 `data` 统一提供 MyBatis-Plus、数据库驱动、连接池与类型映射，并按业务分包承载实体 PO、持久化枚举、Repository 和 Mapper；当前 `AppUser`、`UserRoleEnum`、`AppUserRepository`、`AppUserMapper` 分别位于 `com.haha.supportai.data.identity` 下的 `entity.po`、`enums`、`repository`、`mapper` 包。业务服务通过 Repository 调用 Mapper，不直接使用 JdbcTemplate 或 RowMapper。业务授权、事务编排、认证流程与 DTO/VO 留在所属业务模块，跨业务调用仍通过业务服务，不能绕过服务直接访问其他域的 Repository/Mapper。data 不反向依赖 identity；连接参数、Flyway 生产迁移与应用配置集中在 bootstrap。全局 OpenAPI 元信息与 Knife4j 运行装配归 bootstrap，身份配置与异常处理归 identity。详细结构见[后端模块结构](doc/后端模块结构.md)。
 
-data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity` 与 `data.knowledge` 已分别包含 PO、枚举、Repository 和 Mapper；知识库成员复合键查询、列表、幂等授权、撤权、可访问 ACTIVE 列表和基于 revision 的元数据更新使用显式 Mapper SQL 与结果映射。后续授权检索、任务租约和批量向量写入使用显式 Mapper SQL，复杂 XML 按需放入 `src/main/resources/mapper/<业务>/`。UUID、枚举和时间类型显式映射，数据库结构仍由 Flyway 管理。PgVectorStore 验收和独立 SQL 测试夹具继续使用底层 JDBC；本次业务数据访问迁移不等于移除 JDBC 依赖。版本组合、MyBatis 映射与事务回滚仍待运行验收。
+data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity` 与 `data.knowledge` 已包含账号、知识库、成员、文档、版本和入库任务的 PO、枚举、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。后续任务租约、授权检索和批量向量写入继续使用显式 Mapper SQL。UUID、枚举和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 验收和独立 SQL 测试夹具继续使用底层 JDBC；版本组合、MyBatis 映射与事务回滚仍待运行验收。
 
-认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据与成员控制器位于 `controller.knowledge`。会话和助手控制器仍按需放入 `controller.conversation`、`controller.assistant`，不建立空目录。identity 负责账号目录和管理员身份校验，knowledge 通过 identity 服务契约取得安全用户摘要，并由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。common 使用 `entity.vo`、`filter`、`handler`、`support`；ai 使用 `config` 和 `model`。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
+认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员和文档上传控制器位于 `controller.knowledge`。会话和助手控制器仍按需放入 `controller.conversation`、`controller.assistant`，不建立空目录。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘与短数据库事务。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。common 使用 `entity.vo`、`filter`、`handler`、`support`；ai 使用 `config` 和 `model`。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
 
 ## 数据与接口设计
 
@@ -265,13 +266,19 @@ npm --prefix frontend run dev
 
 ### 接口文档
 
-接口文档本身属于受保护资源。先在 <http://127.0.0.1:5173> 登录，再访问 Knife4j 页面 <http://127.0.0.1:8080/doc.html>；前后端必须使用相同主机名，不能混用 `localhost` 与 `127.0.0.1`。OpenAPI 3.0 JSON 位于 <http://127.0.0.1:8080/v3/api-docs>，Actuator 健康接口位于 `actuator` 文档分组。当前生成内容包含已经实现的认证、知识库元数据、管理员账号目录和成员管理接口；后续接口随对应开发任务落地后再进入契约。
+接口文档本身属于受保护资源。先在 <http://127.0.0.1:5173> 登录，再访问 Knife4j 页面 <http://127.0.0.1:8080/doc.html>；前后端必须使用相同主机名，不能混用 `localhost` 与 `127.0.0.1`。OpenAPI 3.0 JSON 位于 <http://127.0.0.1:8080/v3/api-docs>，Actuator 健康接口位于 `actuator` 文档分组。当前生成内容包含已经实现的认证、知识库元数据、管理员账号目录、成员管理和文档上传接口；后续接口随对应开发任务落地后再进入契约。
 
 文档声明 Sa-Token HttpOnly Cookie 鉴权，并明确标注写请求所需的 `X-CSRF-TOKEN`。在 Knife4j 中调试写接口前，先调用 `GET /api/auth/csrf`，再将返回的令牌填入该请求头。Knife4j 4.5.0 自带的旧 springdoc 依赖已排除，工程显式固定 springdoc-openapi 2.9.1 以适配 Spring Boot 3.5.x。
 
 接口保留操作、参数、数据模型和鉴权注解，成功响应由方法返回类型及 HTTP 状态注解生成，避免逐接口重复声明响应列表。通用错误结构与状态约定见[技术设计大纲](doc/技术设计大纲.md)，运行行为由安全回归测试验证。
 
 普通配置在 YAML 中使用可直接运行的开发默认值；演示账号无需环境变量，DashScope 密钥仍只在启动进程中通过环境变量注入。原生 Maven/Java 不会自动加载 `.env`，不要提交真实凭据，也不要使用 `VITE_` 前缀把密钥传给浏览器。
+
+### 文档上传
+
+WRITE 成员可在知识库页面上传 UTF-8 编码的 `.md`、`.markdown` 或 `.txt`，单文件上限 5 MB。原文件默认写入仓库根目录下被忽略的 `.local/storage`，物理文件名由服务端随机生成；浏览器提供的文件名只保存清理后的 basename，不能参与路径拼接。上传成功返回 202 和文档、版本、任务标识，仅表示进入 `QUEUED/PARSE` 队列，F08 发布前不能用于问答。
+
+文件先完整写入受控目录，再在短事务中登记 `document`、`document_version`、`ingestion_job` 并设置 `pending_version_id`；首次上传的 `active_version_id` 保持空。事务提交失败会删除已写文件。需要修改本地目录或大小时，使用 Spring Boot 外部配置覆盖 `support.ai.storage.root`、`support.ai.document.upload.max-file-size` 和对应的 `spring.servlet.multipart` 限制。
 
 ### 模型选择
 
@@ -322,7 +329,7 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 
 以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。多模块迁移尚未执行 Maven 验证，迁移前的成功记录不代表当前结构已验收通过。
 
-MyBatis-Plus 接入后需重点核对账号与知识库的 UUID、字符串枚举、带时区时间映射，以及创建知识库和创建者 WRITE 成员在同一 Spring 事务中的回滚行为。F04 还需验证成员复合主键的幂等授权、撤权即时生效及 ADMIN 与成员读取权分离。依赖树应只包含选定的 Boot 3 专用 Starter，检查 MyBatis、MyBatis-Spring 和 Spring Boot 版本实际解析结果；上述后端检查本轮均未运行，F01—F04 仍待完整验收。
+MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSONB 和带时区时间映射，以及知识库、成员、文档版本与任务事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护。依赖树应只包含选定的 Boot 3 专用 Starter；上述后端检查本轮均未运行，F01—F05 仍待完整验收。
 
 ## 验证与交付标准
 
