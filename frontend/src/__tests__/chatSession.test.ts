@@ -2,8 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cancelChatRun,
   createChatSession,
+  deleteChatSession,
   fetchChatRun,
+  fetchChatMessages,
+  fetchChatSessions,
   fetchDocumentSource,
+  renameChatSession,
   submitChatMessage,
   type ChatStreamEvent,
 } from '../chatSession'
@@ -57,6 +61,19 @@ function streamResponse(chunks: Uint8Array[]) {
   }), { status: 200, headers: { 'Content-Type': 'text/event-stream;charset=UTF-8' } })
 }
 
+function sessionSummary(overrides: Record<string, unknown> = {}) {
+  return {
+    sessionId,
+    title: '支付支持',
+    mode: 'RAG',
+    knowledgeBaseIds: [knowledgeBaseId],
+    contentReadable: true,
+    createdAt: '2026-09-21T10:00:00+08:00',
+    updatedAt: '2026-09-21T10:00:00+08:00',
+    ...overrides,
+  }
+}
+
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
 afterEach(() => {
   fetchMock.mockReset()
@@ -92,6 +109,64 @@ describe('会话创建接口', () => {
       }, 201))
 
     await expect(createChatSession([knowledgeBaseId])).rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+})
+
+describe('会话历史接口', () => {
+  it('读取带不透明游标的会话列表，并严格要求受限标记', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ items: [sessionSummary({ contentReadable: false })], nextCursor: 'cursor-next' }))
+
+    await expect(fetchChatSessions('cursor-before')).resolves.toMatchObject({
+      nextCursor: 'cursor-next', items: [{ sessionId, contentReadable: false }],
+    })
+    expect(fetchMock).toHaveBeenCalledWith('/api/chat/sessions?limit=20&cursor=cursor-before', expect.objectContaining({
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    }))
+
+    fetchMock.mockResolvedValueOnce(ok({ items: [sessionSummary({ contentReadable: undefined })], nextCursor: null }))
+    await expect(fetchChatSessions()).rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('按序号游标读取历史消息，并保留授权收回的空正文', async () => {
+    fetchMock.mockResolvedValueOnce(ok({
+      sessionId,
+      contentReadable: false,
+      items: [{
+        messageId: assistantMessageId,
+        runId,
+        sequence: 2,
+        role: 'ASSISTANT',
+        content: null,
+        status: 'COMPLETED',
+        sources: [],
+        createdAt: '2026-09-21T10:00:01+08:00',
+        updatedAt: '2026-09-21T10:00:01+08:00',
+      }],
+      nextCursor: null,
+    }))
+
+    await expect(fetchChatMessages(sessionId, 'message-cursor')).resolves.toMatchObject({
+      contentReadable: false, items: [{ sequence: 2, content: null }],
+    })
+    expect(fetchMock).toHaveBeenCalledWith(`/api/chat/sessions/${sessionId}/messages?limit=20&cursor=message-cursor`, expect.objectContaining({
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    }))
+  })
+
+  it('重命名与删除均携带 CSRF，删除冲突提示先停止生成', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(sessionSummary({ title: '新的会话标题' })))
+    await expect(renameChatSession(sessionId, '新的会话标题')).resolves.toMatchObject({ title: '新的会话标题' })
+    expect(fetchMock.mock.calls[1]).toEqual([
+      `/api/chat/sessions/${sessionId}`,
+      expect.objectContaining({ method: 'PATCH', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }) }),
+    ])
+
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 409 }))
+    await expect(deleteChatSession(sessionId)).rejects.toMatchObject({
+      kind: 'conflict', message: '会话正在生成回答，请先停止生成再删除。',
+    })
   })
 })
 

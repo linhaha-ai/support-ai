@@ -4,12 +4,28 @@ import java.lang.reflect.Method;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ChatMessageMapperSqlTest {
+
+    @Test
+    void historyPageJoinsOwnedUndeletedSessionAndOrdersBySequence() throws NoSuchMethodException {
+        Method method = ChatMessageMapper.class.getMethod("selectOwnedSessionPage", UUID.class, UUID.class,
+                long.class, int.class);
+        String sql = String.join("\n", method.getAnnotation(Select.class).value());
+
+        assertThat(sql)
+                .contains("INNER JOIN chat_session session ON session.id = message.session_id")
+                .contains("session.user_id = #{userId,jdbcType=OTHER}")
+                .contains("session.deleted_at IS NULL")
+                .contains("message.seq > #{afterSequence}")
+                .contains("ORDER BY message.seq")
+                .contains("LIMIT #{limit}");
+    }
 
     @Test
     void completionAndFailureUpdatesKeepStrictMessageConditionsWithoutRunActiveDependency()

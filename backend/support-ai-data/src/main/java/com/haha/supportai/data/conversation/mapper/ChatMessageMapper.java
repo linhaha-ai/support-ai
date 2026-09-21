@@ -12,6 +12,7 @@ import com.haha.supportai.data.typehandler.UuidTypeHandler;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.ResultMap;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -44,6 +45,25 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
             @Result(column = "updated_at", property = "updatedAt")
     })
     List<ChatMessage> selectByRunId(@Param("runId") UUID runId);
+
+    @Select("""
+            -- chat_message、chat_session：按序号读取本人未删除会话的消息，避免仅凭会话标识越权读取。
+            SELECT message.id, message.run_id, message.session_id, message.seq, message.role,
+                   message.content, message.status, message.created_at, message.updated_at
+            FROM chat_message message
+            INNER JOIN chat_session session ON session.id = message.session_id
+            WHERE message.session_id = #{sessionId,jdbcType=OTHER}
+              AND session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+              AND message.seq > #{afterSequence}
+            ORDER BY message.seq
+            LIMIT #{limit}
+            """)
+    @ResultMap("chatMessageResultMap")
+    List<ChatMessage> selectOwnedSessionPage(@Param("sessionId") UUID sessionId,
+                                             @Param("userId") UUID userId,
+                                             @Param("afterSequence") long afterSequence,
+                                             @Param("limit") int limit);
 
     @Update("""
             -- chat_message、chat_run：仅为执行中的运行原子追加非空助手增量，终态消息不得再写入。

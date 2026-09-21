@@ -5,6 +5,7 @@ import com.haha.supportai.common.filter.TraceIdFilter;
 import com.haha.supportai.conversation.exception.ChatIdempotencyConflictException;
 import com.haha.supportai.conversation.exception.ChatRunInProgressException;
 import com.haha.supportai.conversation.exception.ChatRunNotFoundException;
+import com.haha.supportai.conversation.exception.ChatSessionActiveRunException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionKnowledgeBaseUnavailableException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
@@ -54,6 +55,12 @@ public class ConversationExceptionHandler {
     @ExceptionHandler(ChatRunInProgressException.class)
     ResponseEntity<ApiError> handleRunInProgress(ChatRunInProgressException exception, HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, "RUN_IN_PROGRESS", "当前会话已有进行中的运行", request);
+    }
+
+    @ExceptionHandler(ChatSessionActiveRunException.class)
+    ResponseEntity<ApiError> handleSessionActiveRun(ChatSessionActiveRunException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, "SESSION_RUN_IN_PROGRESS", "会话存在进行中的运行，请先取消运行", request);
     }
 
     @ExceptionHandler(ChatRunNotFoundException.class)

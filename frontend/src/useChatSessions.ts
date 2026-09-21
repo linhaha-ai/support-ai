@@ -2,12 +2,17 @@ import { computed, onScopeDispose, ref } from 'vue'
 import {
   cancelChatRun,
   createChatSession,
+  deleteChatSession,
+  fetchChatMessages,
   fetchChatRun,
+  fetchChatSessions,
   fetchDocumentSource,
+  renameChatSession,
   submitChatMessage,
   type ChatAssistantStatus,
   type ChatRunStatusResponse,
   type ChatSessionSummary,
+  type ChatHistoryMessage,
   type ChatSourceReference,
   type ChatStreamEvent,
   type DocumentSource,
@@ -23,6 +28,18 @@ export interface ChatTranscriptMessage {
   errorMessage: string
 }
 
+function transcriptMessageFor(message: ChatHistoryMessage, contentReadable: boolean): ChatTranscriptMessage {
+  const isAssistant = message.role === 'ASSISTANT'
+  return {
+    id: message.messageId,
+    role: isAssistant ? 'assistant' : 'user',
+    content: contentReadable ? message.content ?? '' : '',
+    status: isAssistant ? message.status : 'COMPLETED',
+    sources: contentReadable && isAssistant ? message.sources : [],
+    errorMessage: contentReadable || !isAssistant ? '' : '当前资料授权已变化，回答正文不可读取。',
+  }
+}
+
 function messageFor(error: unknown): string {
   return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
     ? error.message
@@ -33,6 +50,18 @@ export function useChatSessions() {
   const knowledgeBases = ref<KnowledgeBaseSummary[]>([])
   const selectedKnowledgeBaseIds = ref<string[]>([])
   const createdSession = ref<ChatSessionSummary | null>(null)
+  const sessionItems = ref<ChatSessionSummary[]>([])
+  const sessionsLoading = ref(false)
+  const sessionsLoadingMore = ref(false)
+  const sessionsError = ref('')
+  const sessionsNextCursor = ref<string | null>(null)
+  const historyLoading = ref(false)
+  const historyLoadingMore = ref(false)
+  const historyError = ref('')
+  const historyNextCursor = ref<string | null>(null)
+  const historyContentReadable = ref(true)
+  const renaming = ref(false)
+  const deleting = ref(false)
   const loading = ref(false)
   const creating = ref(false)
   const loadError = ref('')
@@ -58,16 +87,26 @@ export function useChatSessions() {
   let createRequest = 0
   let messageRequest = 0
   let sourceRequest = 0
+  let sessionListRequest = 0
+  let historyRequest = 0
   let messageAbortController: AbortController | null = null
   let sourceAbortController: AbortController | null = null
+  let sessionListAbortController: AbortController | null = null
+  let historyAbortController: AbortController | null = null
   let activeQuestion = ''
 
   const canCreate = computed(() => selectedKnowledgeBaseIds.value.length > 0 && !creating.value)
   const canSend = computed(() => createdSession.value !== null && messageInput.value.trim().length > 0
-    && !sending.value && activeRunId.value === null)
-  const canStartAnother = computed(() => activeRunId.value === null && !sending.value && !cancellingRun.value)
+    && historyContentReadable.value && !historyLoading.value && !historyLoadingMore.value
+    && historyError.value === '' && !sending.value && !renaming.value && !deleting.value
+    && historyNextCursor.value === null && activeRunId.value === null)
+  const canStartAnother = computed(() => activeRunId.value === null && !sending.value && !cancellingRun.value
+    && !creating.value && !renaming.value && !deleting.value)
   const canCancelRun = computed(() => activeRunId.value !== null && activeRunCancellable.value
     && !cancellingRun.value)
+  const canLoadMoreSessions = computed(() => sessionsNextCursor.value !== null && !sessionsLoadingMore.value)
+  const canLoadMoreMessages = computed(() => historyNextCursor.value !== null && !historyLoadingMore.value)
+  const canManageSession = computed(() => createdSession.value !== null && canStartAnother.value && !renaming.value && !deleting.value)
 
   function messageStatusFor(run: ChatRunStatusResponse, isBackground: boolean): ChatTranscriptMessage['status'] {
     if (run.status === 'QUEUED' || run.status === 'RUNNING') return isBackground ? 'BACKGROUND' : 'STREAMING'
@@ -143,6 +182,123 @@ export function useChatSessions() {
     }
   }
 
+  function replaceSession(session: ChatSessionSummary) {
+    const index = sessionItems.value.findIndex((item) => item.sessionId === session.sessionId)
+    if (index >= 0) sessionItems.value.splice(index, 1, session)
+    else sessionItems.value.unshift(session)
+    sessionItems.value.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  }
+
+  function redactLoadedMessages() {
+    messages.value = messages.value.map((message) => ({
+      ...message,
+      content: '',
+      sources: [],
+      errorMessage: message.role === 'assistant' ? '当前资料授权已变化，回答正文不可读取。' : '',
+    }))
+  }
+
+  async function loadSessions(loadMore = false) {
+    if (loadMore && (!sessionsNextCursor.value || sessionsLoadingMore.value)) return
+    const request = ++sessionListRequest
+    const controller = new AbortController()
+    sessionListAbortController?.abort()
+    sessionListAbortController = controller
+    if (loadMore) sessionsLoadingMore.value = true
+    else {
+      sessionsLoading.value = true
+      sessionsError.value = ''
+    }
+    try {
+      const page = await fetchChatSessions(loadMore ? sessionsNextCursor.value : null, controller.signal)
+      if (disposed || request !== sessionListRequest) return
+      sessionItems.value = loadMore
+        ? [...sessionItems.value, ...page.items.filter((item) => !sessionItems.value.some((current) => current.sessionId === item.sessionId))]
+        : page.items
+      sessionsNextCursor.value = page.nextCursor
+    } catch (error) {
+      if (!disposed && request === sessionListRequest && !controller.signal.aborted) sessionsError.value = messageFor(error)
+    } finally {
+      if (!disposed && request === sessionListRequest) {
+        sessionsLoading.value = false
+        sessionsLoadingMore.value = false
+      }
+      if (sessionListAbortController === controller) sessionListAbortController = null
+    }
+  }
+
+  async function selectSession(session: ChatSessionSummary, forceReload = false) {
+    if (!canStartAnother.value || (!forceReload && createdSession.value?.sessionId === session.sessionId)) return
+    const request = ++historyRequest
+    const controller = new AbortController()
+    historyAbortController?.abort()
+    historyAbortController = controller
+    sourceAbortController?.abort()
+    sourceRequest += 1
+    sourceDrawerOpen.value = false
+    selectedSource.value = null
+    sourceDetail.value = null
+    sourceError.value = ''
+    createdSession.value = session
+    messages.value = []
+    historyNextCursor.value = null
+    historyContentReadable.value = session.contentReadable
+    historyError.value = ''
+    sendError.value = ''
+    sendNotice.value = ''
+    historyLoading.value = true
+    try {
+      const page = await fetchChatMessages(session.sessionId, null, controller.signal)
+      if (disposed || request !== historyRequest || createdSession.value?.sessionId !== session.sessionId) return
+      historyContentReadable.value = page.contentReadable
+      messages.value = page.items.map((item) => transcriptMessageFor(item, page.contentReadable))
+      historyNextCursor.value = page.nextCursor
+      const selected = { ...session, contentReadable: page.contentReadable }
+      createdSession.value = selected
+      replaceSession(selected)
+    } catch (error) {
+      if (!disposed && request === historyRequest && !controller.signal.aborted) historyError.value = messageFor(error)
+    } finally {
+      if (!disposed && request === historyRequest) historyLoading.value = false
+      if (historyAbortController === controller) historyAbortController = null
+    }
+  }
+
+  async function retryHistory() {
+    const session = createdSession.value
+    if (!session) return
+    await selectSession(session, true)
+  }
+
+  async function loadMoreMessages() {
+    const session = createdSession.value
+    if (!session || !historyNextCursor.value || historyLoadingMore.value || activeRunId.value) return
+    const request = ++historyRequest
+    const controller = new AbortController()
+    historyAbortController?.abort()
+    historyAbortController = controller
+    historyLoadingMore.value = true
+    historyError.value = ''
+    try {
+      const page = await fetchChatMessages(session.sessionId, historyNextCursor.value, controller.signal)
+      if (disposed || request !== historyRequest || createdSession.value?.sessionId !== session.sessionId) return
+      historyContentReadable.value = page.contentReadable
+      if (!page.contentReadable) {
+        redactLoadedMessages()
+        const restrictedSession = { ...session, contentReadable: false }
+        createdSession.value = restrictedSession
+        replaceSession(restrictedSession)
+      }
+      messages.value.push(...page.items.map((item) => transcriptMessageFor(item, page.contentReadable)))
+      historyNextCursor.value = page.nextCursor
+    } catch (error) {
+      if (!disposed && request === historyRequest && !controller.signal.aborted) historyError.value = messageFor(error)
+    } finally {
+      if (!disposed && request === historyRequest) historyLoadingMore.value = false
+      if (historyAbortController === controller) historyAbortController = null
+    }
+  }
+
   async function create() {
     if (!canCreate.value) return
     const request = ++createRequest
@@ -151,7 +307,11 @@ export function useChatSessions() {
     const knowledgeBaseIds = [...new Set(selectedKnowledgeBaseIds.value)]
     try {
       const session = await createChatSession(knowledgeBaseIds)
-      if (!disposed && request === createRequest) createdSession.value = session
+      if (!disposed && request === createRequest) {
+        createdSession.value = session
+        historyContentReadable.value = true
+        replaceSession(session)
+      }
     } catch (error) {
       if (!disposed && request === createRequest) createError.value = messageFor(error)
     } finally {
@@ -163,9 +323,11 @@ export function useChatSessions() {
     if (!canStartAnother.value) return
     messageAbortController?.abort()
     sourceAbortController?.abort()
+    historyAbortController?.abort()
     createRequest += 1
     messageRequest += 1
     sourceRequest += 1
+    historyRequest += 1
     createdSession.value = null
     createError.value = ''
     selectedKnowledgeBaseIds.value = []
@@ -181,6 +343,43 @@ export function useChatSessions() {
     selectedSource.value = null
     sourceDetail.value = null
     sourceError.value = ''
+    historyError.value = ''
+    historyNextCursor.value = null
+    historyContentReadable.value = true
+  }
+
+  async function renameCurrentSession(title: string) {
+    const session = createdSession.value
+    const normalizedTitle = title.trim()
+    if (!session || !normalizedTitle || !canManageSession.value) return
+    renaming.value = true
+    try {
+      const updated = await renameChatSession(session.sessionId, normalizedTitle)
+      if (disposed || createdSession.value?.sessionId !== session.sessionId) return
+      createdSession.value = updated
+      replaceSession(updated)
+    } catch (error) {
+      if (!disposed) historyError.value = messageFor(error)
+    } finally {
+      if (!disposed) renaming.value = false
+    }
+  }
+
+  async function deleteCurrentSession() {
+    const session = createdSession.value
+    if (!session || !canManageSession.value) return
+    deleting.value = true
+    try {
+      await deleteChatSession(session.sessionId)
+      if (disposed || createdSession.value?.sessionId !== session.sessionId) return
+      sessionItems.value = sessionItems.value.filter((item) => item.sessionId !== session.sessionId)
+      deleting.value = false
+      startAnother()
+    } catch (error) {
+      if (!disposed) historyError.value = messageFor(error)
+    } finally {
+      if (!disposed) deleting.value = false
+    }
   }
 
   function handleStreamEvent(question: string, event: ChatStreamEvent, assistantIndex: { value: number }) {
@@ -368,16 +567,32 @@ export function useChatSessions() {
     disposed = true
     messageAbortController?.abort()
     sourceAbortController?.abort()
+    sessionListAbortController?.abort()
+    historyAbortController?.abort()
     loadRequest += 1
     createRequest += 1
     messageRequest += 1
     sourceRequest += 1
+    sessionListRequest += 1
+    historyRequest += 1
   })
 
   return {
     knowledgeBases,
     selectedKnowledgeBaseIds,
     createdSession,
+    sessionItems,
+    sessionsLoading,
+    sessionsLoadingMore,
+    sessionsError,
+    sessionsNextCursor,
+    historyLoading,
+    historyLoadingMore,
+    historyError,
+    historyNextCursor,
+    historyContentReadable,
+    renaming,
+    deleting,
     loading,
     creating,
     loadError,
@@ -402,9 +617,18 @@ export function useChatSessions() {
     canSend,
     canStartAnother,
     canCancelRun,
+    canLoadMoreSessions,
+    canLoadMoreMessages,
+    canManageSession,
     loadKnowledgeBases,
+    loadSessions,
+    selectSession,
+    retryHistory,
+    loadMoreMessages,
     create,
     startAnother,
+    renameCurrentSession,
+    deleteCurrentSession,
     send,
     refreshRunStatus,
     cancelRun,

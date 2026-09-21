@@ -54,6 +54,7 @@ afterEach(() => {
 describe('会话创建页面', () => {
   it('选择可访问知识库后创建固定 RAG 会话并展示摘要', async () => {
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -70,12 +71,13 @@ describe('会话创建页面', () => {
     expect(view.text()).toContain('产品支持')
     expect(view.text()).toContain('RAG')
     expect(view.text()).toContain('发送')
-    expect(fetchMock.mock.calls[2]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
+    expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
   })
 
   it('逐步追加回答，完成后展示可打开的授权来源', async () => {
     const stream = pendingStream()
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -167,6 +169,7 @@ describe('会话创建页面', () => {
       },
     }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -191,6 +194,7 @@ describe('会话创建页面', () => {
 
   it('重复提交返回 JSON 时立即查询已持久化运行结果，不重新读取模型流', async () => {
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -233,6 +237,7 @@ describe('会话创建页面', () => {
 
   it('没有可访问知识库时不显示会话创建表单', async () => {
     fetchMock.mockResolvedValueOnce(ok([]))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
     const view = mountView()
     await flushPromises()
 
@@ -242,6 +247,7 @@ describe('会话创建页面', () => {
 
   it('知识库加载失败时仅显示错误和重试入口', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok(knowledgeBases()))
     const view = mountView()
     await flushPromises()

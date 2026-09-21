@@ -5,8 +5,33 @@ export interface ChatSessionSummary {
   title: string
   mode: ChatSessionMode
   knowledgeBaseIds: string[]
+  contentReadable: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface ChatSessionPage {
+  items: ChatSessionSummary[]
+  nextCursor: string | null
+}
+
+export interface ChatHistoryMessage {
+  messageId: string
+  runId: string | null
+  sequence: number
+  role: 'USER' | 'ASSISTANT'
+  content: string | null
+  status: ChatAssistantStatus
+  sources: ChatSourceReference[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChatMessagePage {
+  sessionId: string
+  contentReadable: boolean
+  items: ChatHistoryMessage[]
+  nextCursor: string | null
 }
 
 export type ChatRunStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
@@ -113,7 +138,7 @@ function parseEnvelope<T>(value: unknown): ApiEnvelope<T> | null {
   return { code: value.code, data: value.data as T | undefined }
 }
 
-function parseSession(value: unknown): ChatSessionSummary | null {
+function parseSession(value: unknown, allowMissingContentReadable = false): ChatSessionSummary | null {
   if (!isRecord(value)
     || typeof value.sessionId !== 'string'
     || typeof value.title !== 'string'
@@ -121,6 +146,7 @@ function parseSession(value: unknown): ChatSessionSummary | null {
     || !Array.isArray(value.knowledgeBaseIds)
     || value.knowledgeBaseIds.length === 0
     || !value.knowledgeBaseIds.every((item) => typeof item === 'string')
+    || (!allowMissingContentReadable && typeof value.contentReadable !== 'boolean')
     || typeof value.createdAt !== 'string'
     || typeof value.updatedAt !== 'string') return null
   return {
@@ -128,9 +154,22 @@ function parseSession(value: unknown): ChatSessionSummary | null {
     title: value.title,
     mode: value.mode,
     knowledgeBaseIds: value.knowledgeBaseIds,
+    contentReadable: typeof value.contentReadable === 'boolean' ? value.contentReadable : true,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   }
+}
+
+function parseCursor(value: unknown): string | null | undefined {
+  return typeof value === 'string' || value === null ? value : undefined
+}
+
+function parseSessionPage(value: unknown): ChatSessionPage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null
+  const nextCursor = parseCursor(value.nextCursor)
+  const items = value.items.map((item) => parseSession(item))
+  if (nextCursor === undefined || !items.every((item): item is ChatSessionSummary => item !== null)) return null
+  return { items, nextCursor }
 }
 
 function parseRunStatus(value: unknown): ChatRunStatus | null {
@@ -237,6 +276,43 @@ function parseSourceReference(value: unknown): ChatSourceReference | null {
     isCurrent: value.isCurrent,
     previewPath: value.previewPath,
   }
+}
+
+function parseHistoryMessage(value: unknown): ChatHistoryMessage | null {
+  if (!isRecord(value)
+    || typeof value.messageId !== 'string'
+    || !(typeof value.runId === 'string' || value.runId === null)
+    || !Number.isInteger(value.sequence) || (value.sequence as number) < 1
+    || (value.role !== 'USER' && value.role !== 'ASSISTANT')
+    || !(typeof value.content === 'string' || value.content === null)
+    || !Array.isArray(value.sources)
+    || typeof value.createdAt !== 'string'
+    || typeof value.updatedAt !== 'string') return null
+  const status = parseAssistantStatus(value.status)
+  const sources = value.sources.map(parseSourceReference)
+  if (!status || !sources.every((source): source is ChatSourceReference => source !== null)) return null
+  return {
+    messageId: value.messageId,
+    runId: value.runId,
+    sequence: value.sequence as number,
+    role: value.role,
+    content: value.content,
+    status,
+    sources,
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+  }
+}
+
+function parseMessagePage(value: unknown): ChatMessagePage | null {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || typeof value.contentReadable !== 'boolean'
+    || !Array.isArray(value.items)) return null
+  const nextCursor = parseCursor(value.nextCursor)
+  const items = value.items.map(parseHistoryMessage)
+  if (nextCursor === undefined || !items.every((item): item is ChatHistoryMessage => item !== null)) return null
+  return { sessionId: value.sessionId, contentReadable: value.contentReadable, items, nextCursor }
 }
 
 function parseDocumentSource(value: unknown): DocumentSource | null {
@@ -387,17 +463,21 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function errorFor(response: Response, action: 'create' | 'message' | 'source' | 'run'): ChatSessionApiError {
+function errorFor(response: Response, action: 'create' | 'message' | 'source' | 'run' | 'session' | 'delete-session'): ChatSessionApiError {
   if (response.status === 401) return { kind: 'unauthorized', message: '登录状态已失效，请重新登录。' }
   if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有执行此操作的权限。' }
   if (response.status === 404) return { kind: 'not-found', message: action === 'source' ? '来源已不可访问。' : action === 'run' ? '问答运行不存在或已不可访问。' : '会话或知识范围不可用。' }
-  if (response.status === 409) return { kind: 'conflict', message: '当前会话状态已变化，请稍后重试。' }
+  if (response.status === 409) return {
+    kind: 'conflict',
+    message: action === 'delete-session' ? '会话正在生成回答，请先停止生成再删除。' : '当前会话状态已变化，请稍后重试。',
+  }
   if (response.status === 429) return { kind: 'rate-limit', message: '当前请求较多，请稍后再试。' }
-  const label = action === 'create' ? '会话' : action === 'message' ? '回答' : action === 'source' ? '来源' : '运行状态'
+  const label = action === 'create' || action === 'session' || action === 'delete-session'
+    ? '会话' : action === 'message' ? '回答' : action === 'source' ? '来源' : '运行状态'
   return { kind: 'request', message: `${label}请求未完成，请稍后重试。` }
 }
 
-async function requestCsrf(action: 'create' | 'message' | 'run', signal?: AbortSignal): Promise<CsrfData> {
+async function requestCsrf(action: 'create' | 'message' | 'run' | 'session', signal?: AbortSignal): Promise<CsrfData> {
   const response = await fetch('/api/auth/csrf', {
     method: 'GET',
     headers: { Accept: 'application/json' },
@@ -428,10 +508,67 @@ export async function createChatSession(knowledgeBaseIds: string[]): Promise<Cha
     body: JSON.stringify({ kbIds: knowledgeBaseIds, mode: 'RAG' }),
   })
   const envelope = parseEnvelope<unknown>(await readJson(response))
-  const data = response.status === 201 && envelope?.code === 'OK' ? parseSession(envelope.data) : null
+  const data = response.status === 201 && envelope?.code === 'OK' ? parseSession(envelope.data, true) : null
   if (data) return data
   if (!response.ok) throw errorFor(response, 'create')
   throw { kind: 'invalid-response', message: '会话创建响应格式无效，请稍后重试。' } satisfies ChatSessionApiError
+}
+
+function queryPath(path: string, cursor?: string | null, limit = 20): string {
+  const query = new URLSearchParams({ limit: String(limit) })
+  if (cursor) query.set('cursor', cursor)
+  return `${path}?${query.toString()}`
+}
+
+export async function fetchChatSessions(cursor?: string | null, signal?: AbortSignal): Promise<ChatSessionPage> {
+  const response = await fetch(queryPath('/api/chat/sessions', cursor), {
+    method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store', signal,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const page = response.ok && envelope?.code === 'OK' ? parseSessionPage(envelope.data) : null
+  if (page) return page
+  if (!response.ok) throw errorFor(response, 'session')
+  throw { kind: 'invalid-response', message: '会话列表响应格式无效，请稍后重试。' } satisfies ChatSessionApiError
+}
+
+export async function fetchChatMessages(
+  sessionId: string,
+  cursor?: string | null,
+  signal?: AbortSignal,
+): Promise<ChatMessagePage> {
+  const response = await fetch(queryPath(`/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`, cursor), {
+    method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store', signal,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const page = response.ok && envelope?.code === 'OK' ? parseMessagePage(envelope.data) : null
+  if (page && page.sessionId === sessionId) return page
+  if (!response.ok) throw errorFor(response, 'session')
+  throw { kind: 'invalid-response', message: '历史消息响应格式无效，请稍后重试。' } satisfies ChatSessionApiError
+}
+
+export async function renameChatSession(sessionId: string, title: string, signal?: AbortSignal): Promise<ChatSessionSummary> {
+  const csrf = await requestCsrf('session', signal)
+  const response = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'PATCH',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+    credentials: 'same-origin', cache: 'no-store', body: JSON.stringify({ title }), signal,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const session = response.ok && envelope?.code === 'OK' ? parseSession(envelope.data) : null
+  if (session) return session
+  if (!response.ok) throw errorFor(response, 'session')
+  throw { kind: 'invalid-response', message: '会话重命名响应格式无效，请稍后重试。' } satisfies ChatSessionApiError
+}
+
+export async function deleteChatSession(sessionId: string, signal?: AbortSignal): Promise<void> {
+  const csrf = await requestCsrf('session', signal)
+  const response = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE', headers: { Accept: 'application/json', [csrf.headerName]: csrf.token },
+    credentials: 'same-origin', cache: 'no-store', signal,
+  })
+  if (response.status === 204) return
+  await readJson(response)
+  throw errorFor(response, 'delete-session')
 }
 
 export async function submitChatMessage(

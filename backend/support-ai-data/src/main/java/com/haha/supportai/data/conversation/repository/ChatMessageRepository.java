@@ -24,6 +24,10 @@ public class ChatMessageRepository {
         return chatMessageMapper.selectByRunId(runId);
     }
 
+    public List<ChatMessage> listOwnedSessionPage(UUID sessionId, UUID userId, long afterSequence, int limit) {
+        return chatMessageMapper.selectOwnedSessionPage(sessionId, userId, afterSequence, limit);
+    }
+
     public boolean appendAssistantContent(UUID runId, UUID messageId, String delta, OffsetDateTime updatedAt) {
         return chatMessageMapper.appendAssistantContent(runId, messageId, delta, updatedAt) == 1;
     }
