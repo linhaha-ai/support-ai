@@ -11,10 +11,14 @@ import com.haha.supportai.conversation.config.RagProperties;
 import com.haha.supportai.conversation.entity.dto.ChatModelChunk;
 import com.haha.supportai.conversation.entity.dto.ChatModelUsage;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
+import com.haha.supportai.conversation.entity.dto.RagConversationContext;
+import com.haha.supportai.conversation.entity.dto.RagHistorySource;
+import com.haha.supportai.conversation.entity.dto.RagHistoryTurn;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
 import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
+import com.haha.supportai.conversation.service.context.ConversationContextService;
 import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
@@ -64,6 +68,9 @@ class RagAnswerServiceTest {
     DocumentSourceQueryService documentSourceQueryService;
 
     @Mock
+    ConversationContextService conversationContextService;
+
+    @Mock
     ChatModelGateway chatModelGateway;
 
     @Mock
@@ -85,8 +92,8 @@ class RagAnswerServiceTest {
         RagProperties properties = new RagProperties();
         properties.setTopK(6);
         ragAnswerService = new RagAnswerService(knowledgeRetrievalService, documentSourceQueryService,
-                chatModelGateway, persistenceService, new RagPromptFactory(), new CitationParser(), properties,
-                new ObjectMapper());
+                conversationContextService, chatModelGateway, persistenceService, new RagPromptFactory(),
+                new CitationParser(), properties, new ObjectMapper());
     }
 
     @Test
@@ -112,6 +119,96 @@ class RagAnswerServiceTest {
     }
 
     @Test
+    void answersFromVerifiedHistoryAndRegistersInheritedRootSource() {
+        KnowledgeRetrievalEvidenceResponse historicalEvidence = evidence(1, "历史资料");
+        UUID rootSourceId = UUID.fromString("90000000-0000-4000-8000-000000000001");
+        RagConversationContext history = new RagConversationContext(
+                List.of(new RagHistoryTurn("首次如何处理？", "先检查服务状态。[1]")),
+                List.of(new RagHistorySource(1, rootSourceId, KB_ID, historicalEvidence.getChunkId(),
+                        "{}", "{}")));
+        given(conversationContextService.load(any(PreparedChatRunResponse.class))).willReturn(history);
+        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, "接下来呢？", 6))
+                .willReturn(List.of());
+        given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
+                List.of(historicalEvidence.getChunkId()))).willReturn(List.of(historicalEvidence));
+        given(documentSourceQueryService.findReadableSource(USER_ID, historicalEvidence.getChunkId()))
+                .willReturn(Optional.of(source(historicalEvidence, true)));
+        streamAnswer("继续观察服务状态。[1]", null);
+
+        var result = ragAnswerService.generate(preparedRun("接下来呢？"));
+
+        then(persistenceService).should().registerEvidence(any(PreparedChatRunResponse.class),
+                sourceListCaptor.capture());
+        then(chatModelGateway).should().stream(anyString(), userPromptCaptor.capture(), any());
+        assertThat(sourceListCaptor.getValue()).singleElement().satisfies(source -> {
+            assertThat(source.getOriginSourceId()).isEqualTo(rootSourceId);
+            assertThat(source.getCitationNo()).isEqualTo(1);
+        });
+        assertThat(userPromptCaptor.getValue())
+                .containsOnlyOnce("已验证历史问答")
+                .contains("首次如何处理？")
+                .contains("先检查服务状态。[1]")
+                .contains("本轮未检索到新增证据");
+        assertThat(result.isNoEvidence()).isFalse();
+        assertThat(result.getCitedSourceNumbers()).containsExactly(1);
+    }
+
+    @Test
+    void reusesInheritedCitationWhenCurrentRetrievalReturnsTheSameChunk() {
+        KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "同一条资料");
+        UUID rootSourceId = UUID.fromString("90000000-0000-4000-8000-000000000002");
+        given(conversationContextService.load(any(PreparedChatRunResponse.class))).willReturn(
+                new RagConversationContext(List.of(new RagHistoryTurn("之前的问题", "之前的回答。[1]")),
+                        List.of(new RagHistorySource(1, rootSourceId, KB_ID, evidence.getChunkId(), "{}", "{}"))));
+        arrangeEvidence(List.of(evidence));
+        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+                .willReturn(Optional.of(source(evidence, true)));
+        streamAnswer("仍按原方案处理。[1]", null);
+
+        ragAnswerService.generate(preparedRun("如何处理？"));
+
+        then(persistenceService).should().registerEvidence(any(PreparedChatRunResponse.class),
+                sourceListCaptor.capture());
+        then(chatModelGateway).should().stream(anyString(), userPromptCaptor.capture(), any());
+        assertThat(sourceListCaptor.getValue()).singleElement().satisfies(source -> {
+            assertThat(source.getOriginSourceId()).isEqualTo(rootSourceId);
+            assertThat(source.getChunkId()).isEqualTo(evidence.getChunkId());
+            assertThat(source.getCitationNo()).isEqualTo(1);
+        });
+        assertThat(userPromptCaptor.getValue()).contains("\n[1]\n文档：");
+    }
+
+    @Test
+    void preservesDistinctHistoricalRootsEvenWhenTheyReferenceTheSameChunk() {
+        KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "同一分块资料");
+        UUID firstRootId = UUID.fromString("90000000-0000-4000-8000-000000000003");
+        UUID secondRootId = UUID.fromString("90000000-0000-4000-8000-000000000004");
+        given(conversationContextService.load(any(PreparedChatRunResponse.class))).willReturn(
+                new RagConversationContext(List.of(new RagHistoryTurn("两次历史输入", "两个根来源。[1][2]")),
+                        List.of(
+                                new RagHistorySource(1, firstRootId, KB_ID, evidence.getChunkId(), "{}", "{}"),
+                                new RagHistorySource(2, secondRootId, KB_ID, evidence.getChunkId(), "{}", "{}"))));
+        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, "接下来呢？", 6))
+                .willReturn(List.of());
+        given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
+                List.of(evidence.getChunkId()))).willReturn(List.of(evidence));
+        given(documentSourceQueryService.findReadableSource(USER_ID, evidence.getChunkId()))
+                .willReturn(Optional.of(source(evidence, true)));
+        streamAnswer("两个历史来源都参与结论。[1][2]", null);
+
+        ragAnswerService.generate(preparedRun("接下来呢？"));
+
+        then(persistenceService).should().registerEvidence(any(PreparedChatRunResponse.class),
+                sourceListCaptor.capture());
+        assertThat(sourceListCaptor.getValue())
+                .extracting(MessageSource::getOriginSourceId)
+                .containsExactly(firstRootId, secondRootId);
+        assertThat(sourceListCaptor.getValue())
+                .extracting(MessageSource::getCitationNo)
+                .containsExactly(1, 2);
+    }
+
+    @Test
     void revalidatesEvidenceAndRegistersEveryModelInputBeforeCallingModel() {
         KnowledgeRetrievalEvidenceResponse first = evidence(1, "第一条资料");
         KnowledgeRetrievalEvidenceResponse second = evidence(2, "第二条资料");
@@ -120,6 +217,9 @@ class RagAnswerServiceTest {
                 .willReturn(List.of(first, second));
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 List.of(first.getChunkId(), second.getChunkId())))
+                .willReturn(List.of(revalidatedSecond));
+        given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
+                List.of(second.getChunkId())))
                 .willReturn(List.of(revalidatedSecond));
         given(documentSourceQueryService.findReadableSource(USER_ID, second.getChunkId()))
                 .willReturn(Optional.of(source(second, true)));
@@ -223,6 +323,25 @@ class RagAnswerServiceTest {
         then(chatModelGateway).shouldHaveNoInteractions();
         then(persistenceService).should().fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), eq(""),
                 eq("RAG_PERSISTENCE_FAILED"), eq("问答运行状态保存失败"), isNull(), anyString());
+    }
+
+    @Test
+    void doesNotCallModelWhenSourceIsRevokedImmediatelyAfterRegistration() {
+        KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "可用资料");
+        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, "如何处理？", 6))
+                .willReturn(List.of(evidence));
+        given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
+                List.of(evidence.getChunkId())))
+                .willReturn(List.of(evidence), List.of());
+
+        assertThatThrownBy(() -> ragAnswerService.generate(preparedRun("如何处理？")))
+                .isInstanceOf(RagGenerationException.class);
+
+        InOrder orderedCalls = inOrder(persistenceService, chatModelGateway);
+        orderedCalls.verify(persistenceService).registerEvidence(any(PreparedChatRunResponse.class), anyList());
+        orderedCalls.verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), eq(""),
+                eq("SOURCE_REVOKED"), eq("模型调用前授权资料已失效"), isNull(), anyString());
+        then(chatModelGateway).shouldHaveNoInteractions();
     }
 
     @Test

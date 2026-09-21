@@ -46,6 +46,9 @@ public class ChatRunConfigurationSnapshotFactory {
         embedding.put("dimensions", dimensions);
         Map<String, Object> prompt = new LinkedHashMap<>();
         prompt.put("version", RagPromptFactory.PROMPT_VERSION);
+        prompt.put("historyInjection", "business-prompt-once");
+        prompt.put("historyMaxRounds", ragProperties.getHistoryMaxRounds());
+        prompt.put("historyMaxCharacters", ragProperties.getHistoryMaxCharacters());
         Map<String, Object> retrieval = new LinkedHashMap<>();
         retrieval.put("strategy", "vector-cosine-exact");
         retrieval.put("topK", ragProperties.getTopK());

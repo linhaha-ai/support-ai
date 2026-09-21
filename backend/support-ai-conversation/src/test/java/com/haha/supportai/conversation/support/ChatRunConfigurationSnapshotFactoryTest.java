@@ -24,6 +24,8 @@ class ChatRunConfigurationSnapshotFactoryTest {
                 .withProperty("support.ai.dimensions", "1024");
         RagProperties ragProperties = new RagProperties();
         ragProperties.setTopK(8);
+        ragProperties.setHistoryMaxRounds(4);
+        ragProperties.setHistoryMaxCharacters(7200);
         ChatRunConfigurationSnapshotFactory factory = new ChatRunConfigurationSnapshotFactory(environment,
                 objectMapper, ragProperties);
 
@@ -33,6 +35,10 @@ class ChatRunConfigurationSnapshotFactoryTest {
         assertThat(snapshot.path("chat").path("provider").asText()).isEqualTo("dashscope");
         assertThat(snapshot.path("chat").path("model").asText()).isEqualTo("qwen-plus");
         assertThat(snapshot.path("prompt").path("version").asText()).isEqualTo(RagPromptFactory.PROMPT_VERSION);
+        assertThat(snapshot.path("prompt").path("historyInjection").asText())
+                .isEqualTo("business-prompt-once");
+        assertThat(snapshot.path("prompt").path("historyMaxRounds").asInt()).isEqualTo(4);
+        assertThat(snapshot.path("prompt").path("historyMaxCharacters").asInt()).isEqualTo(7200);
         assertThat(snapshot.path("retrieval").path("strategy").asText()).isEqualTo("vector-cosine-exact");
         assertThat(snapshot.path("retrieval").path("topK").asInt()).isEqualTo(8);
         assertThat(snapshot.path("index").path("store").asText()).isEqualTo("pgvector");

@@ -135,6 +135,8 @@ support:
         batch-size: 10
     rag:
       top-k: 6
+      history-max-rounds: 3
+      history-max-characters: 6000
     chat:
       stream:
         pool-size: 4

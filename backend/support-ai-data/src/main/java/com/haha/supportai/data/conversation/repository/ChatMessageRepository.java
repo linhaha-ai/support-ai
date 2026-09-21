@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
+import com.haha.supportai.data.conversation.entity.po.CompletedChatTurn;
 import com.haha.supportai.data.conversation.mapper.ChatMessageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -26,6 +27,13 @@ public class ChatMessageRepository {
 
     public List<ChatMessage> listOwnedSessionPage(UUID sessionId, UUID userId, long afterSequence, int limit) {
         return chatMessageMapper.selectOwnedSessionPage(sessionId, userId, afterSequence, limit);
+    }
+
+    public List<CompletedChatTurn> listCompletedTurnsBefore(UUID sessionId, UUID userId,
+                                                            UUID currentUserMessageId, Long beforeUserSequence,
+                                                            int limit) {
+        return chatMessageMapper.selectCompletedTurnsBefore(sessionId, userId, currentUserMessageId,
+                beforeUserSequence, limit);
     }
 
     public boolean appendAssistantContent(UUID runId, UUID messageId, String delta, OffsetDateTime updatedAt) {

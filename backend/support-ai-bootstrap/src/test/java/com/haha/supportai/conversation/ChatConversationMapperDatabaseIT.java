@@ -338,6 +338,73 @@ class ChatConversationMapperDatabaseIT {
     }
 
     @Test
+    @Transactional
+    void selectsCompletedHistoryAndOnlyAcceptsSameSessionDirectRootInheritance() {
+        UUID userId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        createAuthorizedKnowledgeBase(userId, knowledgeBaseId, "F16 根来源知识库", true);
+        UUID chunkId = createReadyDocumentChunk(userId, knowledgeBaseId);
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-22T08:00:00Z");
+        RootSourceFixture firstRoot = createCompletedRootSource(userId, knowledgeBaseId, chunkId,
+                "F16 主会话", now);
+        RootSourceFixture otherSessionRoot = createCompletedRootSource(userId, knowledgeBaseId, chunkId,
+                "F16 其他会话", now.plusMinutes(1));
+
+        RunFixture secondRun = createQueuedRunInSession(firstRoot.session(), 3,
+                "继续追问历史结论", now.plusMinutes(2));
+        assertThat(chatMessageRepository.listCompletedTurnsBefore(firstRoot.session().getId(), userId,
+                secondRun.userMessage().getId(), null, 20))
+                .singleElement()
+                .satisfies(turn -> {
+                    assertThat(turn.getRunId()).isEqualTo(firstRoot.run().getId());
+                    assertThat(turn.getAnswer()).isEqualTo("首轮完整回答。[1]");
+                });
+        assertThat(messageSourceRepository.listHistoricalSources(firstRoot.assistantMessage().getId(),
+                firstRoot.session().getId(), userId))
+                .singleElement()
+                .satisfies(source -> {
+                    assertThat(source.isLineageValid()).isTrue();
+                    assertThat(source.getRootSourceId()).isEqualTo(firstRoot.source().getId());
+                });
+
+        assertThat(chatRunRepository.markRunning(secondRun.run().getId(), firstRoot.session().getId(),
+                secondRun.userMessage().getId(), secondRun.assistantMessage().getId(),
+                secondRun.userMessage().getContent(), now.plusMinutes(2).plusSeconds(1))).isTrue();
+        MessageSource inherited = new MessageSource(UUID.randomUUID(), secondRun.assistantMessage().getId(),
+                firstRoot.source().getId(), 1, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId, chunkId,
+                firstRoot.source().getLocator(), firstRoot.source().getSnapshot(), now.plusMinutes(2).plusSeconds(2));
+        assertThat(messageSourceRepository.insertAll(secondRun.run().getId(), List.of(inherited))).isEqualTo(1);
+        assertThat(chatRunRepository.complete(secondRun.run().getId(), null, "{}",
+                now.plusMinutes(2).plusSeconds(3))).isTrue();
+        assertThat(chatMessageRepository.completeAssistant(secondRun.run().getId(),
+                secondRun.assistantMessage().getId(), "继承后的完整回答。[1]",
+                now.plusMinutes(2).plusSeconds(3))).isTrue();
+        assertThat(messageSourceRepository.listHistoricalSources(secondRun.assistantMessage().getId(),
+                firstRoot.session().getId(), userId))
+                .singleElement()
+                .satisfies(source -> {
+                    assertThat(source.isLineageValid()).isTrue();
+                    assertThat(source.getRootSourceId()).isEqualTo(firstRoot.source().getId());
+                });
+
+        RunFixture thirdRun = createQueuedRunInSession(firstRoot.session(), 5,
+                "验证非法来源继承", now.plusMinutes(3));
+        assertThat(chatRunRepository.markRunning(thirdRun.run().getId(), firstRoot.session().getId(),
+                thirdRun.userMessage().getId(), thirdRun.assistantMessage().getId(),
+                thirdRun.userMessage().getContent(), now.plusMinutes(3).plusSeconds(1))).isTrue();
+        MessageSource chained = new MessageSource(UUID.randomUUID(), thirdRun.assistantMessage().getId(),
+                inherited.getId(), 1, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId, chunkId,
+                inherited.getLocator(), inherited.getSnapshot(), now.plusMinutes(3).plusSeconds(2));
+        MessageSource crossSession = new MessageSource(UUID.randomUUID(), thirdRun.assistantMessage().getId(),
+                otherSessionRoot.source().getId(), 2, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId,
+                chunkId, otherSessionRoot.source().getLocator(), otherSessionRoot.source().getSnapshot(),
+                now.plusMinutes(3).plusSeconds(2));
+        assertThat(messageSourceRepository.insertAll(thirdRun.run().getId(), List.of(chained, crossSession)))
+                .isZero();
+        assertThat(messageSourceRepository.listByMessageId(thirdRun.assistantMessage().getId())).isEmpty();
+    }
+
+    @Test
     void completionAndCancellationCompeteForExactlyOneDatabaseTerminalState() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID knowledgeBaseId = UUID.randomUUID();
@@ -430,6 +497,44 @@ class ChatConversationMapperDatabaseIT {
         return new RunFixture(run, userMessage, assistantMessage);
     }
 
+    private RootSourceFixture createCompletedRootSource(UUID userId, UUID knowledgeBaseId, UUID chunkId,
+            String title, OffsetDateTime createdAt) {
+        ChatSession session = new ChatSession(UUID.randomUUID(), userId, title, ChatSessionModeEnum.RAG,
+                3, null, createdAt, createdAt);
+        chatSessionRepository.insert(session);
+        chatSessionKnowledgeBaseRepository.insert(session.getId(), List.of(knowledgeBaseId), createdAt);
+        RunFixture runFixture = createQueuedRunInSession(session, 1, "首轮问题", createdAt);
+        assertThat(chatRunRepository.markRunning(runFixture.run().getId(), session.getId(),
+                runFixture.userMessage().getId(), runFixture.assistantMessage().getId(),
+                runFixture.userMessage().getContent(), createdAt.plusSeconds(1))).isTrue();
+        MessageSource source = new MessageSource(UUID.randomUUID(), runFixture.assistantMessage().getId(), null,
+                1, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId, chunkId,
+                "{\"section\":\"F16 根来源\"}", "{\"documentName\":\"F16 测试文档\"}",
+                createdAt.plusSeconds(2));
+        assertThat(messageSourceRepository.insertAll(runFixture.run().getId(), List.of(source))).isEqualTo(1);
+        assertThat(chatRunRepository.complete(runFixture.run().getId(), null, "{}",
+                createdAt.plusSeconds(3))).isTrue();
+        assertThat(chatMessageRepository.completeAssistant(runFixture.run().getId(),
+                runFixture.assistantMessage().getId(), "首轮完整回答。[1]", createdAt.plusSeconds(3))).isTrue();
+        return new RootSourceFixture(session, runFixture.run(), runFixture.assistantMessage(), source);
+    }
+
+    private RunFixture createQueuedRunInSession(ChatSession session, long userSequence, String question,
+            OffsetDateTime createdAt) {
+        ChatRun run = new ChatRun(UUID.randomUUID(), session.getId(), UUID.randomUUID(), "f".repeat(64),
+                ChatRunStatusEnum.QUEUED, "{\"mode\":\"RAG\"}", null, "{}", null, null,
+                null, null, null, createdAt, createdAt);
+        chatRunRepository.insert(run);
+        ChatMessage userMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(), userSequence,
+                ChatMessageRoleEnum.USER, question, ChatMessageStatusEnum.COMPLETED, createdAt, createdAt);
+        ChatMessage assistantMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(),
+                userSequence + 1, ChatMessageRoleEnum.ASSISTANT, "", ChatMessageStatusEnum.STREAMING,
+                createdAt, createdAt);
+        chatMessageRepository.insert(userMessage);
+        chatMessageRepository.insert(assistantMessage);
+        return new RunFixture(run, userMessage, assistantMessage);
+    }
+
     private ChatMessage assistantMessage(UUID runId) {
         return chatMessageRepository.listByRunId(runId).stream()
                 .filter(message -> message.getRole() == ChatMessageRoleEnum.ASSISTANT)
@@ -506,5 +611,9 @@ class ChatConversationMapperDatabaseIT {
     }
 
     private record RunFixture(ChatRun run, ChatMessage userMessage, ChatMessage assistantMessage) {
+    }
+
+    private record RootSourceFixture(ChatSession session, ChatRun run, ChatMessage assistantMessage,
+                                     MessageSource source) {
     }
 }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.haha.supportai.data.conversation.entity.po.HistoricalMessageSource;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
 import com.haha.supportai.data.typehandler.UuidTypeHandler;
@@ -68,6 +69,33 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
                   AND document.active_version_id = version.id
                   AND version.status = 'READY'
                   AND LENGTH(BTRIM(vector.content)) > 0
+                  AND (
+                      CAST(#{source.originSourceId,jdbcType=OTHER} AS UUID) IS NULL
+                      OR EXISTS (
+                          SELECT 1
+                          FROM message_source origin
+                          INNER JOIN chat_message origin_message
+                              ON origin_message.id = origin.message_id
+                          INNER JOIN chat_run origin_run
+                              ON origin_run.id = origin_message.run_id
+                             AND origin_run.session_id = origin_message.session_id
+                          INNER JOIN chat_session origin_session
+                              ON origin_session.id = origin_message.session_id
+                          WHERE origin.id = CAST(#{source.originSourceId,jdbcType=OTHER} AS UUID)
+                            AND origin.origin_source_id IS NULL
+                            AND origin_message.role = 'ASSISTANT'
+                            AND origin_message.status = 'COMPLETED'
+                            AND origin_run.status = 'COMPLETED'
+                            AND origin_session.id = chat.id
+                            AND origin_session.user_id = chat.user_id
+                            AND origin_message.seq < message.seq
+                            AND origin.source_type = #{source.sourceType,jdbcType=VARCHAR}
+                            AND origin.kb_id = #{source.knowledgeBaseId,jdbcType=OTHER}
+                            AND origin.chunk_id = #{source.chunkId,jdbcType=OTHER}
+                            AND origin.locator = CAST(#{source.locator,jdbcType=VARCHAR} AS JSONB)
+                            AND origin.snapshot = CAST(#{source.snapshot,jdbcType=VARCHAR} AS JSONB)
+                      )
+                  )
             )
             </foreach>
             </script>
@@ -103,6 +131,78 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
             @Result(column = "created_at", property = "createdAt")
     })
     List<MessageSource> selectByMessageId(@Param("messageId") UUID messageId);
+
+    @Select("""
+            -- message_source：读取历史助手消息的全部来源，并显式标记其继承链是否仍为同会话直接根来源。
+            SELECT source.id AS source_id,
+                   COALESCE(source.origin_source_id, source.id) AS root_source_id,
+                   source.citation_no,
+                   source.source_type,
+                   source.kb_id,
+                   source.chunk_id,
+                   source.locator,
+                   source.snapshot,
+                   CASE
+                       WHEN source.origin_source_id IS NULL THEN TRUE
+                       ELSE root.id IS NOT NULL
+                           AND root.origin_source_id IS NULL
+                           AND root_message.role = 'ASSISTANT'
+                           AND root_message.status = 'COMPLETED'
+                           AND root_run.status = 'COMPLETED'
+                           AND root_message.session_id = history_message.session_id
+                           AND root_session.user_id = history_session.user_id
+                           AND root_message.seq < history_message.seq
+                           AND root.source_type = source.source_type
+                           AND root.kb_id = source.kb_id
+                           AND root.chunk_id = source.chunk_id
+                           AND root.locator = source.locator
+                           AND root.snapshot = source.snapshot
+                   END AS lineage_valid
+            FROM chat_message history_message
+            INNER JOIN chat_run history_run
+                ON history_run.id = history_message.run_id
+               AND history_run.session_id = history_message.session_id
+            INNER JOIN chat_session history_session
+                ON history_session.id = history_message.session_id
+            INNER JOIN message_source source
+                ON source.message_id = history_message.id
+            LEFT JOIN message_source root
+                ON root.id = source.origin_source_id
+            LEFT JOIN chat_message root_message
+                ON root_message.id = root.message_id
+            LEFT JOIN chat_run root_run
+                ON root_run.id = root_message.run_id
+               AND root_run.session_id = root_message.session_id
+            LEFT JOIN chat_session root_session
+                ON root_session.id = root_message.session_id
+            WHERE history_message.id = #{assistantMessageId,jdbcType=OTHER}
+              AND history_message.session_id = #{sessionId,jdbcType=OTHER}
+              AND history_message.role = 'ASSISTANT'
+              AND history_message.status = 'COMPLETED'
+              AND history_run.status = 'COMPLETED'
+              AND history_session.user_id = #{userId,jdbcType=OTHER}
+              AND history_session.deleted_at IS NULL
+            ORDER BY source.citation_no
+            """)
+    @Results(id = "historicalMessageSourceResultMap", value = {
+            @Result(column = "source_id", property = "sourceId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class, id = true),
+            @Result(column = "root_source_id", property = "rootSourceId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "citation_no", property = "citationNo"),
+            @Result(column = "source_type", property = "sourceType", javaType = MessageSourceTypeEnum.class,
+                    typeHandler = EnumTypeHandler.class),
+            @Result(column = "kb_id", property = "knowledgeBaseId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "chunk_id", property = "chunkId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "locator", property = "locator"),
+            @Result(column = "snapshot", property = "snapshot"),
+            @Result(column = "lineage_valid", property = "lineageValid")
+    })
+    List<HistoricalMessageSource> selectHistoricalSources(@Param("assistantMessageId") UUID assistantMessageId,
+                                                          @Param("sessionId") UUID sessionId,
+                                                          @Param("userId") UUID userId);
 
     @Update({
             "<script>",

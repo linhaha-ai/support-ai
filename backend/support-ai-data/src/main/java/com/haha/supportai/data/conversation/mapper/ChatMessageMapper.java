@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
+import com.haha.supportai.data.conversation.entity.po.CompletedChatTurn;
 import com.haha.supportai.data.conversation.enums.ChatMessageRoleEnum;
 import com.haha.supportai.data.conversation.enums.ChatMessageStatusEnum;
 import com.haha.supportai.data.typehandler.UuidTypeHandler;
@@ -64,6 +65,63 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
                                              @Param("userId") UUID userId,
                                              @Param("afterSequence") long afterSequence,
                                              @Param("limit") int limit);
+
+    @Select("""
+            -- chat_run、chat_message：按当前用户消息序号倒序读取本人会话中此前完整成功的问答轮次。
+            SELECT previous_run.id AS run_id,
+                   user_message.id AS user_message_id,
+                   assistant_message.id AS assistant_message_id,
+                   user_message.seq AS user_sequence,
+                   user_message.content AS question,
+                   assistant_message.content AS answer
+            FROM chat_message current_message
+            INNER JOIN chat_session session
+                ON session.id = current_message.session_id
+            INNER JOIN chat_run previous_run
+                ON previous_run.session_id = session.id
+               AND previous_run.status = 'COMPLETED'
+            INNER JOIN chat_message user_message
+                ON user_message.run_id = previous_run.id
+               AND user_message.session_id = session.id
+               AND user_message.role = 'USER'
+               AND user_message.status = 'COMPLETED'
+            INNER JOIN chat_message assistant_message
+                ON assistant_message.run_id = previous_run.id
+               AND assistant_message.session_id = session.id
+               AND assistant_message.role = 'ASSISTANT'
+               AND assistant_message.status = 'COMPLETED'
+            WHERE current_message.id = #{currentUserMessageId,jdbcType=OTHER}
+              AND current_message.session_id = #{sessionId,jdbcType=OTHER}
+              AND current_message.role = 'USER'
+              AND current_message.status = 'COMPLETED'
+              AND session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+              AND user_message.seq < current_message.seq
+              AND (#{beforeUserSequence,jdbcType=BIGINT} IS NULL
+                   OR user_message.seq < #{beforeUserSequence,jdbcType=BIGINT})
+              AND assistant_message.seq < current_message.seq
+              AND user_message.seq < assistant_message.seq
+              AND LENGTH(BTRIM(user_message.content)) > 0
+              AND LENGTH(BTRIM(assistant_message.content)) > 0
+            ORDER BY user_message.seq DESC
+            LIMIT #{limit}
+            """)
+    @Results(id = "completedChatTurnResultMap", value = {
+            @Result(column = "run_id", property = "runId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class, id = true),
+            @Result(column = "user_message_id", property = "userMessageId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "assistant_message_id", property = "assistantMessageId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "user_sequence", property = "userSequence"),
+            @Result(column = "question", property = "question"),
+            @Result(column = "answer", property = "answer")
+    })
+    List<CompletedChatTurn> selectCompletedTurnsBefore(@Param("sessionId") UUID sessionId,
+                                                       @Param("userId") UUID userId,
+                                                       @Param("currentUserMessageId") UUID currentUserMessageId,
+                                                       @Param("beforeUserSequence") Long beforeUserSequence,
+                                                       @Param("limit") int limit);
 
     @Update("""
             -- chat_message、chat_run：仅为执行中的运行原子追加非空助手增量，终态消息不得再写入。

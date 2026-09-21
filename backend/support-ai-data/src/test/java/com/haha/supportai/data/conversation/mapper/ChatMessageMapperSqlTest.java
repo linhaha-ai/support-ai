@@ -28,6 +28,26 @@ class ChatMessageMapperSqlTest {
     }
 
     @Test
+    void completedTurnsOnlyReadSuccessfulPairsBeforeCurrentUserMessage() throws NoSuchMethodException {
+        Method method = ChatMessageMapper.class.getMethod("selectCompletedTurnsBefore", UUID.class, UUID.class,
+                UUID.class, Long.class, int.class);
+        String sql = String.join("\n", method.getAnnotation(Select.class).value());
+
+        assertThat(sql)
+                .contains("current_message.id = #{currentUserMessageId,jdbcType=OTHER}")
+                .contains("current_message.session_id = #{sessionId,jdbcType=OTHER}")
+                .contains("session.user_id = #{userId,jdbcType=OTHER}")
+                .contains("previous_run.status = 'COMPLETED'")
+                .contains("user_message.status = 'COMPLETED'")
+                .contains("assistant_message.status = 'COMPLETED'")
+                .contains("user_message.seq < current_message.seq")
+                .contains("user_message.seq < #{beforeUserSequence,jdbcType=BIGINT}")
+                .contains("assistant_message.seq < current_message.seq")
+                .contains("ORDER BY user_message.seq DESC")
+                .contains("LIMIT #{limit}");
+    }
+
+    @Test
     void completionAndFailureUpdatesKeepStrictMessageConditionsWithoutRunActiveDependency()
             throws NoSuchMethodException {
         String completeSql = updateSql("completeAssistant", UUID.class, UUID.class, String.class,

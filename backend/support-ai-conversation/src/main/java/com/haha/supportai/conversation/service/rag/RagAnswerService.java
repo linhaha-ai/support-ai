@@ -3,9 +3,11 @@ package com.haha.supportai.conversation.service.rag;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -15,12 +17,15 @@ import com.haha.supportai.conversation.entity.dto.ChatModelChunk;
 import com.haha.supportai.conversation.entity.dto.ChatModelUsage;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
+import com.haha.supportai.conversation.entity.dto.RagConversationContext;
+import com.haha.supportai.conversation.entity.dto.RagHistorySource;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
 import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.exception.RagPersistenceException;
+import com.haha.supportai.conversation.service.context.ConversationContextService;
 import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.conversation.support.RagPromptFactory.NumberedEvidence;
@@ -42,15 +47,20 @@ public class RagAnswerService {
     private static final String NO_EVIDENCE_ANSWER = "资料不足：未找到可用于回答该问题的授权资料。";
     private static final String RETRIEVAL_ERROR_CODE = "RETRIEVAL_FAILED";
     private static final String RETRIEVAL_ERROR_DETAIL = "授权资料检索失败";
+    private static final String CONTEXT_ERROR_CODE = "CONTEXT_LOAD_FAILED";
+    private static final String CONTEXT_ERROR_DETAIL = "有限历史上下文加载失败";
     private static final String MODEL_ERROR_CODE = "MODEL_UNAVAILABLE";
     private static final String MODEL_ERROR_DETAIL = "问答模型调用失败";
     private static final String EMPTY_MODEL_ERROR_CODE = "MODEL_EMPTY_RESPONSE";
     private static final String EMPTY_MODEL_ERROR_DETAIL = "问答模型未返回有效内容";
     private static final String PERSISTENCE_ERROR_CODE = "RAG_PERSISTENCE_FAILED";
     private static final String PERSISTENCE_ERROR_DETAIL = "问答运行状态保存失败";
+    private static final String SOURCE_REVOKED_ERROR_CODE = "SOURCE_REVOKED";
+    private static final String SOURCE_REVOKED_ERROR_DETAIL = "模型调用前授权资料已失效";
 
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final DocumentSourceQueryService documentSourceQueryService;
+    private final ConversationContextService conversationContextService;
     private final ChatModelGateway chatModelGateway;
     private final RagRunPersistenceService persistenceService;
     private final RagPromptFactory promptFactory;
@@ -74,6 +84,13 @@ public class RagAnswerService {
         }
         notifyStarted(safeObserver);
 
+        RagConversationContext conversationContext;
+        try {
+            conversationContext = loadConversationContext(preparedRun);
+        } catch (RuntimeException exception) {
+            throw failureOrCancellation(preparedRun, context, exception, CONTEXT_ERROR_CODE, CONTEXT_ERROR_DETAIL);
+        }
+
         List<KnowledgeRetrievalEvidenceResponse> evidenceList;
         try {
             evidenceList = retrieveAndRevalidate(preparedRun.getUserId(), preparedRun.getSessionId(),
@@ -83,23 +100,36 @@ public class RagAnswerService {
                     RETRIEVAL_ERROR_DETAIL);
         }
 
-        if (evidenceList.isEmpty()) {
-            return completeWithoutEvidence(preparedRun, safeObserver, context);
-        }
-
-        List<NumberedEvidence> numberedEvidence = numberEvidence(evidenceList);
-        context.evidenceCount = numberedEvidence.size();
+        ModelInput modelInput;
         try {
-            persistenceService.registerEvidence(preparedRun,
-                    createMessageSources(preparedRun.getAssistantMessageId(), numberedEvidence));
+            modelInput = createModelInput(conversationContext, evidenceList);
         } catch (RuntimeException exception) {
             throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
                     PERSISTENCE_ERROR_DETAIL);
         }
+        if (modelInput.sources().isEmpty()) {
+            return completeWithoutEvidence(preparedRun, safeObserver, context);
+        }
+
+        context.evidenceCount = modelInput.sources().size();
+        try {
+            persistenceService.registerEvidence(preparedRun,
+                    createMessageSources(preparedRun.getAssistantMessageId(), modelInput.sources()));
+        } catch (RuntimeException exception) {
+            throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
+                    PERSISTENCE_ERROR_DETAIL);
+        }
+        try {
+            revalidateRegisteredSources(preparedRun, modelInput.sources());
+        } catch (RuntimeException exception) {
+            throw failureOrCancellation(preparedRun, context, exception, SOURCE_REVOKED_ERROR_CODE,
+                    SOURCE_REVOKED_ERROR_DETAIL);
+        }
 
         RagPrompt prompt;
         try {
-            prompt = promptFactory.create(preparedRun.getQuestion(), numberedEvidence);
+            prompt = promptFactory.create(preparedRun.getQuestion(), conversationContext.getTurns(),
+                    modelInput.evidence());
         } catch (RuntimeException exception) {
             throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
                     PERSISTENCE_ERROR_DETAIL);
@@ -123,8 +153,8 @@ public class RagAnswerService {
         RagMetrics metrics;
         List<RagSourceResponse> sources;
         try {
-            citedSourceNumbers = citationParser.findRegisteredCitations(answer, numberedEvidence.size());
-            sources = readableSources(preparedRun.getUserId(), numberedEvidence, citedSourceNumbers);
+            citedSourceNumbers = citationParser.findRegisteredCitations(answer, modelInput.sources().size());
+            sources = readableSources(preparedRun.getUserId(), modelInput.sources(), citedSourceNumbers);
             metrics = metrics(context, citedSourceNumbers.size(), false);
             persistenceService.complete(preparedRun.getRunId(), preparedRun.getAssistantMessageId(), answer,
                     citedSourceNumbers, serializeNullable(context.usage), serialize(metrics));
@@ -160,6 +190,11 @@ public class RagAnswerService {
             }
         }
         return List.copyOf(revalidatedEvidence);
+    }
+
+    private RagConversationContext loadConversationContext(PreparedChatRunResponse preparedRun) {
+        RagConversationContext loaded = conversationContextService.load(preparedRun);
+        return loaded == null ? RagConversationContext.empty() : loaded;
     }
 
     private KnowledgeRetrievalEvidenceResponse withRetrievalScore(KnowledgeRetrievalEvidenceResponse evidence,
@@ -233,28 +268,73 @@ public class RagAnswerService {
         }
     }
 
-    private List<NumberedEvidence> numberEvidence(List<KnowledgeRetrievalEvidenceResponse> evidenceList) {
-        List<NumberedEvidence> numberedEvidence = new ArrayList<>(evidenceList.size());
-        for (int index = 0; index < evidenceList.size(); index++) {
-            numberedEvidence.add(new NumberedEvidence(index + 1, evidenceList.get(index)));
+    private ModelInput createModelInput(RagConversationContext context,
+            List<KnowledgeRetrievalEvidenceResponse> evidenceList) {
+        List<RegisteredSource> sources = new ArrayList<>();
+        Map<UUID, RegisteredSource> sourceByChunkId = new LinkedHashMap<>();
+        Set<UUID> inheritedRootSourceIds = new HashSet<>();
+        for (RagHistorySource inherited : context.getSources()) {
+            if (inherited.getCitationNumber() != sources.size() + 1
+                    || inherited.getRootSourceId() == null || inherited.getKnowledgeBaseId() == null
+                    || inherited.getChunkId() == null || inherited.getLocator() == null
+                    || inherited.getSnapshot() == null
+                    || !inheritedRootSourceIds.add(inherited.getRootSourceId())) {
+                throw new IllegalStateException("历史来源上下文无效");
+            }
+            RegisteredSource registered = new RegisteredSource(inherited.getCitationNumber(),
+                    inherited.getRootSourceId(), inherited.getKnowledgeBaseId(), inherited.getChunkId(),
+                    inherited.getLocator(), inherited.getSnapshot());
+            sources.add(registered);
+            sourceByChunkId.putIfAbsent(registered.chunkId(), registered);
         }
-        return List.copyOf(numberedEvidence);
+
+        Map<UUID, NumberedEvidence> numberedByChunkId = new LinkedHashMap<>();
+        for (KnowledgeRetrievalEvidenceResponse evidence : evidenceList) {
+            RegisteredSource registered = sourceByChunkId.get(evidence.getChunkId());
+            if (registered == null) {
+                registered = new RegisteredSource(sources.size() + 1, null, evidence.getKnowledgeBaseId(),
+                        evidence.getChunkId(), serialize(locator(evidence)), serialize(snapshot(evidence)));
+                sources.add(registered);
+                sourceByChunkId.put(registered.chunkId(), registered);
+            }
+            numberedByChunkId.putIfAbsent(evidence.getChunkId(),
+                    new NumberedEvidence(registered.citationNumber(), evidence));
+        }
+        return new ModelInput(List.copyOf(numberedByChunkId.values()), List.copyOf(sources));
     }
 
-    private List<MessageSource> createMessageSources(UUID assistantMessageId,
-            List<NumberedEvidence> numberedEvidence) {
+    /**
+     * 来源登记提交后紧邻模型调用再次复核，避免撤权或 active 版本切换后的内容进入模型。
+     */
+    private void revalidateRegisteredSources(PreparedChatRunResponse preparedRun, List<RegisteredSource> sources) {
+        List<UUID> chunkIds = sources.stream()
+                .map(RegisteredSource::chunkId)
+                .distinct()
+                .toList();
+        Map<UUID, KnowledgeRetrievalEvidenceResponse> readableByChunkId = new HashMap<>();
+        knowledgeRetrievalService.revalidateReadableWithinSession(preparedRun.getUserId(),
+                        preparedRun.getSessionId(), chunkIds)
+                .forEach(evidence -> readableByChunkId.putIfAbsent(evidence.getChunkId(), evidence));
+        for (RegisteredSource source : sources) {
+            KnowledgeRetrievalEvidenceResponse readable = readableByChunkId.get(source.chunkId());
+            if (readable == null || !source.knowledgeBaseId().equals(readable.getKnowledgeBaseId())) {
+                throw new IllegalStateException("授权资料已失效");
+            }
+        }
+    }
+
+    private List<MessageSource> createMessageSources(UUID assistantMessageId, List<RegisteredSource> sources) {
         OffsetDateTime now = OffsetDateTime.now();
-        return numberedEvidence.stream()
-                .map(item -> toMessageSource(assistantMessageId, item, now))
+        return sources.stream()
+                .map(source -> toMessageSource(assistantMessageId, source, now))
                 .toList();
     }
 
-    private MessageSource toMessageSource(UUID assistantMessageId, NumberedEvidence numberedEvidence,
+    private MessageSource toMessageSource(UUID assistantMessageId, RegisteredSource source,
             OffsetDateTime createdAt) {
-        KnowledgeRetrievalEvidenceResponse evidence = numberedEvidence.evidence();
-        return new MessageSource(UUID.randomUUID(), assistantMessageId, null, numberedEvidence.citationNumber(), false,
-                MessageSourceTypeEnum.DOCUMENT, evidence.getKnowledgeBaseId(), evidence.getChunkId(),
-                serialize(locator(evidence)), serialize(snapshot(evidence)), createdAt);
+        return new MessageSource(UUID.randomUUID(), assistantMessageId, source.originSourceId(),
+                source.citationNumber(), false, MessageSourceTypeEnum.DOCUMENT, source.knowledgeBaseId(),
+                source.chunkId(), source.locator(), source.snapshot(), createdAt);
     }
 
     private Map<String, Object> locator(KnowledgeRetrievalEvidenceResponse evidence) {
@@ -277,13 +357,18 @@ public class RagAnswerService {
         return snapshot;
     }
 
-    private List<RagSourceResponse> readableSources(UUID userId, List<NumberedEvidence> numberedEvidence,
+    private List<RagSourceResponse> readableSources(UUID userId, List<RegisteredSource> registeredSources,
             List<Integer> citedSourceNumbers) {
+        Map<Integer, RegisteredSource> sourceByNumber = new HashMap<>();
+        registeredSources.forEach(source -> sourceByNumber.put(source.citationNumber(), source));
         List<RagSourceResponse> sources = new ArrayList<>();
         for (Integer citationNumber : citedSourceNumbers) {
-            NumberedEvidence numbered = numberedEvidence.get(citationNumber - 1);
+            RegisteredSource registered = sourceByNumber.get(citationNumber);
+            if (registered == null) {
+                continue;
+            }
             try {
-                documentSourceQueryService.findReadableSource(userId, numbered.evidence().getChunkId())
+                documentSourceQueryService.findReadableSource(userId, registered.chunkId())
                         .map(source -> toSourceResponse(citationNumber, source))
                         .ifPresent(sources::add);
             } catch (RuntimeException ignored) {
@@ -391,6 +476,13 @@ public class RagAnswerService {
         } catch (RuntimeException ignored) {
             return null;
         }
+    }
+
+    private record ModelInput(List<NumberedEvidence> evidence, List<RegisteredSource> sources) {
+    }
+
+    private record RegisteredSource(int citationNumber, UUID originSourceId, UUID knowledgeBaseId, UUID chunkId,
+                                    String locator, String snapshot) {
     }
 
     private static class GenerationContext {

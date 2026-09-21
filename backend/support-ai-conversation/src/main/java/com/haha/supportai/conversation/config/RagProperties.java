@@ -18,4 +18,12 @@ public class RagProperties {
     @Min(1)
     @Max(50)
     private int topK = 6; // 单次问答最多送入模型的授权证据数量
+
+    @Min(1)
+    @Max(20)
+    private int historyMaxRounds = 3; // 单次模型请求最多注入的完整历史问答轮数
+
+    @Min(256)
+    @Max(50000)
+    private int historyMaxCharacters = 6000; // 历史问题和回答正文的字符预算
 }
