@@ -9,14 +9,16 @@ import 'element-plus/es/components/option/style/css'
 import 'element-plus/es/components/select/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
-import type { KnowledgeBaseManagement, KnowledgeBaseStatus } from './knowledgeBase'
+import type { KnowledgeBaseManagement, KnowledgeBaseMember, KnowledgeBasePermission, KnowledgeBaseStatus } from './knowledgeBase'
 import type { CurrentUser } from './useAuth'
 import { useKnowledgeBases } from './useKnowledgeBases'
+import { useKnowledgeBaseMembers } from './useKnowledgeBaseMembers'
 
 const props = defineProps<{ user: CurrentUser }>()
 
 const isAdmin = computed(() => props.user.role === 'ADMIN')
 const knowledgeBases = reactive(useKnowledgeBases(() => isAdmin.value))
+const memberManagement = reactive(useKnowledgeBaseMembers())
 const editorVisible = ref(false)
 const editingId = ref<string | null>(null)
 const editor = reactive({
@@ -25,9 +27,18 @@ const editor = reactive({
   status: 'ACTIVE' as KnowledgeBaseStatus,
   revision: 0,
 })
+const memberForm = reactive({
+  userId: '',
+  permission: 'READ' as KnowledgeBasePermission,
+})
+const pendingRevokeUserId = ref<string | null>(null)
 
 const editorTitle = computed(() => editingId.value ? '编辑知识库' : '新建知识库')
 const canSubmit = computed(() => editor.name.trim().length > 0 && !knowledgeBases.saving)
+const managedKnowledgeBase = computed(() => memberManagement.knowledgeBaseId
+  ? knowledgeBases.managementItems.find((item) => item.id === memberManagement.knowledgeBaseId) ?? null
+  : null)
+const canSubmitMember = computed(() => memberForm.userId.length > 0 && !memberManagement.saving)
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -67,6 +78,59 @@ function closeEditor() {
   if (knowledgeBases.saving) return
   editorVisible.value = false
   resetEditor()
+}
+
+function resetMemberForm() {
+  memberForm.userId = ''
+  memberForm.permission = 'READ'
+}
+
+async function openMemberManagement(item: KnowledgeBaseManagement) {
+  resetMemberForm()
+  pendingRevokeUserId.value = null
+  await memberManagement.open(item.id)
+}
+
+function closeMemberManagement() {
+  if (memberManagement.saving) return
+  memberManagement.close()
+  resetMemberForm()
+  pendingRevokeUserId.value = null
+}
+
+function selectMember(member: KnowledgeBaseMember) {
+  if (!member.enabled) return
+  memberForm.userId = member.userId
+  memberForm.permission = member.permission
+}
+
+function updateSelectedUser(userId: string) {
+  memberForm.userId = userId
+  const member = memberManagement.members.find((item) => item.userId === userId)
+  if (member) memberForm.permission = member.permission
+}
+
+async function submitMember() {
+  if (!canSubmitMember.value) return
+  const saved = await memberManagement.grant(memberForm.userId, memberForm.permission)
+  if (saved) resetMemberForm()
+}
+
+async function revokeMember(member: KnowledgeBaseMember) {
+  const revoked = await memberManagement.revoke(member.userId)
+  if (revoked) {
+    if (memberForm.userId === member.userId) resetMemberForm()
+    pendingRevokeUserId.value = null
+  }
+}
+
+function requestRevoke(member: KnowledgeBaseMember) {
+  if (memberManagement.saving) return
+  pendingRevokeUserId.value = member.userId
+}
+
+function cancelRevoke() {
+  pendingRevokeUserId.value = null
 }
 
 async function submit() {
@@ -172,6 +236,96 @@ onMounted(knowledgeBases.load)
       </form>
     </section>
 
+    <section v-if="memberManagement.visible" class="member-manager" aria-labelledby="member-manager-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="member-manager-heading">成员管理</h2>
+          <span>{{ managedKnowledgeBase?.name ?? '知识库' }}</span>
+        </div>
+        <ElButton text :disabled="memberManagement.saving" @click="closeMemberManagement">关闭</ElButton>
+      </div>
+
+      <ElAlert
+        v-if="memberManagement.error"
+        class="member-alert"
+        type="error"
+        :closable="false"
+        :title="memberManagement.error"
+        show-icon
+      >
+        <template #default>
+          <ElButton text type="primary" @click="memberManagement.load">重试</ElButton>
+        </template>
+      </ElAlert>
+
+      <section v-if="memberManagement.loading" class="member-loading" aria-live="polite" aria-busy="true">
+        <ElSkeleton :rows="3" animated />
+      </section>
+
+      <template v-else>
+        <form class="member-form" @submit.prevent="submitMember">
+          <label for="member-user">账号</label>
+          <ElSelect
+            id="member-user"
+            :model-value="memberForm.userId"
+            filterable
+            placeholder="选择账号"
+            :disabled="memberManagement.saving"
+            @update:model-value="updateSelectedUser($event)"
+          >
+            <ElOption
+              v-for="account in memberManagement.users"
+              :key="account.id"
+              :label="`${account.displayName}（${account.username}）${account.enabled ? '' : ' - 已停用'}`"
+              :value="account.id"
+              :disabled="!account.enabled"
+            />
+          </ElSelect>
+          <label for="member-permission">权限</label>
+          <ElSelect id="member-permission" v-model="memberForm.permission" :disabled="memberManagement.saving">
+            <ElOption label="只读" value="READ" />
+            <ElOption label="可写" value="WRITE" />
+          </ElSelect>
+          <div class="member-form-actions">
+            <ElButton type="primary" native-type="submit" :loading="memberManagement.saving" :disabled="!canSubmitMember">
+              授权或更新权限
+            </ElButton>
+            <ElButton :disabled="memberManagement.saving" @click="resetMemberForm">重置</ElButton>
+          </div>
+        </form>
+
+        <ElEmpty
+          v-if="memberManagement.members.length === 0 && !memberManagement.error"
+          class="member-empty"
+          description="暂未授权成员"
+        />
+        <div v-else class="member-list" role="list" aria-label="知识库成员">
+          <article v-for="member in memberManagement.members" :key="member.userId" class="member-item" role="listitem">
+            <div>
+              <div class="member-name">
+                <h3>{{ member.displayName }}</h3>
+                <ElTag size="small" :type="member.permission === 'WRITE' ? 'success' : 'info'">
+                  {{ member.permission === 'WRITE' ? '可写' : '只读' }}
+                </ElTag>
+                <ElTag v-if="!member.enabled" size="small" type="warning">已停用</ElTag>
+              </div>
+              <p>{{ member.username }} · {{ member.role }} · 授权于 {{ formatDate(member.createdAt) }}</p>
+            </div>
+            <div class="member-actions">
+              <ElButton text type="primary" :disabled="!member.enabled || memberManagement.saving" @click="selectMember(member)">
+                修改权限
+              </ElButton>
+              <template v-if="pendingRevokeUserId === member.userId">
+                <ElButton text type="danger" :loading="memberManagement.saving" @click="revokeMember(member)">确认撤销</ElButton>
+                <ElButton text :disabled="memberManagement.saving" @click="cancelRevoke">取消</ElButton>
+              </template>
+              <ElButton v-else text type="danger" :disabled="memberManagement.saving" @click="requestRevoke(member)">撤销</ElButton>
+            </div>
+          </article>
+        </div>
+      </template>
+    </section>
+
     <section v-if="knowledgeBases.loading" class="knowledge-loading" aria-live="polite" aria-busy="true">
       <ElSkeleton :rows="4" animated />
     </section>
@@ -193,6 +347,7 @@ onMounted(knowledgeBases.load)
         </div>
         <div class="knowledge-item-actions">
           <ElButton text type="primary" @click="openEdit(item)">编辑</ElButton>
+          <ElButton text type="primary" @click="openMemberManagement(item)">成员管理</ElButton>
         </div>
       </article>
     </section>

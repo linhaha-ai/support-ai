@@ -5,6 +5,7 @@ import com.haha.supportai.common.filter.TraceIdFilter;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseConflictException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseInvalidRequestException;
+import com.haha.supportai.knowledge.exception.KnowledgeBaseMemberTargetUnavailableException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
@@ -38,6 +39,12 @@ public class KnowledgeBaseExceptionHandler {
     @ExceptionHandler(KnowledgeBaseAccessDeniedException.class)
     ResponseEntity<ApiError> handleAccessDenied(KnowledgeBaseAccessDeniedException exception, HttpServletRequest request) {
         return error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "请求被拒绝", request);
+    }
+
+    @ExceptionHandler(KnowledgeBaseMemberTargetUnavailableException.class)
+    ResponseEntity<ApiError> handleMemberTargetUnavailable(KnowledgeBaseMemberTargetUnavailableException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "MEMBER_TARGET_UNAVAILABLE", "目标用户不存在或已停用", request);
     }
 
     private ResponseEntity<ApiError> error(HttpStatus status, String code, String message, HttpServletRequest request) {

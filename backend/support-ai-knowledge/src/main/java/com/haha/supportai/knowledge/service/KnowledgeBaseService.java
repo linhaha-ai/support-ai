@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.knowledge.entity.po.KbMember;
 import com.haha.supportai.data.knowledge.entity.po.KnowledgeBase;
 import com.haha.supportai.data.knowledge.enums.KbPermissionEnum;
@@ -13,13 +12,13 @@ import com.haha.supportai.data.knowledge.enums.KnowledgeBaseStatusEnum;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
-import com.haha.supportai.identity.security.ActiveAccountGuard;
+import com.haha.supportai.knowledge.access.AccessPolicy;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeBaseAccessContext;
 import com.haha.supportai.knowledge.entity.dto.CreateKnowledgeBaseRequest;
 import com.haha.supportai.knowledge.entity.dto.UpdateKnowledgeBaseRequest;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeBaseDetailResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeBaseManagementResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeBaseSummaryResponse;
-import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseConflictException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseInvalidRequestException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseNotFoundException;
@@ -33,10 +32,10 @@ public class KnowledgeBaseService {
 
     private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final KbMemberRepository kbMemberRepository;
-    private final ActiveAccountGuard activeAccountGuard;
+    private final AccessPolicy accessPolicy;
 
     public List<KnowledgeBaseSummaryResponse> listAccessible() {
-        AuthenticatedUser currentUser = activeAccountGuard.currentUser();
+        AuthenticatedUser currentUser = accessPolicy.currentUser();
         return knowledgeBaseRepository.listActiveByUser(currentUser.getId()).stream()
                 .map(knowledgeBase -> toSummaryIfStillMember(knowledgeBase, currentUser.getId()))
                 .flatMap(Optional::stream)
@@ -44,7 +43,7 @@ public class KnowledgeBaseService {
     }
 
     public List<KnowledgeBaseManagementResponse> listAll(KnowledgeBaseStatusEnum status) {
-        requireAdmin();
+        accessPolicy.requireAdministrator();
         return knowledgeBaseRepository.listForManagement(status).stream()
                 .map(KnowledgeBaseManagementResponse::from)
                 .toList();
@@ -52,7 +51,7 @@ public class KnowledgeBaseService {
 
     @Transactional
     public KnowledgeBaseDetailResponse create(CreateKnowledgeBaseRequest request) {
-        AuthenticatedUser currentUser = requireAdmin();
+        AuthenticatedUser currentUser = accessPolicy.requireAdministrator();
         if (request == null) {
             throw new KnowledgeBaseInvalidRequestException();
         }
@@ -70,17 +69,14 @@ public class KnowledgeBaseService {
     }
 
     public KnowledgeBaseDetailResponse getAccessible(UUID knowledgeBaseId) {
-        AuthenticatedUser currentUser = activeAccountGuard.currentUser();
-        KnowledgeBase knowledgeBase = knowledgeBaseRepository.findActiveByIdAndUser(knowledgeBaseId, currentUser.getId())
-                .orElseThrow(KnowledgeBaseNotFoundException::new);
-        KbMember member = kbMemberRepository.findByKbIdAndUserId(knowledgeBaseId, currentUser.getId())
-                .orElseThrow(KnowledgeBaseNotFoundException::new);
-        return KnowledgeBaseDetailResponse.from(knowledgeBase, member.getPermission());
+        KnowledgeBaseAccessContext accessContext = accessPolicy.requireRead(knowledgeBaseId);
+        return KnowledgeBaseDetailResponse.from(accessContext.getKnowledgeBase(),
+                accessContext.getMember().getPermission());
     }
 
     @Transactional
     public KnowledgeBaseManagementResponse update(UUID knowledgeBaseId, UpdateKnowledgeBaseRequest request) {
-        requireAdmin();
+        accessPolicy.requireAdministrator();
         if (request == null || request.getRevision() == null || request.getRevision() < 0) {
             throw new KnowledgeBaseInvalidRequestException();
         }
@@ -113,14 +109,6 @@ public class KnowledgeBaseService {
             UUID userId) {
         return kbMemberRepository.findByKbIdAndUserId(knowledgeBase.getId(), userId)
                 .map(member -> KnowledgeBaseSummaryResponse.from(knowledgeBase, member.getPermission()));
-    }
-
-    private AuthenticatedUser requireAdmin() {
-        AuthenticatedUser currentUser = activeAccountGuard.currentUser();
-        if (currentUser.getRole() != UserRoleEnum.ADMIN) {
-            throw new KnowledgeBaseAccessDeniedException();
-        }
-        return currentUser;
     }
 
     private String normalizeRequiredName(String name) {

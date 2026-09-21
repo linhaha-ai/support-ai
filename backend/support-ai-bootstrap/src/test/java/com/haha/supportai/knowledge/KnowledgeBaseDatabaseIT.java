@@ -28,9 +28,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -199,6 +201,85 @@ class KnowledgeBaseDatabaseIT {
     }
 
     @Test
+    void memberGrantChangeAndRevocationKeepManagementSeparateFromDataAccess() throws Exception {
+        AuthenticatedRequest admin = login("admin", "admin");
+        AuthenticatedRequest support1 = login("support1", "support1");
+        AuthenticatedRequest support2 = login("support2", "support2");
+        UUID adminId = userId("admin");
+        UUID support1Id = userId("support1");
+        UUID support2Id = userId("support2");
+        UUID knowledgeBaseAId = null;
+        UUID knowledgeBaseBId = null;
+        try {
+            knowledgeBaseAId = UUID.fromString(create(admin, "成员边界 A", "用户甲只读").path("id").asText());
+            knowledgeBaseBId = UUID.fromString(create(admin, "成员边界 B", "用户乙可写").path("id").asText());
+
+            JsonNode users = responseData(mvc.perform(get("/api/admin/users")
+                            .session(admin.session()).cookie(admin.cookie()))
+                    .andExpect(status().isOk()).andReturn());
+            JsonNode support1User = findByUsername(users, "support1");
+            assertThat(support1User.path("id").asText()).isEqualTo(support1Id.toString());
+            assertThat(support1User.path("enabled").asBoolean()).isTrue();
+            assertThat(support1User.path("passwordHash").isMissingNode()).isTrue();
+
+            JsonNode initialMemberA = upsertMember(admin, knowledgeBaseAId, support1Id, "READ");
+            assertThat(initialMemberA.path("permission").asText()).isEqualTo("READ");
+            assertThat(upsertMember(admin, knowledgeBaseBId, support2Id, "WRITE").path("permission").asText())
+                    .isEqualTo("WRITE");
+            JsonNode membersA = memberList(admin, knowledgeBaseAId);
+            assertThat(findByUsername(membersA, "support1").path("permission").asText()).isEqualTo("READ");
+
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseAId)
+                            .session(support1.session()).cookie(support1.cookie()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.currentPermission").value("READ"));
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseBId)
+                            .session(support1.session()).cookie(support1.cookie()))
+                    .andExpect(status().isNotFound());
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseBId)
+                            .session(support2.session()).cookie(support2.cookie()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.currentPermission").value("WRITE"));
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseAId)
+                            .session(support2.session()).cookie(support2.cookie()))
+                    .andExpect(status().isNotFound());
+
+            mvc.perform(get("/api/knowledge-bases/{kbId}/members", knowledgeBaseAId)
+                            .session(support1.session()).cookie(support1.cookie()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+            mvc.perform(get("/api/admin/users")
+                            .session(support1.session()).cookie(support1.cookie()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+            revokeMember(admin, knowledgeBaseAId, adminId);
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseAId)
+                            .session(admin.session()).cookie(admin.cookie()))
+                    .andExpect(status().isNotFound());
+            assertThat(findByUsername(memberList(admin, knowledgeBaseAId), "support1").isMissingNode()).isFalse();
+
+            JsonNode updatedMember = upsertMember(admin, knowledgeBaseAId, support1Id, "WRITE");
+            assertThat(updatedMember.path("permission").asText()).isEqualTo("WRITE");
+            assertThat(updatedMember.path("createdAt").asText()).isEqualTo(initialMemberA.path("createdAt").asText());
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseAId)
+                            .session(support1.session()).cookie(support1.cookie()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.currentPermission").value("WRITE"));
+
+            revokeMember(admin, knowledgeBaseAId, support1Id);
+            revokeMember(admin, knowledgeBaseAId, support1Id);
+            mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseAId)
+                            .session(support1.session()).cookie(support1.cookie()))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("KNOWLEDGE_BASE_NOT_FOUND"));
+        } finally {
+            deleteKnowledgeBase(knowledgeBaseAId);
+            deleteKnowledgeBase(knowledgeBaseBId);
+        }
+    }
+
+    @Test
     void invalidManagementStatusUsesUniformValidationError() throws Exception {
         AuthenticatedRequest admin = login("admin", "admin");
         mvc.perform(get("/api/admin/knowledge-bases").param("status", "ARCHIVED")
@@ -246,6 +327,31 @@ class KnowledgeBaseDatabaseIT {
         return responseData(mvc.perform(builder).andExpect(status().isOk()).andReturn());
     }
 
+    private JsonNode memberList(AuthenticatedRequest request, UUID knowledgeBaseId) throws Exception {
+        return responseData(mvc.perform(get("/api/knowledge-bases/{kbId}/members", knowledgeBaseId)
+                        .session(request.session()).cookie(request.cookie()))
+                .andExpect(status().isOk()).andReturn());
+    }
+
+    private JsonNode upsertMember(AuthenticatedRequest request, UUID knowledgeBaseId, UUID userId,
+            String permission) throws Exception {
+        MvcResult result = mvc.perform(put("/api/knowledge-bases/{kbId}/members/{userId}", knowledgeBaseId, userId)
+                        .session(request.session()).cookie(request.cookie())
+                        .header(request.csrfHeader(), request.csrfToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.createObjectNode().put("permission", permission).toString()))
+                .andExpect(status().isOk())
+                .andReturn();
+        return responseData(result);
+    }
+
+    private void revokeMember(AuthenticatedRequest request, UUID knowledgeBaseId, UUID userId) throws Exception {
+        mvc.perform(delete("/api/knowledge-bases/{kbId}/members/{userId}", knowledgeBaseId, userId)
+                        .session(request.session()).cookie(request.cookie())
+                        .header(request.csrfHeader(), request.csrfToken()))
+                .andExpect(status().isNoContent());
+    }
+
     private JsonNode responseData(MvcResult result) throws Exception {
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
     }
@@ -253,6 +359,15 @@ class KnowledgeBaseDatabaseIT {
     private JsonNode findById(JsonNode values, UUID id) {
         for (JsonNode value : values) {
             if (id.toString().equals(value.path("id").asText())) {
+                return value;
+            }
+        }
+        return objectMapper.missingNode();
+    }
+
+    private JsonNode findByUsername(JsonNode values, String username) {
+        for (JsonNode value : values) {
+            if (username.equals(value.path("username").asText())) {
                 return value;
             }
         }

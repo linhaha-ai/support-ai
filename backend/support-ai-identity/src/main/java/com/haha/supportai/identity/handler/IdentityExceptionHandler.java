@@ -6,6 +6,7 @@ import cn.dev33.satoken.exception.NotRoleException;
 import com.haha.supportai.common.entity.vo.ApiError;
 import com.haha.supportai.common.filter.TraceIdFilter;
 import com.haha.supportai.identity.exception.AccountUnavailableException;
+import com.haha.supportai.identity.exception.IdentityAccessDeniedException;
 import com.haha.supportai.identity.exception.InvalidCredentialsException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
@@ -35,6 +36,12 @@ public class IdentityExceptionHandler {
     ResponseEntity<ApiError> handleAccountUnavailable(AccountUnavailableException exception,
             HttpServletRequest request) {
         return error(HttpStatus.UNAUTHORIZED, "ACCOUNT_UNAVAILABLE", "登录状态已失效", request);
+    }
+
+    @ExceptionHandler(IdentityAccessDeniedException.class)
+    ResponseEntity<ApiError> handleIdentityAccessDenied(IdentityAccessDeniedException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "请求被拒绝", request);
     }
 
     @ExceptionHandler({ NotPermissionException.class, NotRoleException.class })

@@ -26,6 +26,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -121,6 +122,21 @@ class OpenApiDocumentationTest {
                         .value("#/components/schemas/UpdateKnowledgeBaseRequest"))
                 .andExpect(jsonPath("$['paths']['/api/admin/knowledge-bases']['get']['operationId']")
                         .value("listManagedKnowledgeBases"))
+                .andExpect(jsonPath("$['paths']['/api/admin/users']['get']['operationId']")
+                        .value("listUsersForAdministration"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/members']['get']['operationId']")
+                        .value("listKnowledgeBaseMembers"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/members/{userId}']['put']['operationId']")
+                        .value("upsertKnowledgeBaseMember"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/members/{userId}']['put']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/members/{userId}']['put']"
+                        + "['requestBody']['content']['application/json']['schema']['$ref']")
+                        .value("#/components/schemas/UpdateKnowledgeBaseMemberRequest"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/members/{userId}']['delete']"
+                        + "['operationId']").value("revokeKnowledgeBaseMember"))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/members/{userId}']['delete']"
+                        + "['responses']['204']").exists())
                 .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['type']")
                         .value("apiKey"))
                 .andExpect(jsonPath("$['components']['securitySchemes']['SaTokenCookie']['in']").value("cookie"))
@@ -144,6 +160,14 @@ class OpenApiDocumentationTest {
                 "KnowledgeBaseManagementResponse");
         assertResponseDataArrayItemSchema(apiDocs, "/api/admin/knowledge-bases", "get",
                 "KnowledgeBaseManagementResponse");
+        assertResponseDataArrayItemSchema(apiDocs, "/api/admin/users", "get", "UserSummaryResponse");
+        assertResponseDataArrayItemSchema(apiDocs, "/api/knowledge-bases/{kbId}/members", "get",
+                "KnowledgeBaseMemberResponse");
+        assertResponseDataSchema(apiDocs, "/api/knowledge-bases/{kbId}/members/{userId}", "put",
+                "KnowledgeBaseMemberResponse");
+
+        assertThat(apiDocs.path("components").path("schemas").path("UserSummaryResponse")
+                .path("properties").has("passwordHash")).isFalse();
 
         mvc.perform(get("/v3/api-docs/actuator")
                         .session(authenticatedRequest.session())

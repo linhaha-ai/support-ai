@@ -1,5 +1,6 @@
 package com.haha.supportai.data.identity.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,6 +23,12 @@ public class AppUserRepository {
 
     public Optional<AppUser> findById(UUID id) {
         return Optional.ofNullable(appUserMapper.selectById(id));
+    }
+
+    public List<AppUser> listForAdministration() {
+        return appUserMapper.selectList(Wrappers.<AppUser>lambdaQuery()
+                .orderByAsc(AppUser::getUsername)
+                .orderByAsc(AppUser::getId));
     }
 
     public boolean isEnabled(UUID id) {

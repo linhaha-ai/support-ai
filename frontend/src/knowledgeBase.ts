@@ -27,6 +27,29 @@ export interface KnowledgeBaseDetail extends KnowledgeBaseManagement {
   documentCount: number
 }
 
+export interface AdminUser {
+  id: string
+  username: string
+  displayName: string
+  role: string
+  enabled: boolean
+}
+
+export interface KnowledgeBaseMember {
+  userId: string
+  username: string
+  displayName: string
+  role: string
+  enabled: boolean
+  permission: KnowledgeBasePermission
+  grantedBy: string
+  createdAt: string
+}
+
+export interface UpdateKnowledgeBaseMemberInput {
+  permission: KnowledgeBasePermission
+}
+
 export interface CreateKnowledgeBaseInput {
   name: string
   description: string
@@ -132,6 +155,45 @@ function parseDetail(value: unknown): KnowledgeBaseDetail | null {
   }
 }
 
+function parseAdminUser(value: unknown): AdminUser | null {
+  if (!isRecord(value)
+    || typeof value.id !== 'string'
+    || typeof value.username !== 'string'
+    || typeof value.displayName !== 'string'
+    || typeof value.role !== 'string'
+    || typeof value.enabled !== 'boolean') return null
+  return {
+    id: value.id,
+    username: value.username,
+    displayName: value.displayName,
+    role: value.role,
+    enabled: value.enabled,
+  }
+}
+
+function parseMember(value: unknown): KnowledgeBaseMember | null {
+  const permission = isRecord(value) ? parsePermission(value.permission) : null
+  if (!isRecord(value)
+    || typeof value.userId !== 'string'
+    || typeof value.username !== 'string'
+    || typeof value.displayName !== 'string'
+    || typeof value.role !== 'string'
+    || typeof value.enabled !== 'boolean'
+    || !permission
+    || typeof value.grantedBy !== 'string'
+    || typeof value.createdAt !== 'string') return null
+  return {
+    userId: value.userId,
+    username: value.username,
+    displayName: value.displayName,
+    role: value.role,
+    enabled: value.enabled,
+    permission,
+    grantedBy: value.grantedBy,
+    createdAt: value.createdAt,
+  }
+}
+
 function parseList<T>(value: unknown, parser: (item: unknown) => T | null): T[] | null {
   if (!Array.isArray(value)) return null
   const items = value.map(parser)
@@ -198,6 +260,34 @@ export async function fetchKnowledgeBaseManagement(status = ''): Promise<Knowled
   throw { kind: 'invalid-response', message: '知识库响应格式无效，请刷新后重试。' } satisfies KnowledgeBaseApiError
 }
 
+export async function fetchAdminUsers(): Promise<AdminUser[]> {
+  const response = await fetch('/api/admin/users', {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const data = response.ok && envelope?.code === 'OK' ? parseList(envelope.data, parseAdminUser) : null
+  if (data) return data
+  if (!response.ok) throw errorFor(response)
+  throw { kind: 'invalid-response', message: '成员账号响应格式无效，请刷新后重试。' } satisfies KnowledgeBaseApiError
+}
+
+export async function fetchKnowledgeBaseMembers(id: string): Promise<KnowledgeBaseMember[]> {
+  const response = await fetch(`/api/knowledge-bases/${encodeURIComponent(id)}/members`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const data = response.ok && envelope?.code === 'OK' ? parseList(envelope.data, parseMember) : null
+  if (data) return data
+  if (!response.ok) throw errorFor(response)
+  throw { kind: 'invalid-response', message: '成员列表响应格式无效，请刷新后重试。' } satisfies KnowledgeBaseApiError
+}
+
 export async function createKnowledgeBase(input: CreateKnowledgeBaseInput): Promise<KnowledgeBaseDetail> {
   const csrf = await requestCsrf()
   const response = await fetch('/api/knowledge-bases', {
@@ -236,4 +326,49 @@ export async function updateKnowledgeBase(id: string, input: UpdateKnowledgeBase
   if (data) return data
   if (!response.ok) throw errorFor(response)
   throw { kind: 'invalid-response', message: '更新知识库的响应格式无效，请刷新后重试。' } satisfies KnowledgeBaseApiError
+}
+
+export async function updateKnowledgeBaseMember(
+  knowledgeBaseId: string,
+  userId: string,
+  input: UpdateKnowledgeBaseMemberInput,
+): Promise<KnowledgeBaseMember> {
+  const csrf = await requestCsrf()
+  const response = await fetch(
+    `/api/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/members/${encodeURIComponent(userId)}`,
+    {
+      method: 'PUT',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        [csrf.headerName]: csrf.token,
+      },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: JSON.stringify(input),
+    },
+  )
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const data = response.ok && envelope?.code === 'OK' ? parseMember(envelope.data) : null
+  if (data) return data
+  if (!response.ok) throw errorFor(response)
+  throw { kind: 'invalid-response', message: '成员权限响应格式无效，请刷新后重试。' } satisfies KnowledgeBaseApiError
+}
+
+export async function removeKnowledgeBaseMember(knowledgeBaseId: string, userId: string): Promise<void> {
+  const csrf = await requestCsrf()
+  const response = await fetch(
+    `/api/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/members/${encodeURIComponent(userId)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        [csrf.headerName]: csrf.token,
+      },
+      credentials: 'same-origin',
+      cache: 'no-store',
+    },
+  )
+  if (response.status === 204) return
+  throw errorFor(response)
 }
