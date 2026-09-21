@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F07 已实现待后端与场景验收**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F08 已实现待后端与场景验收**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态和知识库页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 账号/知识库数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05 新增 Markdown/TXT 上传、受控本地 FileStore、文档/版本/持久任务三表、数据库失败文件补偿和处理中回执；F06 新增任务状态查询、授权隔离的脱敏回执、原子领取与 owner + token + 有效期租约基础设施、attempt/进度记录和有界执行器配置；F07 已接入受控原文件读取、严格 UTF-8 与完整性校验、CommonMark 标题解析、`CL100K_BASE` 近似 token 分块和 `document_chunk` 元数据持久化。Worker 默认启用，任务完成 CHUNK 后进入 `EMBED` 等待 F08；正文向量化、`READY/active` 发布和问答仍不可用。后端 Maven、真实 PostgreSQL 并发与浏览器场景仍待验收。阶段产出见 [F07 验收记录](doc/F07验收记录.md)、[F06 验收记录](doc/F06验收记录.md)、[F05 验收记录](doc/F05验收记录.md)、[F04 验收记录](doc/F04验收记录.md)、[F03 验收记录](doc/F03验收记录.md)、[F02 验收记录](doc/F02验收记录.md)，模型前置证据见 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态和知识库页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 账号/知识库数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05 新增 Markdown/TXT 上传、受控本地 FileStore、文档/版本/持久任务三表、数据库失败文件补偿和处理中回执；F06 新增任务状态查询、授权隔离的脱敏回执、原子领取与 owner + token + 有效期租约基础设施、attempt/进度记录和有界执行器配置；F07 已接入受控原文件读取、严格 UTF-8 与完整性校验、CommonMark 标题解析、`CL100K_BASE` 近似 token 分块和 `document_chunk` 元数据持久化；F08 已接入标准四字段 `vector_store`、事务外批量 Embedding、租约保护的 chunk/vector 成对写入和 `READY/active/SUCCEEDED` 原子发布。Worker 默认启用，存在待处理任务且模型服务可用时可走完 PARSE、CHUNK、EMBED、PUBLISH；F09 文档查看和 F11 授权检索尚未实现。当前开发库已确认 Flyway V1—V9 全部成功、pgvector 0.8.6 和 `vector(1024)` 表结构有效；后端 Maven、空库/Testcontainers、真实模型与完整浏览器场景仍待验收。阶段产出见 [F08 验收记录](doc/F08验收记录.md)、[F07 验收记录](doc/F07验收记录.md)、[F06 验收记录](doc/F06验收记录.md)、[F05 验收记录](doc/F05验收记录.md)、[F04 验收记录](doc/F04验收记录.md)、[F03 验收记录](doc/F03验收记录.md)、[F02 验收记录](doc/F02验收记录.md)，模型前置证据见 [F01 验收记录](doc/F01验收记录.md)，完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -152,7 +152,7 @@ support-ai/
 │   ├── support-ai-storage/     # FileStore 与受控本地原文件存储
 │   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
 │   ├── support-ai-ai/          # Ollama / DashScope 模型接入
-│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、任务 Worker；向量发布和检索待实现
+│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量生成与发布；检索待实现
 │   ├── support-ai-conversation/ # 会话、运行与 RAG 边界，待 F10 起实现
 │   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
 │   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
@@ -175,13 +175,14 @@ support-ai/
 │   ├── F04验收记录.md
 │   ├── F05验收记录.md
 │   ├── F06验收记录.md
-│   └── F07验收记录.md
+│   ├── F07验收记录.md
+│   └── F08验收记录.md
 └── README.md
 ```
 
 `data` 统一提供 MyBatis-Plus、数据库驱动、连接池与类型映射，并按业务分包承载实体 PO、持久化枚举、Repository 和 Mapper；当前 `AppUser`、`UserRoleEnum`、`AppUserRepository`、`AppUserMapper` 分别位于 `com.haha.supportai.data.identity` 下的 `entity.po`、`enums`、`repository`、`mapper` 包。业务服务通过 Repository 调用 Mapper，不直接使用 JdbcTemplate 或 RowMapper。业务授权、事务编排、认证流程与 DTO/VO 留在所属业务模块，跨业务调用仍通过业务服务，不能绕过服务直接访问其他域的 Repository/Mapper。data 不反向依赖 identity；连接参数、Flyway 生产迁移与应用配置集中在 bootstrap。全局 OpenAPI 元信息与 Knife4j 运行装配归 bootstrap，身份配置与异常处理归 identity。F06 的任务租约 SQL 同样由 data 的 Repository/Mapper 承载，业务层只通过服务编排，不绕过租约条件直接更新任务。详细结构见[后端模块结构](doc/后端模块结构.md)。
 
-data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity` 与 `data.knowledge` 已包含账号、知识库、成员、文档、版本、入库任务和 `document_chunk` 的 PO、枚举、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID，租约条件由 knowledge 服务在短事务内校验。后续任务授权检索和批量向量写入继续使用显式 Mapper SQL。UUID、枚举和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 验收和独立 SQL 测试夹具继续使用底层 JDBC；版本组合、MyBatis 映射与事务回滚仍待运行验收。
+data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity` 与 `data.knowledge` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk` 和 `vector_store` 的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。后续 F11 授权检索继续使用显式 Mapper SQL。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；版本组合、MyBatis 映射与事务回滚仍待运行验收。
 
 认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档上传和导入任务查询控制器位于 `controller.knowledge`。会话和助手控制器仍按需放入 `controller.conversation`、`controller.assistant`，不建立空目录。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘与短数据库事务。F06 的 `GET /api/ingestion-jobs/{jobId}` 先按 jobId、当前用户和知识库成员关系查询，找不到或无权访问统一返回资源不存在；响应仅暴露状态、阶段、attempt、进度、可重试/可取消标识和白名单错误，不返回内部错误详情。Worker 采用有界线程池，领取与状态更新使用短事务，解析、分块和模型调用留在事务外；租约写入必须同时匹配 owner、token 和有效期。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。common 使用 `entity.vo`、`filter`、`handler`、`support`；ai 使用 `config` 和 `model`。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
 
@@ -216,7 +217,7 @@ V1.0.0 按 **7 个累计阶段、32 个任务**逐步增加功能，不按日期
 
 每项任务都有前置依赖、实现内容、验收标准和完成复选框。通过验收后更新[开发计划](doc/开发计划.md)中的对应标识。
 
-## 本机启动（F01 / F02 / F03 / F04）
+## 本机启动（F01—F08）
 
 在仓库根目录使用 PowerShell 7，准备 JDK 21、Maven 3.9.11、Node 24.13.1、npm 11.8.0，并启动 Docker Desktop 的 Linux 引擎。默认端口为后端 8080、前端 5173、数据库 5432。
 
@@ -244,7 +245,7 @@ Get-Content -Raw -Encoding utf8 'backend/support-ai-data/src/main/resources/db/s
 
 管理员初始化脚本为 bootstrap 模块的 `db/migration/V4__initialize_default_admin.sql`，随 Flyway 升级执行；手动脚本保留在 data 模块的 `db/seed/identity/init_app_user.sql`，用于补齐管理员和两位普通演示用户，不会自动执行。两份脚本均使用兼容 jBCrypt 的 cost 12 BCrypt 摘要及 `ON CONFLICT (username) DO NOTHING`，不覆盖已有密码、角色或启用状态，也不在日常启动时重置账号。手动导入前须完成 Flyway 建表；接口响应和日志不包含密码或摘要。
 
-账号表由 V2 创建，V3 补齐表及全部 8 个字段的中文数据库注释，V4 补齐默认管理员；V5 创建 `knowledge_base`、`kb_member` 及其约束、索引和中文注释。2026-09-21 已确认当前开发库 V1—V3 迁移成功，并直接执行 V4 文件补齐了启用的 ADMIN 账号；重复执行返回 `INSERT 0 0`，`admin/admin` 通过当前后端基础登录验证。F03 使用一次性 pgvector PostgreSQL 容器按顺序执行 V1—V5，已验证两张表、9 个关键约束、4 个非级联外键和 3 个索引；这不替代正常应用启动、Flyway 历史登记和 MyBatis 验收。完整状态见 [F03 验收记录](doc/F03验收记录.md)。
+账号表由 V2 创建，V3 补齐表及全部 8 个字段的中文数据库注释，V4 补齐默认管理员；V5 创建 `knowledge_base`、`kb_member` 及其约束、索引和中文注释。2026-09-21 已确认当前开发库 V1—V9 均由 Flyway 成功登记，V9 随后端启动自动执行；`knowledge_base`、文档任务、分块和 `vector_store` 表均存在，向量列为 `vector(1024)`。此前 V4 幂等补齐的 `admin/admin` 已通过当前后端基础登录验证。F03 使用一次性 pgvector PostgreSQL 容器按顺序执行 V1—V5，已验证两张表、9 个关键约束、4 个非级联外键和 3 个索引；当前开发库核验不替代空库 Testcontainers、MyBatis 和事务验收。完整状态见 [F03 验收记录](doc/F03验收记录.md)及 [F08 验收记录](doc/F08验收记录.md)。
 
 多模块应用需要先安装同一版本的本地模块，再从 bootstrap 启动。本次 Controller 跨模块迁移后首次构建必须带 `clean`，清除旧包中的类、旧 Controller、旧 Repository 和已删除初始化器的编译产物，避免新旧组件重复扫描或旧初始化器继续自动创建用户；本轮没有执行 Maven 或删除这些产物。后续未移动类的日常构建可使用 `mvn -f backend/pom.xml -DskipTests install`。父工程只负责聚合构建，不直接执行 `spring-boot:run`；修改其他模块后需重新安装。也可以在仓库根目录打包后启动唯一的可执行 JAR：
 
@@ -286,9 +287,9 @@ WRITE 成员可在知识库页面上传 UTF-8 编码的 `.md`、`.markdown` 或 
 
 上传回执中的 `jobId` 可通过 `GET /api/ingestion-jobs/{jobId}` 查询。查询按当前登录用户和知识库成员关系授权；越权、停用知识库、无成员关系和不存在的任务不区分返回，避免通过任务编号探测其他知识库。响应只返回 `QUEUED`、`RUNNING`、`RETRY_WAIT`、`FAILED`、`SUCCEEDED` 或 `CANCELLED` 状态、`PARSE`、`CHUNK`、`EMBED` 或 `PUBLISH` 阶段、attempt、进度和可重试/可取消标识，错误信息使用稳定业务提示，不泄露堆栈、SQL、文件路径或模型供应商详情。
 
-F06 已建立 PostgreSQL 持久任务的有界执行器、`FOR UPDATE SKIP LOCKED` 原子领取、按阶段 attempt 递增与推进后归零、owner + token + 有效期租约、心跳/进度和重试基础设施。领取、租约和状态写入只占用短事务；解析、分块和模型调用必须在事务外，提交阶段结果前重新校验租约。F07 已接入解析与分块处理器，`support.ai.ingestion.worker.enabled` 默认启用；任务完成解析和分块后进入 `EMBED`，等待 F08 生成向量并发布。F07 读取原文件时校验受控存储键、文件大小、SHA-256 和严格 UTF-8，使用 CommonMark 标题层级和 `CL100K_BASE` 估算预算生成可定位分块，并以稳定 ID 幂等写入 `document_chunk`。此时不代表版本已发布或已可问答，`vector_store.content` 与向量仍由 F08 成对写入。前端会区分排队、运行、等待重试、失败和完成状态，轮询请求失败时暂停自动查询并保留“重新查询”入口；后端编译和 F07 运行验收仍待执行。
+F06 已建立 PostgreSQL 持久任务的有界执行器、`FOR UPDATE SKIP LOCKED` 原子领取、按阶段 attempt 递增与推进后归零、owner + token + 有效期租约、心跳/进度和重试基础设施。领取、租约和状态写入只占用短事务；解析、分块和模型调用在事务外执行，提交阶段结果前重新校验租约。F07 读取原文件时校验受控存储键、文件大小、SHA-256 和严格 UTF-8，使用 CommonMark 标题层级和 `CL100K_BASE` 估算预算生成可定位分块，并以稳定 ID 幂等写入 `document_chunk`。F08 按 `support.ai.document.embedding.batch-size` 分批调用 EmbeddingModel，校验 1024 维有限数值，在短事务中幂等确认对应 chunk、写入 vector 并更新进度；中断后从已完成连续前缀继续。所有块完整后，PUBLISH 在同一事务中完成版本 READY、active 切换、pending 清理和任务 SUCCEEDED。前端会区分排队、运行、等待重试、失败和完成状态；当前开发库迁移与基础健康检查已通过，后端编译、db-it、完整任务链路和真实模型验收仍待执行。
 
-F07 的处理结果只保留分块元数据和内容摘要，正文读取过程不会绕过 `FileStore` 或暴露真实磁盘路径。相同版本和配置重试时使用 `(version_id, chunk_index)` 幂等键以及 `versionId + chunkIndex` 稳定 UUID；空文档、非法 UTF-8、文件完整性不一致、配置版本不匹配和超出分块数量上限均进入脱敏处理失败。F08 前不得把 `document_chunk` 记录当作可检索正文。
+`document_chunk` 只保留分块元数据和内容摘要，正文权威副本与向量成对保存在 `vector_store`。正文读取过程不会绕过 `FileStore` 或暴露真实磁盘路径；相同版本和配置重试时使用稳定 chunk UUID 与向量主键幂等续作。空文档、非法 UTF-8、文件完整性不一致、配置或模型空间不匹配、超出分块数量上限以及非法向量均进入脱敏处理失败。只有文档 active 指针指向的 READY 版本才允许后续 F11 检索，构建中的向量不得直接作为有效知识使用。
 
 ### 模型选择
 
@@ -339,7 +340,7 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 
 以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。多模块迁移尚未执行 Maven 验证，迁移前的成功记录不代表当前结构已验收通过。
 
-MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSONB 和带时区时间映射，以及知识库、成员、文档版本、分块与任务事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算、稳定分块 ID、幂等重试和 EMBED 前置状态。依赖树应只包含选定的 Boot 3 专用 Starter；本轮后端检查均未运行，F01—F07 仍待完整验收。
+MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块与任务事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性。当前开发库已核对 V1—V9、pgvector 0.8.6 和 `vector(1024)`，但 Maven、Testcontainers、依赖树和真实模型检查仍未运行，F01—F08 继续待完整验收。
 
 ## 验证与交付标准
 

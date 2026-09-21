@@ -23,6 +23,10 @@ public class KnowledgeDocumentRepository {
         return knowledgeDocumentMapper.updatePendingVersion(documentId, versionId) == 1;
     }
 
+    public boolean publishPendingVersion(UUID documentId, UUID versionId) {
+        return knowledgeDocumentMapper.publishPendingVersion(documentId, versionId) == 1;
+    }
+
     public long countActiveByKnowledgeBaseId(UUID knowledgeBaseId) {
         return knowledgeDocumentMapper.selectCount(Wrappers.<KnowledgeDocument>lambdaQuery()
                 .eq(KnowledgeDocument::getKbId, knowledgeBaseId)

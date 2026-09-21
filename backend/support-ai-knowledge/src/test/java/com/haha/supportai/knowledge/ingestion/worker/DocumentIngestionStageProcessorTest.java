@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.enums.IngestionStageEnum;
+import com.haha.supportai.knowledge.document.embedding.service.DocumentEmbeddingService;
+import com.haha.supportai.knowledge.document.embedding.service.DocumentIndexPublicationService;
 import com.haha.supportai.knowledge.document.parsing.entity.dto.DocumentChunkDraft;
 import com.haha.supportai.knowledge.document.parsing.entity.dto.DocumentSection;
 import com.haha.supportai.knowledge.document.parsing.entity.dto.ParsedDocument;
@@ -36,6 +38,12 @@ class DocumentIngestionStageProcessorTest {
 
     @Mock
     DocumentChunkPersistenceService documentChunkPersistenceService;
+
+    @Mock
+    DocumentEmbeddingService documentEmbeddingService;
+
+    @Mock
+    DocumentIndexPublicationService documentIndexPublicationService;
 
     @Test
     void parseProcessorOnlyAdvancesFromParseToChunk() {
@@ -71,6 +79,36 @@ class DocumentIngestionStageProcessorTest {
         assertThat(result.getCompletedChunks()).isZero();
         assertThat(result.getTotalChunks()).isEqualTo(1);
         verify(documentChunkPersistenceService).replaceChunks(lease, chunks);
+    }
+
+    @Test
+    void embeddingProcessorAdvancesToPublishAfterReturningCompleteChunkCount() {
+        IngestionTaskLease lease = lease(IngestionStageEnum.EMBED);
+        when(documentEmbeddingService.embed(lease)).thenReturn(2);
+        DocumentEmbeddingStageProcessor processor = new DocumentEmbeddingStageProcessor(documentEmbeddingService);
+
+        var result = processor.process(lease);
+
+        assertThat(processor.stage()).isEqualTo(IngestionStageEnum.EMBED);
+        assertThat(result.isTerminal()).isFalse();
+        assertThat(result.getNextStage()).isEqualTo(IngestionStageEnum.PUBLISH);
+        assertThat(result.getCompletedChunks()).isEqualTo(2);
+        assertThat(result.getTotalChunks()).isEqualTo(2);
+    }
+
+    @Test
+    void publishProcessorReturnsTerminalResultAfterAtomicPublication() {
+        IngestionTaskLease lease = lease(IngestionStageEnum.PUBLISH);
+        when(documentIndexPublicationService.publish(lease)).thenReturn(2);
+        DocumentPublishStageProcessor processor = new DocumentPublishStageProcessor(documentIndexPublicationService);
+
+        var result = processor.process(lease);
+
+        assertThat(processor.stage()).isEqualTo(IngestionStageEnum.PUBLISH);
+        assertThat(result.isTerminal()).isTrue();
+        assertThat(result.getNextStage()).isNull();
+        assertThat(result.getCompletedChunks()).isEqualTo(2);
+        assertThat(result.getTotalChunks()).isEqualTo(2);
     }
 
     private IngestionTaskLease lease(IngestionStageEnum stage) {

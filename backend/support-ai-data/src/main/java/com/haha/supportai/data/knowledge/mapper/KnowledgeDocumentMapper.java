@@ -19,4 +19,17 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
             WHERE id = #{documentId,jdbcType=OTHER}
             """)
     int updatePendingVersion(@Param("documentId") UUID documentId, @Param("versionId") UUID versionId);
+
+    @Update("""
+            -- document：仅未删除且待处理指针仍指向目标版本时发布，原活动版本保持原样直至本次切换成功。
+            UPDATE document
+            SET active_version_id = #{versionId,jdbcType=OTHER},
+                pending_version_id = NULL,
+                revision = revision + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{documentId,jdbcType=OTHER}
+              AND pending_version_id = #{versionId,jdbcType=OTHER}
+              AND deleted_at IS NULL
+            """)
+    int publishPendingVersion(@Param("documentId") UUID documentId, @Param("versionId") UUID versionId);
 }

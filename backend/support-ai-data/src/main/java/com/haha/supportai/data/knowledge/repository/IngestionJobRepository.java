@@ -48,6 +48,10 @@ public class IngestionJobRepository {
         return ingestionJobMapper.advanceToNextStage(jobId, leaseOwner, leaseToken, stage) == 1;
     }
 
+    public boolean markSucceeded(UUID jobId, String leaseOwner, UUID leaseToken, int chunkCount) {
+        return ingestionJobMapper.markSucceeded(jobId, leaseOwner, leaseToken, chunkCount) == 1;
+    }
+
     public boolean markRetryWait(UUID jobId, String leaseOwner, UUID leaseToken, OffsetDateTime nextRunAt,
                                  String errorCode, String errorDetail) {
         return ingestionJobMapper.markRetryWait(jobId, leaseOwner, leaseToken, nextRunAt, errorCode, errorDetail) == 1;

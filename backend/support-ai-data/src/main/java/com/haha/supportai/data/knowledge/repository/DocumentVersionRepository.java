@@ -27,6 +27,10 @@ public class DocumentVersionRepository {
         return documentVersionMapper.updateBuildingChunkCount(versionId, chunkCount) == 1;
     }
 
+    public boolean markReady(UUID versionId, int chunkCount) {
+        return documentVersionMapper.markReady(versionId, chunkCount) == 1;
+    }
+
     public boolean markFailedIfQueuedOrBuilding(UUID versionId) {
         return documentVersionMapper.markFailedIfQueuedOrBuilding(versionId) == 1;
     }

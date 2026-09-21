@@ -16,8 +16,14 @@ public class IngestionStageResult {
 
     private final Integer totalChunks; // 当前已知分块总数
 
+    private final boolean terminal; // 是否已在阶段处理器事务内完成最终状态提交
+
     public static IngestionStageResult advance(IngestionStageEnum nextStage, Integer completedChunks,
             Integer totalChunks) {
-        return new IngestionStageResult(Objects.requireNonNull(nextStage), completedChunks, totalChunks);
+        return new IngestionStageResult(Objects.requireNonNull(nextStage), completedChunks, totalChunks, false);
+    }
+
+    public static IngestionStageResult completed(int completedChunks, int totalChunks) {
+        return new IngestionStageResult(null, completedChunks, totalChunks, true);
     }
 }

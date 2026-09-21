@@ -68,6 +68,14 @@ public interface DocumentChunkMapper extends BaseMapper<DocumentChunk> {
     })
     List<DocumentChunk> selectByVersionId(@Param("versionId") UUID versionId);
 
+    @Select("""
+            -- document_chunk：统计版本已持久化分块数量，发布前需与 document_version.chunk_count 一致。
+            SELECT COUNT(*)
+            FROM document_chunk
+            WHERE version_id = #{versionId,jdbcType=OTHER}
+            """)
+    long countByVersionId(@Param("versionId") UUID versionId);
+
     @Delete("""
             -- document_chunk：重新解析后删除新分块数量之外的旧记录，避免遗留片段参与后续向量化。
             DELETE FROM document_chunk

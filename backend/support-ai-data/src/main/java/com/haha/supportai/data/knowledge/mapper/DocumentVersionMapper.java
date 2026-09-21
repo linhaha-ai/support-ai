@@ -42,6 +42,17 @@ public interface DocumentVersionMapper extends BaseMapper<DocumentVersion> {
     int updateBuildingChunkCount(@Param("versionId") UUID versionId, @Param("chunkCount") int chunkCount);
 
     @Update("""
+            -- document_version：仅完整写入全部分块的构建中版本允许变更为 READY。
+            UPDATE document_version version
+            SET status = 'READY',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE version.id = #{versionId,jdbcType=OTHER}
+              AND version.status = 'BUILDING'
+              AND version.chunk_count = #{chunkCount}
+            """)
+    int markReady(@Param("versionId") UUID versionId, @Param("chunkCount") int chunkCount);
+
+    @Update("""
             -- document_version：任务耗尽重试后同步版本失败终态，避免任务与版本状态不一致。
             UPDATE document_version version
             SET status = 'FAILED',

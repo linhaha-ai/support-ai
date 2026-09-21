@@ -131,6 +131,8 @@ support:
       parsing:
         max-tokens: 512
         max-chunks: 20000
+      embedding:
+        batch-size: 10
     ingestion:
       worker:
         enabled: true

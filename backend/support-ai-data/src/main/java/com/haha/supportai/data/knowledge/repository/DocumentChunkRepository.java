@@ -24,6 +24,10 @@ public class DocumentChunkRepository {
         return documentChunkMapper.selectByVersionId(versionId);
     }
 
+    public long countByVersionId(UUID versionId) {
+        return documentChunkMapper.countByVersionId(versionId);
+    }
+
     public int deleteByVersionIdAndChunkIndexGreaterThanOrEqual(UUID versionId, int chunkCount) {
         return documentChunkMapper.deleteByVersionIdAndChunkIndexGreaterThanOrEqual(versionId, chunkCount);
     }

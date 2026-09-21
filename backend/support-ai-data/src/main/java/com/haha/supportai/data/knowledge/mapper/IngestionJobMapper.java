@@ -200,6 +200,33 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                            @Param("leaseToken") UUID leaseToken, @Param("stage") IngestionStageEnum stage);
 
     @Update("""
+            -- ingestion_job：仅持有有效 PUBLISH 租约的工作者可标记成功，完成数和总数必须完全一致。
+            UPDATE ingestion_job job
+            SET status = 'SUCCEEDED',
+                completed_chunks = #{chunkCount},
+                total_chunks = #{chunkCount},
+                lease_owner = NULL,
+                lease_token = NULL,
+                lease_until = NULL,
+                heartbeat_at = CURRENT_TIMESTAMP,
+                error_code = NULL,
+                error_detail = NULL,
+                finished_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE job.id = #{jobId,jdbcType=OTHER}
+              AND job.status = 'RUNNING'
+              AND job.stage = 'PUBLISH'
+              AND job.lease_owner = #{leaseOwner}
+              AND job.lease_token = #{leaseToken,jdbcType=OTHER}
+              AND job.lease_until > CURRENT_TIMESTAMP
+              AND #{chunkCount} >= 0
+              AND job.total_chunks = #{chunkCount}
+              AND job.completed_chunks = #{chunkCount}
+            """)
+    int markSucceeded(@Param("jobId") UUID jobId, @Param("leaseOwner") String leaseOwner,
+                      @Param("leaseToken") UUID leaseToken, @Param("chunkCount") int chunkCount);
+
+    @Update("""
             -- ingestion_job：仅未过期租约可回写可重试状态，达到最大尝试次数的任务不能重新排队
             UPDATE ingestion_job job
             SET status = 'RETRY_WAIT',

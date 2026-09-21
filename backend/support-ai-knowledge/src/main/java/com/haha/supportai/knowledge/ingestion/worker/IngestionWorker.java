@@ -61,6 +61,9 @@ public class IngestionWorker {
             } finally {
                 heartbeat.cancel(false);
             }
+            if (result.isTerminal()) {
+                return;
+            }
             if (!leaseValid.get()) {
                 throw new IngestionLeaseLostException();
             }
