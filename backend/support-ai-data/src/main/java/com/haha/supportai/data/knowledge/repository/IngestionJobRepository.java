@@ -30,6 +30,11 @@ public class IngestionJobRepository {
         return ingestionJobMapper.selectAccessibleByIdAndUserId(jobId, userId);
     }
 
+    public Optional<IngestionJob> findActiveLeaseForUpdate(UUID jobId, UUID versionId, IngestionStageEnum stage,
+                                                            String leaseOwner, UUID leaseToken) {
+        return ingestionJobMapper.selectActiveLeaseForUpdate(jobId, versionId, stage, leaseOwner, leaseToken);
+    }
+
     public boolean renewLease(UUID jobId, String leaseOwner, UUID leaseToken, OffsetDateTime leaseUntil) {
         return ingestionJobMapper.renewLease(jobId, leaseOwner, leaseToken, leaseUntil) == 1;
     }

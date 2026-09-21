@@ -9,6 +9,7 @@ import java.nio.file.Path;
 
 import com.haha.supportai.storage.config.FileStorageProperties;
 import com.haha.supportai.storage.exception.StorageKeyInvalidException;
+import com.haha.supportai.storage.exception.StorageReadException;
 import com.haha.supportai.storage.exception.StorageWriteException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,6 +41,35 @@ class LocalFileStoreTest {
         String secondKey = fileStore.store(streamOf("second"), ".txt");
 
         assertThat(firstKey).isNotEqualTo(secondKey);
+    }
+
+    @Test
+    void opensStoredContentByStorageKey() throws IOException {
+        LocalFileStore fileStore = fileStore();
+        String storageKey = fileStore.store(streamOf("可读取内容"), "txt");
+
+        try (InputStream inputStream = fileStore.open(storageKey)) {
+            assertThat(inputStream.readAllBytes()).isEqualTo("可读取内容".getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void rejectsInvalidStorageKeyWhenOpening() {
+        LocalFileStore fileStore = fileStore();
+
+        assertThatThrownBy(() -> fileStore.open("../outside-file.txt"))
+                .isInstanceOf(StorageKeyInvalidException.class);
+    }
+
+    @Test
+    void wrapsMissingFileWithoutExposingItsPath() {
+        LocalFileStore fileStore = fileStore();
+        String storageKey = "2026/09/00000000-0000-0000-0000-000000000000.txt";
+
+        assertThatThrownBy(() -> fileStore.open(storageKey))
+                .isInstanceOf(StorageReadException.class)
+                .hasMessage("文件读取失败")
+                .hasMessageNotContaining(storageKey);
     }
 
     @Test

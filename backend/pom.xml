@@ -36,6 +36,8 @@
         <!-- 与 springdoc 2.9.1 的 Swagger 版本保持一致，公共模块只依赖注解。 -->
         <swagger-annotations.version>2.2.55</swagger-annotations.version>
         <knife4j.version>4.5.0</knife4j.version>
+        <commonmark.version>0.22.0</commonmark.version>
+        <jtokkit.version>1.1.0</jtokkit.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -136,6 +138,16 @@
                         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.commonmark</groupId>
+                <artifactId>commonmark</artifactId>
+                <version>${commonmark.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.knuddels</groupId>
+                <artifactId>jtokkit</artifactId>
+                <version>${jtokkit.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

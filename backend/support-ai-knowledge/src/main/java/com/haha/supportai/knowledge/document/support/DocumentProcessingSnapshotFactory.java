@@ -12,6 +12,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.knowledge.document.config.DocumentUploadProperties;
 import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
+import com.haha.supportai.knowledge.document.parsing.config.DocumentParsingProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,7 @@ public class DocumentProcessingSnapshotFactory {
     private final Environment environment;
     private final ObjectMapper objectMapper;
     private final DocumentUploadProperties documentUploadProperties;
+    private final DocumentParsingProperties documentParsingProperties;
 
     public ProcessingConfigurationSnapshot create() {
         String provider = requiredProperty("spring.ai.model.embedding").toLowerCase(Locale.ROOT);
@@ -43,6 +45,9 @@ public class DocumentProcessingSnapshotFactory {
         parser.put("version", documentUploadProperties.getParserVersion());
         Map<String, Object> chunker = new LinkedHashMap<>();
         chunker.put("version", documentUploadProperties.getChunkerVersion());
+        chunker.put("tokenizer", "CL100K_BASE");
+        chunker.put("maxTokens", documentParsingProperties.getMaxTokens());
+        chunker.put("maxChunks", documentParsingProperties.getMaxChunks());
         Map<String, Object> embedding = new LinkedHashMap<>();
         embedding.put("provider", provider);
         embedding.put("model", model);

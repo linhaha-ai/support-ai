@@ -19,7 +19,7 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "support.ai.ingestion.worker")
 public class IngestionWorkerProperties {
 
-    private boolean enabled = false; // F07 处理器接入前保持关闭，避免提前消费任务
+    private boolean enabled = true; // 默认执行已接入的解析与分块阶段，未接入阶段不会被领取
 
     @Min(1)
     @Max(16)

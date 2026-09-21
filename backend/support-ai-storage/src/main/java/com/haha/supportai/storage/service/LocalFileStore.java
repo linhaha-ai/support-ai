@@ -15,6 +15,7 @@ import com.haha.supportai.storage.FileStore;
 import com.haha.supportai.storage.config.FileStorageProperties;
 import com.haha.supportai.storage.exception.StorageDeleteException;
 import com.haha.supportai.storage.exception.StorageKeyInvalidException;
+import com.haha.supportai.storage.exception.StorageReadException;
 import com.haha.supportai.storage.exception.StorageWriteException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,26 @@ public class LocalFileStore implements FileStore {
             throw new StorageWriteException(exception);
         } finally {
             deleteTemporaryFile(temporaryFile);
+        }
+    }
+
+    @Override
+    public InputStream open(String storageKey) {
+        Path root;
+        try {
+            root = prepareRoot();
+        } catch (StorageWriteException exception) {
+            throw new StorageReadException(exception);
+        }
+        Path target = resolveStoragePath(root, storageKey);
+        try {
+            Path actualTarget = target.toRealPath();
+            if (!actualTarget.startsWith(root) || !Files.isRegularFile(actualTarget)) {
+                throw new IOException("文件读取目标不合法");
+            }
+            return Files.newInputStream(actualTarget);
+        } catch (IOException exception) {
+            throw new StorageReadException(exception);
         }
     }
 

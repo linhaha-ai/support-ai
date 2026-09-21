@@ -17,6 +17,14 @@ public interface FileStore {
     String store(InputStream inputStream, String extension);
 
     /**
+     * 按服务端存储标识打开原文件读取流，调用方负责关闭返回的流。
+     *
+     * @param storageKey 服务端生成的存储标识
+     * @return 原文件读取流
+     */
+    InputStream open(String storageKey);
+
+    /**
      * 按服务端存储标识删除文件；目标不存在时视为已完成。
      *
      * @param storageKey 服务端生成的存储标识

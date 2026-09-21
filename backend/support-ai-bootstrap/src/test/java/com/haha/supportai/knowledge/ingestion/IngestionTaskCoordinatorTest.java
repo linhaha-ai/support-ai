@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.enums.IngestionStageEnum;
+import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.knowledge.ingestion.config.IngestionWorkerProperties;
 import com.haha.supportai.knowledge.ingestion.entity.dto.IngestionStageResult;
@@ -36,6 +37,9 @@ class IngestionTaskCoordinatorTest {
     @Mock
     IngestionJobRepository ingestionJobRepository;
 
+    @Mock
+    DocumentVersionRepository documentVersionRepository;
+
     IngestionTaskCoordinator ingestionTaskCoordinator;
 
     @BeforeEach
@@ -43,7 +47,8 @@ class IngestionTaskCoordinatorTest {
         IngestionWorkerProperties properties = new IngestionWorkerProperties();
         properties.setLeaseDuration(Duration.ofSeconds(60));
         properties.setRetryDelay(Duration.ofSeconds(10));
-        ingestionTaskCoordinator = new IngestionTaskCoordinator(ingestionJobRepository, properties);
+        ingestionTaskCoordinator = new IngestionTaskCoordinator(ingestionJobRepository, documentVersionRepository,
+                properties);
     }
 
     @Test
@@ -66,11 +71,13 @@ class IngestionTaskCoordinatorTest {
         IngestionTaskLease lease = lease(IngestionStageEnum.EMBED, 3, 3);
         when(ingestionJobRepository.markFailed(JOB_ID, lease.getLeaseOwner(), LEASE_TOKEN,
                 "INGESTION_PROCESSING_FAILED", "文档处理暂时失败")).thenReturn(true);
+        when(documentVersionRepository.markFailedIfQueuedOrBuilding(VERSION_ID)).thenReturn(true);
 
         ingestionTaskCoordinator.recordFailure(lease);
 
         verify(ingestionJobRepository).markFailed(JOB_ID, lease.getLeaseOwner(), LEASE_TOKEN,
                 "INGESTION_PROCESSING_FAILED", "文档处理暂时失败");
+        verify(documentVersionRepository).markFailedIfQueuedOrBuilding(VERSION_ID);
         verify(ingestionJobRepository, never()).markRetryWait(any(), any(), any(), any(), any(), any());
     }
 

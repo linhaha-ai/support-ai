@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Testcontainers
-@SpringBootTest
+@SpringBootTest(properties = "support.ai.ingestion.worker.enabled=false")
 @AutoConfigureMockMvc
 class AuthDatabaseIT {
 

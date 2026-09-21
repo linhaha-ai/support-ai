@@ -108,6 +108,33 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
     @ResultMap("ingestionJobResultMap")
     Optional<IngestionJob> selectAccessibleByIdAndUserId(@Param("jobId") UUID jobId, @Param("userId") UUID userId);
 
+    @Select("""
+            -- ingestion_job：分块落库前锁定并复核任务版本、阶段和未过期租约，拒绝失效工作者回写。
+            SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                   job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                   job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            FROM ingestion_job job
+            INNER JOIN document_version version ON version.id = job.version_id
+            INNER JOIN document document ON document.id = version.document_id
+            WHERE job.id = #{jobId,jdbcType=OTHER}
+              AND job.version_id = #{versionId,jdbcType=OTHER}
+              AND job.status = 'RUNNING'
+              AND job.stage = #{stage,jdbcType=VARCHAR}
+              AND job.lease_owner = #{leaseOwner}
+              AND job.lease_token = #{leaseToken,jdbcType=OTHER}
+              AND job.lease_until > CURRENT_TIMESTAMP
+              AND version.status IN ('QUEUED', 'BUILDING')
+              AND document.pending_version_id = version.id
+              AND document.deleted_at IS NULL
+            FOR UPDATE OF job, version, document
+            """)
+    @ResultMap("ingestionJobResultMap")
+    Optional<IngestionJob> selectActiveLeaseForUpdate(@Param("jobId") UUID jobId, @Param("versionId") UUID versionId,
+                                                       @Param("stage") IngestionStageEnum stage,
+                                                       @Param("leaseOwner") String leaseOwner,
+                                                       @Param("leaseToken") UUID leaseToken);
+
     @Update("""
             -- ingestion_job：续租前必须仍持有未过期租约令牌
             UPDATE ingestion_job job
@@ -217,19 +244,28 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                    @Param("errorCode") String errorCode, @Param("errorDetail") String errorDetail);
 
     @Update("""
-            -- ingestion_job：租约过期且已耗尽尝试次数的运行任务统一终止，避免永久卡在运行中
-            UPDATE ingestion_job job
+            -- ingestion_job、document_version：租约耗尽时同步终止任务和仍在构建的版本，避免版本永久停留 BUILDING。
+            WITH failed_jobs AS (
+                UPDATE ingestion_job job
+                SET status = 'FAILED',
+                    lease_owner = NULL,
+                    lease_token = NULL,
+                    lease_until = NULL,
+                    error_code = 'INGESTION_LEASE_EXPIRED',
+                    error_detail = '任务租约过期且已达到最大尝试次数',
+                    finished_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE job.status = 'RUNNING'
+                  AND job.attempt >= job.max_attempts
+                  AND (job.lease_until IS NULL OR job.lease_until <= CURRENT_TIMESTAMP)
+                RETURNING job.version_id
+            )
+            UPDATE document_version version
             SET status = 'FAILED',
-                lease_owner = NULL,
-                lease_token = NULL,
-                lease_until = NULL,
-                error_code = 'INGESTION_LEASE_EXPIRED',
-                error_detail = '任务租约过期且已达到最大尝试次数',
-                finished_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE job.status = 'RUNNING'
-              AND job.attempt >= job.max_attempts
-              AND (job.lease_until IS NULL OR job.lease_until <= CURRENT_TIMESTAMP)
+            FROM failed_jobs
+            WHERE version.id = failed_jobs.version_id
+              AND version.status IN ('QUEUED', 'BUILDING')
             """)
     int markExpiredExhaustedRunningAsFailed();
 }

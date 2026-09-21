@@ -10,6 +10,7 @@ import com.haha.supportai.knowledge.ingestion.config.IngestionWorkerProperties;
 import com.haha.supportai.knowledge.ingestion.entity.dto.IngestionStageResult;
 import com.haha.supportai.knowledge.ingestion.entity.dto.IngestionTaskLease;
 import com.haha.supportai.knowledge.ingestion.exception.IngestionLeaseLostException;
+import com.haha.supportai.knowledge.ingestion.exception.IngestionProcessingException;
 import com.haha.supportai.knowledge.ingestion.service.IngestionTaskCoordinator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -95,7 +96,12 @@ public class IngestionWorker {
 
     private void recordFailure(IngestionTaskLease lease, RuntimeException processingException) {
         try {
-            coordinator.recordFailure(lease);
+            if (processingException instanceof IngestionProcessingException ingestionProcessingException) {
+                coordinator.recordFailure(lease, ingestionProcessingException.getErrorCode(),
+                        ingestionProcessingException.getSafeDetail());
+            } else {
+                coordinator.recordFailure(lease);
+            }
             log.warn("入库任务处理失败：jobId={}, stage={}, errorType={}", lease.getJobId(), lease.getStage(),
                     processingException.getClass().getSimpleName());
         } catch (IngestionLeaseLostException leaseLostException) {

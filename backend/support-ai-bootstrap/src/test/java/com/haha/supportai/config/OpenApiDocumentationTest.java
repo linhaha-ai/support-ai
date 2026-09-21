@@ -11,6 +11,7 @@ import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
@@ -45,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
-        "spring.ai.dashscope.api-key="
+        "spring.ai.dashscope.api-key=", "support.ai.ingestion.worker.enabled=false"
 })
 @AutoConfigureMockMvc
 class OpenApiDocumentationTest {
@@ -69,6 +70,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     DocumentVersionRepository documentVersionRepository;
+
+    @MockBean
+    DocumentChunkRepository documentChunkRepository;
 
     @MockBean
     IngestionJobRepository ingestionJobRepository;
