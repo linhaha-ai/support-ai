@@ -7,7 +7,9 @@ import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
+import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
+import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
@@ -19,6 +21,7 @@ import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
+import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -87,6 +90,9 @@ class HealthSecurityTest {
     KnowledgeRetrievalService knowledgeRetrievalService;
 
     @MockBean
+    DocumentSourceQueryService documentSourceQueryService;
+
+    @MockBean
     ChatSessionRepository chatSessionRepository;
 
     @MockBean
@@ -97,6 +103,12 @@ class HealthSecurityTest {
 
     @MockBean
     ChatMessageRepository chatMessageRepository;
+
+    @MockBean
+    MessageSourceRepository messageSourceRepository;
+
+    @MockBean
+    AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
 
     @MockBean
     ChatSessionService chatSessionService;
@@ -112,6 +124,7 @@ class HealthSecurityTest {
         for (String path : new String[] { "/api/chat", "/api/health/db", "/api/env", "/actuator", "/doc.html",
                 "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
                 "/api/chat/sessions", "/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests",
+                "/api/chunks/550e8400-e29b-41d4-a716-446655440000/source",
                 "/" }) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())

@@ -4,7 +4,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.haha.supportai.data.knowledge.entity.po.AuthorizedDocumentSource;
 import com.haha.supportai.data.knowledge.entity.po.AuthorizedRetrievalHit;
+import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.storage.PostgresFixture;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,9 @@ class AuthorizedRetrievalDatabaseIT {
 
     @Autowired
     AuthorizedRetrievalRepository authorizedRetrievalRepository;
+
+    @Autowired
+    AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
 
     @Autowired
     JdbcTemplate jdbcTemplate;
@@ -106,6 +111,38 @@ class AuthorizedRetrievalDatabaseIT {
         }
     }
 
+    @Test
+    void revalidatesOnlyCurrentEvidenceButAllowsAuthorizedHistoricalSourcePreview() {
+        Fixture fixture = createFixture();
+        try {
+            List<AuthorizedRetrievalHit> revalidated = authorizedRetrievalRepository.revalidateReadableWithinSession(
+                    fixture.readerId(), fixture.readerSessionId(),
+                    List.of(fixture.historicalDocument().chunkId(), fixture.authorizedDocument().chunkId()),
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+
+            assertThat(revalidated).extracting(AuthorizedRetrievalHit::getChunkId)
+                    .containsExactly(fixture.authorizedDocument().chunkId());
+
+            AuthorizedDocumentSource historicalSource = authorizedDocumentSourceRepository.findReadableByChunkId(
+                    fixture.readerId(), fixture.historicalDocument().chunkId()).orElseThrow();
+            assertThat(historicalSource.isCurrent()).isFalse();
+            assertThat(historicalSource.getContent()).contains("F11 非活动版本文档");
+            assertThat(authorizedDocumentSourceRepository.findReadableByChunkId(
+                    fixture.readerId(), fixture.authorizedDocument().chunkId()).orElseThrow().isCurrent()).isTrue();
+            assertThat(authorizedDocumentSourceRepository.findReadableByChunkId(
+                    fixture.outsiderId(), fixture.authorizedDocument().chunkId())).isEmpty();
+            assertThat(authorizedDocumentSourceRepository.findReadableByChunkId(
+                    fixture.disabledMemberId(), fixture.authorizedDocument().chunkId())).isEmpty();
+
+            jdbcTemplate.update("DELETE FROM kb_member WHERE kb_id = ? AND user_id = ?",
+                    fixture.activeKnowledgeBaseId(), fixture.readerId());
+            assertThat(authorizedDocumentSourceRepository.findReadableByChunkId(
+                    fixture.readerId(), fixture.authorizedDocument().chunkId())).isEmpty();
+        } finally {
+            deleteFixture(fixture);
+        }
+    }
+
     private Fixture createFixture() {
         UUID ownerId = UUID.randomUUID();
         UUID writerId = UUID.randomUUID();
@@ -139,7 +176,7 @@ class AuthorizedRetrievalDatabaseIT {
                 "READY", EMBEDDING_PROVIDER, EMBEDDING_MODEL, true, false, vector(0.8F, 0.6F));
         DocumentFixture currentVersionDocument = insertDocument(activeKnowledgeBaseId, ownerId, "F11 当前活动版本文档",
                 "READY", EMBEDDING_PROVIDER, EMBEDDING_MODEL, true, false, vector(0.7F, 0.7F));
-        insertDocument(activeKnowledgeBaseId, ownerId, "F11 非活动版本文档", "READY", EMBEDDING_PROVIDER,
+        DocumentFixture historicalDocument = insertDocument(activeKnowledgeBaseId, ownerId, "F11 非活动版本文档", "READY", EMBEDDING_PROVIDER,
                 EMBEDDING_MODEL, false, false, vector(0.99F, 0.1F));
         insertDocument(activeKnowledgeBaseId, ownerId, "F11 未就绪版本文档", "BUILDING", EMBEDDING_PROVIDER,
                 EMBEDDING_MODEL, true, false, vector(0.98F, 0.2F));
@@ -164,7 +201,8 @@ class AuthorizedRetrievalDatabaseIT {
 
         return new Fixture(ownerId, writerId, readerId, outsiderId, disabledMemberId, activeKnowledgeBaseId,
                 inactiveKnowledgeBaseId, outsideKnowledgeBaseId, readerSessionId, deletedReaderSessionId,
-                assistantReaderSessionId, disabledMemberSessionId, authorizedDocument, currentVersionDocument);
+                assistantReaderSessionId, disabledMemberSessionId, authorizedDocument, currentVersionDocument,
+                historicalDocument);
     }
 
     private void insertUser(UUID userId, String username, boolean enabled, String role) {
@@ -307,7 +345,8 @@ class AuthorizedRetrievalDatabaseIT {
                            UUID activeKnowledgeBaseId, UUID inactiveKnowledgeBaseId, UUID outsideKnowledgeBaseId,
                            UUID readerSessionId, UUID deletedReaderSessionId, UUID assistantReaderSessionId,
                            UUID disabledMemberSessionId,
-                           DocumentFixture authorizedDocument, DocumentFixture currentVersionDocument) {
+                           DocumentFixture authorizedDocument, DocumentFixture currentVersionDocument,
+                           DocumentFixture historicalDocument) {
     }
 
     private record DocumentFixture(UUID documentId, UUID versionId, UUID chunkId) {

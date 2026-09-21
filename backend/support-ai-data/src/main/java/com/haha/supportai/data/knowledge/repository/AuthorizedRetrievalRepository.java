@@ -28,4 +28,16 @@ public class AuthorizedRetrievalRepository {
         return authorizedRetrievalMapper.selectReadableWithinSession(userId, sessionId, queryEmbedding, topK,
                 embeddingProvider, embeddingModel, dimensions);
     }
+
+    public List<AuthorizedRetrievalHit> revalidateReadableWithinSession(UUID userId, UUID sessionId,
+                                                                          List<UUID> chunkIds,
+                                                                          String embeddingProvider,
+                                                                          String embeddingModel,
+                                                                          int dimensions) {
+        if (chunkIds.isEmpty()) {
+            return List.of();
+        }
+        return authorizedRetrievalMapper.revalidateReadableWithinSession(userId, sessionId, chunkIds,
+                embeddingProvider, embeddingModel, dimensions);
+    }
 }

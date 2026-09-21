@@ -34,6 +34,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,6 +92,8 @@ class ChatRunServiceTest {
         List<ChatMessage> messages = messageCaptor.getAllValues();
         assertThat(response.isReused()).isFalse();
         assertThat(response.getRunId()).isEqualTo(run.getId());
+        assertThat(response.getSessionId()).isEqualTo(SESSION_ID);
+        assertThat(response.getQuestion()).isEqualTo("如何处理退款失败？");
         assertThat(run.getStatus()).isEqualTo(ChatRunStatusEnum.QUEUED);
         assertThat(run.getRequestHash()).hasSize(64);
         assertThat(messages).extracting(ChatMessage::getSequence).containsExactly(1L, 2L);
@@ -115,6 +119,8 @@ class ChatRunServiceTest {
 
         assertThat(response.isReused()).isTrue();
         assertThat(response.getRunId()).isEqualTo(existingRun.getId());
+        assertThat(response.getSessionId()).isEqualTo(SESSION_ID);
+        assertThat(response.getQuestion()).isEqualTo("同一问题");
         then(chatSessionRepository).should(never()).advanceNextMessageSeq(SESSION_ID, 1);
         then(chatRunRepository).should(never()).insert(any());
     }
@@ -154,6 +160,16 @@ class ChatRunServiceTest {
                 .isInstanceOf(ChatSessionScopeRevokedException.class);
 
         then(chatRunRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void prepareAlwaysCommitsBeforeRagExecutionStarts() throws NoSuchMethodException {
+        Transactional transactional = ChatRunService.class
+                .getDeclaredMethod("prepare", UUID.class, SubmitMessageCommand.class)
+                .getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
     }
 
     private void arrangeAccessibleSession() {

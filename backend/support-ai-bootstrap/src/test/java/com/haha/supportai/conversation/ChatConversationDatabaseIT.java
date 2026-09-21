@@ -46,19 +46,19 @@ class ChatConversationDatabaseIT {
 
     @Test
     void migratesConversationTablesIdempotentlyAndRetainsDescriptions() {
-        assertThat(firstMigrationCount).isGreaterThanOrEqualTo(10);
+        assertThat(firstMigrationCount).isGreaterThanOrEqualTo(11);
         assertThat(repeatedMigrationCount).isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT count(*)
                 FROM flyway_schema_history
-                WHERE version = '10'
+                WHERE version IN ('10', '11')
                   AND success = TRUE
-                """, Integer.class)).isEqualTo(1);
+                """, Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("""
                 SELECT count(*)
                 FROM information_schema.tables
-                WHERE table_name IN ('chat_session', 'chat_session_kb', 'chat_run', 'chat_message')
-                """, Integer.class)).isEqualTo(4);
+                WHERE table_name IN ('chat_session', 'chat_session_kb', 'chat_run', 'chat_message', 'message_source')
+                """, Integer.class)).isEqualTo(5);
         assertThat(jdbc.queryForObject("SELECT obj_description('chat_session'::regclass)", String.class))
                 .isEqualTo("会话表，保存用户创建的 RAG 会话及其消息序号分配状态");
         assertThat(jdbc.queryForObject("""
@@ -66,16 +66,52 @@ class ChatConversationDatabaseIT {
                     (SELECT attnum FROM pg_attribute
                      WHERE attrelid = 'chat_run'::regclass AND attname = 'client_request_id'))
                 """, String.class)).isEqualTo("客户端幂等请求 UUID，会话内唯一");
+        assertThat(jdbc.queryForObject("SELECT obj_description('message_source'::regclass)", String.class))
+                .isEqualTo("消息来源表，保存实际送入模型的文档证据及最终引用状态");
         assertThat(jdbc.queryForList("""
                 SELECT indexname
                 FROM pg_indexes
-                WHERE tablename IN ('chat_session', 'chat_session_kb', 'chat_run', 'chat_message')
+                WHERE tablename IN ('chat_session', 'chat_session_kb', 'chat_run', 'chat_message', 'message_source')
                 """, String.class)).contains(
                         "uq_chat_run_active_session",
                         "idx_chat_session_user_updated_at",
                         "idx_chat_session_kb_kb_session",
                         "idx_chat_run_session_created_at",
-                        "idx_chat_message_run_id");
+                        "idx_chat_message_run_id",
+                        "idx_message_source_chunk_id",
+                        "idx_message_source_kb_id",
+                        "idx_message_source_origin_source_id");
+    }
+
+    @Test
+    void enforcesDocumentSourceCitationTypeAndJsonConstraints() {
+        ConversationFixture fixture = createFixture(jdbc);
+        UUID runId = UUID.randomUUID();
+        UUID assistantMessageId = UUID.randomUUID();
+        UUID chunkId = createReadyDocumentChunk(fixture);
+        insertRun(jdbc, runId, fixture.sessionId(), UUID.randomUUID(), "RUNNING", "{}", null, "{}");
+        insertMessage(jdbc, assistantMessageId, runId, fixture.sessionId(), 1,
+                "ASSISTANT", "", "STREAMING");
+
+        insertMessageSource(assistantMessageId, fixture.knowledgeBaseId(), chunkId, 1,
+                "DOCUMENT", "{}", "{}");
+        assertThat(jdbc.queryForObject("""
+                SELECT is_cited
+                FROM message_source
+                WHERE message_id = ? AND citation_no = 1
+                """, Boolean.class, assistantMessageId)).isFalse();
+        assertThatThrownBy(() -> insertMessageSource(assistantMessageId, fixture.knowledgeBaseId(), chunkId, 1,
+                "DOCUMENT", "{}", "{}"))
+                .isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(() -> insertMessageSource(assistantMessageId, fixture.knowledgeBaseId(), chunkId, 0,
+                "DOCUMENT", "{}", "{}"))
+                .isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(() -> insertMessageSource(assistantMessageId, fixture.knowledgeBaseId(), chunkId, 2,
+                "TICKET", "{}", "{}"))
+                .isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(() -> insertMessageSource(assistantMessageId, fixture.knowledgeBaseId(), chunkId, 2,
+                "DOCUMENT", "[]", "{}"))
+                .isInstanceOf(DataAccessException.class);
     }
 
     @Test
@@ -227,7 +263,43 @@ class ChatConversationDatabaseIT {
                 VALUES (?, ?, '新会话', 'RAG', 1)
                 """, sessionId, userId);
         jdbc.update("INSERT INTO chat_session_kb (session_id, kb_id) VALUES (?, ?)", sessionId, knowledgeBaseId);
-        return new ConversationFixture(sessionId);
+        return new ConversationFixture(userId, knowledgeBaseId, sessionId);
+    }
+
+    private UUID createReadyDocumentChunk(ConversationFixture fixture) {
+        UUID documentId = UUID.randomUUID();
+        UUID versionId = UUID.randomUUID();
+        UUID chunkId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO document (id, kb_id, name, next_version_no, created_by)
+                VALUES (?, ?, '来源约束测试文档', 2, ?)
+                """, documentId, fixture.knowledgeBaseId(), fixture.userId());
+        jdbc.update("""
+                INSERT INTO document_version (
+                    id, document_id, version_no, storage_key, file_hash, file_size, media_type,
+                    original_filename, status, parser_version, chunker_version, embedding_model,
+                    dimensions, config_hash, config_snapshot, chunk_count
+                ) VALUES (?, ?, 1, 'test/source.txt', ?, 4, 'text/plain', 'source.txt', 'READY',
+                    'plain-text-v1', 'token-budget-v1', 'bge-m3', 1024, ?, CAST('{}' AS JSONB), 1)
+                """, versionId, documentId, "a".repeat(64), "b".repeat(64));
+        jdbc.update("UPDATE document SET active_version_id = ? WHERE id = ?", versionId, documentId);
+        jdbc.update("""
+                INSERT INTO document_chunk (
+                    id, version_id, chunk_index, section, start_offset, end_offset,
+                    content_hash, char_count, token_count
+                ) VALUES (?, ?, 0, '约束测试', 0, 4, ?, 4, 1)
+                """, chunkId, versionId, "c".repeat(64));
+        return chunkId;
+    }
+
+    private void insertMessageSource(UUID messageId, UUID knowledgeBaseId, UUID chunkId, int citationNumber,
+            String sourceType, String locator, String snapshot) {
+        jdbc.update("""
+                INSERT INTO message_source (
+                    id, message_id, citation_no, is_cited, source_type, kb_id, chunk_id, locator, snapshot
+                ) VALUES (?, ?, ?, FALSE, ?, ?, ?, CAST(? AS JSONB), CAST(? AS JSONB))
+                """, UUID.randomUUID(), messageId, citationNumber, sourceType, knowledgeBaseId, chunkId,
+                locator, snapshot);
     }
 
     private void insertRun(JdbcTemplate jdbc, UUID runId, UUID sessionId, UUID requestId, String status,
@@ -249,6 +321,6 @@ class ChatConversationDatabaseIT {
                 """, messageId, runId, sessionId, sequence, role, content, status);
     }
 
-    private record ConversationFixture(UUID sessionId) {
+    private record ConversationFixture(UUID userId, UUID knowledgeBaseId, UUID sessionId) {
     }
 }

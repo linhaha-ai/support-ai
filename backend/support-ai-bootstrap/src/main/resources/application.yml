@@ -133,6 +133,8 @@ support:
         max-chunks: 20000
       embedding:
         batch-size: 10
+    rag:
+      top-k: 6
     ingestion:
       worker:
         enabled: true

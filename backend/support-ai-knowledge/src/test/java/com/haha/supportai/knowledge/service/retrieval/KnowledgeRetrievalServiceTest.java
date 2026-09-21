@@ -1,5 +1,6 @@
 package com.haha.supportai.knowledge.service.retrieval;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -127,6 +128,56 @@ class KnowledgeRetrievalServiceTest {
     }
 
     @Test
+    void revalidatesCandidatesWithoutEmbeddingAndKeepsFirstCandidateOrder() {
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+        AuthorizedRetrievalHit first = hit();
+        AuthorizedRetrievalHit second = hit();
+        UUID secondChunkId = UUID.fromString("550e8400-e29b-41d4-a716-446655440013");
+        second.setChunkId(secondChunkId);
+        second.setDocumentName("支付排查手册");
+        when(accessPolicy.currentUser()).thenReturn(currentUser());
+        when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
+        when(authorizedRetrievalRepository.revalidateReadableWithinSession(USER_ID, sessionId,
+                List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024))
+                .thenReturn(List.of(second, first));
+
+        var matches = service().revalidateReadableWithinSession(sessionId,
+                List.of(first.getChunkId(), secondChunkId, first.getChunkId()));
+
+        assertThat(matches).extracting(match -> match.getChunkId())
+                .containsExactly(first.getChunkId(), secondChunkId);
+        verify(embeddingModel, never()).embed(any(String.class));
+        verify(authorizedRetrievalRepository).revalidateReadableWithinSession(USER_ID, sessionId,
+                List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024);
+    }
+
+    @Test
+    void emptyRevalidationDoesNotLoadUserOrModelConfiguration() {
+        assertThat(service().revalidateReadableWithinSession(
+                UUID.fromString("550e8400-e29b-41d4-a716-446655440002"), List.of())).isEmpty();
+
+        verify(accessPolicy, never()).currentUser();
+        verify(documentProcessingSnapshotFactory, never()).create();
+        verify(embeddingModel, never()).embed(any(String.class));
+    }
+
+    @Test
+    void invalidRevalidationCandidatesAreRejectedBeforeRepositoryAccess() {
+        UUID sessionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+
+        assertThatThrownBy(() -> service().revalidateReadableWithinSession(null, List.of()))
+                .isInstanceOf(KnowledgeRetrievalInvalidRequestException.class);
+        assertThatThrownBy(() -> service().revalidateReadableWithinSession(sessionId, null))
+                .isInstanceOf(KnowledgeRetrievalInvalidRequestException.class);
+        assertThatThrownBy(() -> service().revalidateReadableWithinSession(sessionId,
+                Arrays.asList(hit().getChunkId(), null)))
+                .isInstanceOf(KnowledgeRetrievalInvalidRequestException.class);
+
+        verify(authorizedRetrievalRepository, never()).revalidateReadableWithinSession(
+                any(), any(), any(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
     void invalidRequestAndModelFailuresUseExplicitExceptions() {
         assertThatThrownBy(() -> service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request(" ", 3)))
                 .isInstanceOf(KnowledgeRetrievalInvalidRequestException.class);
@@ -177,6 +228,10 @@ class KnowledgeRetrievalServiceTest {
         member.setUserId(USER_ID);
         member.setPermission(KbPermissionEnum.WRITE);
         return new KnowledgeBaseAccessContext(null, member);
+    }
+
+    private AuthenticatedUser currentUser() {
+        return new AuthenticatedUser(USER_ID, "support", "支持用户", UserRoleEnum.USER);
     }
 
     private ProcessingConfigurationSnapshot snapshot() {

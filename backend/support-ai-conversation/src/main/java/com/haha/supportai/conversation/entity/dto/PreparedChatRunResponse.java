@@ -12,9 +12,13 @@ public class PreparedChatRunResponse {
 
     private final UUID runId; // 已创建或已复用的运行标识
 
+    private final UUID sessionId; // 运行所属会话标识
+
     private final UUID userMessageId; // 用户消息标识
 
     private final UUID assistantMessageId; // 助手占位消息标识
+
+    private final String question; // 已持久化的规范化用户问题
 
     private final ChatRunStatusEnum status; // 运行当前状态
 

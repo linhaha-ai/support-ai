@@ -30,6 +30,7 @@ import com.haha.supportai.identity.security.ActiveAccountGuard;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -47,7 +48,7 @@ public class ChatRunService {
     private final ActiveAccountGuard activeAccountGuard;
     private final KnowledgeScopeAccess knowledgeScopeAccess;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PreparedChatRunResponse prepare(UUID sessionId, SubmitMessageCommand command) {
         ValidatedMessage validatedMessage = validateCommand(sessionId, command);
         AuthenticatedUser currentUser = activeAccountGuard.currentUser();
@@ -88,8 +89,8 @@ public class ChatRunService {
                 ChatMessageRoleEnum.ASSISTANT, "", ChatMessageStatusEnum.STREAMING, now, now);
         chatMessageRepository.insert(userMessage);
         chatMessageRepository.insert(assistantMessage);
-        return new PreparedChatRunResponse(run.getId(), userMessage.getId(), assistantMessage.getId(), run.getStatus(),
-                false);
+        return new PreparedChatRunResponse(run.getId(), sessionId, userMessage.getId(), assistantMessage.getId(),
+                userMessage.getContent(), run.getStatus(), false);
     }
 
     private PreparedChatRunResponse responseForExistingRun(ChatRun run) {
@@ -105,8 +106,8 @@ public class ChatRunService {
         if (userMessage == null || assistantMessage == null) {
             throw new IllegalStateException("会话运行缺少成对消息记录");
         }
-        return new PreparedChatRunResponse(run.getId(), userMessage.getId(), assistantMessage.getId(), run.getStatus(),
-                true);
+        return new PreparedChatRunResponse(run.getId(), run.getSessionId(), userMessage.getId(),
+                assistantMessage.getId(), userMessage.getContent(), run.getStatus(), true);
     }
 
     private ValidatedMessage validateCommand(UUID sessionId, SubmitMessageCommand command) {

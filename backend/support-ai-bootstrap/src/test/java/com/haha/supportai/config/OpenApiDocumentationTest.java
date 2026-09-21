@@ -14,9 +14,11 @@ import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
+import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
+import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
@@ -29,12 +31,14 @@ import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentQueryService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
+import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -117,6 +121,9 @@ class OpenApiDocumentationTest {
     KnowledgeRetrievalService knowledgeRetrievalService;
 
     @MockBean
+    DocumentSourceQueryService documentSourceQueryService;
+
+    @MockBean
     ChatSessionRepository chatSessionRepository;
 
     @MockBean
@@ -127,6 +134,12 @@ class OpenApiDocumentationTest {
 
     @MockBean
     ChatMessageRepository chatMessageRepository;
+
+    @MockBean
+    MessageSourceRepository messageSourceRepository;
+
+    @MockBean
+    AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
 
     @MockBean
     ChatSessionService chatSessionService;
@@ -222,6 +235,10 @@ class OpenApiDocumentationTest {
                         + "['get']['operationId']").value("getKnowledgeDocumentContent"))
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions/{versionId}/content']"
                         + "['get']['security'][0]['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/chunks/{chunkId}/source']['get']['operationId']")
+                        .value("getDocumentChunkSource"))
+                .andExpect(jsonPath("$['paths']['/api/chunks/{chunkId}/source']['get']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['operationId']")
                         .value("getIngestionJob"))
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['security'][0]"
@@ -293,6 +310,8 @@ class OpenApiDocumentationTest {
                 "DocumentChunkPageResponse");
         assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions/{versionId}/content", "get",
                 "DocumentContentResponse");
+        assertResponseDataSchema(apiDocs, "/api/chunks/{chunkId}/source", "get",
+                "DocumentSourceResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
                 "IngestionJobStatusResponse");
         assertResponseDataSchema(apiDocs, "/api/chat/sessions", "post", "201",
@@ -369,6 +388,28 @@ class OpenApiDocumentationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.knowledgeBaseId").value(knowledgeBaseId.toString()))
                 .andExpect(jsonPath("$.data.matches").isArray());
+    }
+
+    @Test
+    void authenticatedMemberCanReadDocumentSourceWithoutCsrf() throws Exception {
+        UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440031");
+        UUID documentId = UUID.fromString("550e8400-e29b-41d4-a716-446655440032");
+        UUID versionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440033");
+        UUID chunkId = UUID.fromString("550e8400-e29b-41d4-a716-446655440034");
+        configureAuthenticatedUser();
+        when(documentSourceQueryService.getReadableSource(chunkId)).thenReturn(new DocumentSourceResponse(
+                knowledgeBaseId, documentId, "退款排查手册", versionId, 2, chunkId, 0, "退款/状态", null,
+                0, 10, false, "退款状态仍在处理中"));
+
+        AuthenticatedRequest authenticatedRequest = login();
+        mvc.perform(get("/api/chunks/{chunkId}/source", chunkId)
+                        .session(authenticatedRequest.session())
+                        .cookie(authenticatedRequest.cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.documentName").value("退款排查手册"))
+                .andExpect(jsonPath("$.data.versionNo").value(2))
+                .andExpect(jsonPath("$.data.isCurrent").value(false))
+                .andExpect(jsonPath("$.data.content").value("退款状态仍在处理中"));
     }
 
     @Test

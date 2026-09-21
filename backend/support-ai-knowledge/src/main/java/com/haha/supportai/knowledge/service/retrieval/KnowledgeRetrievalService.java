@@ -1,6 +1,10 @@
 package com.haha.supportai.knowledge.service.retrieval;
 
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -65,6 +69,34 @@ public class KnowledgeRetrievalService {
         return authorizedRetrievalRepository.searchReadableWithinSession(userId, sessionId, queryEmbedding, validatedTopK,
                         embeddingProvider(snapshot), snapshot.getEmbeddingModel(), snapshot.getDimensions())
                 .stream()
+                .map(this::toEvidence)
+                .toList();
+    }
+
+    /**
+     * 模型调用前对候选证据重新执行会话范围、成员权限、有效版本和模型空间校验。
+     */
+    public List<KnowledgeRetrievalEvidenceResponse> revalidateReadableWithinSession(UUID sessionId,
+            List<UUID> chunkIds) {
+        if (sessionId == null || chunkIds == null || chunkIds.stream().anyMatch(Objects::isNull)) {
+            throw new KnowledgeRetrievalInvalidRequestException();
+        }
+        if (chunkIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> orderedChunkIds = List.copyOf(new LinkedHashSet<>(chunkIds));
+        UUID userId = accessPolicy.currentUser().getId();
+        ProcessingConfigurationSnapshot snapshot = currentSnapshot();
+        List<AuthorizedRetrievalHit> readableHits = authorizedRetrievalRepository.revalidateReadableWithinSession(
+                userId, sessionId, orderedChunkIds, embeddingProvider(snapshot), snapshot.getEmbeddingModel(),
+                snapshot.getDimensions());
+
+        Map<UUID, AuthorizedRetrievalHit> hitByChunkId = new HashMap<>();
+        readableHits.forEach(hit -> hitByChunkId.putIfAbsent(hit.getChunkId(), hit));
+        return orderedChunkIds.stream()
+                .map(hitByChunkId::get)
+                .filter(Objects::nonNull)
                 .map(this::toEvidence)
                 .toList();
     }

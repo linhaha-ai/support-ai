@@ -9,6 +9,7 @@ import com.haha.supportai.data.typehandler.VectorTypeHandler;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.ResultMap;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
@@ -140,4 +141,52 @@ public interface AuthorizedRetrievalMapper {
                                                               @Param("embeddingProvider") String embeddingProvider,
                                                               @Param("embeddingModel") String embeddingModel,
                                                               @Param("dimensions") int dimensions);
+
+    @Select({
+            "<script>",
+            "/* vector_store、document_chunk、document_version、document、knowledge_base、kb_member、app_user、",
+            "   chat_session、chat_session_kb：模型调用前按候选分块再次复核会话范围、当前权限和嵌入空间。 */",
+            "SELECT kb.id AS knowledge_base_id, document.id AS document_id, document.name AS document_name,",
+            "       version.id AS version_id, version.version_no, chunk.id AS chunk_id, chunk.chunk_index,",
+            "       chunk.section, chunk.page_no, chunk.start_offset, chunk.end_offset, vector.content,",
+            "       0.0 AS score",
+            "FROM vector_store vector",
+            "INNER JOIN document_chunk chunk ON chunk.id = vector.id",
+            "INNER JOIN document_version version ON version.id = chunk.version_id",
+            "INNER JOIN document ON document.id = version.document_id",
+            "INNER JOIN knowledge_base kb ON kb.id = document.kb_id",
+            "INNER JOIN kb_member member ON member.kb_id = kb.id",
+            "INNER JOIN app_user account ON account.id = member.user_id",
+            "INNER JOIN chat_session_kb session_kb ON session_kb.kb_id = kb.id",
+            "INNER JOIN chat_session chat ON chat.id = session_kb.session_id",
+            "WHERE chat.id = #{sessionId,jdbcType=OTHER}",
+            "  AND chat.user_id = #{userId,jdbcType=OTHER}",
+            "  AND chat.deleted_at IS NULL",
+            "  AND chat.mode = 'RAG'",
+            "  AND member.user_id = #{userId,jdbcType=OTHER}",
+            "  AND member.permission IN ('READ', 'WRITE')",
+            "  AND account.enabled = TRUE",
+            "  AND kb.status = 'ACTIVE'",
+            "  AND document.deleted_at IS NULL",
+            "  AND document.active_version_id = version.id",
+            "  AND version.status = 'READY'",
+            "  AND version.dimensions = #{dimensions}",
+            "  AND vector_dims(vector.embedding) = #{dimensions}",
+            "  AND version.embedding_model = #{embeddingModel}",
+            "  AND version.config_snapshot -&gt; 'embedding' -&gt;&gt; 'provider' = #{embeddingProvider}",
+            "  AND version.config_snapshot -&gt; 'embedding' -&gt;&gt; 'model' = #{embeddingModel}",
+            "  AND version.config_snapshot -&gt; 'embedding' -&gt;&gt; 'dimensions' = CAST(#{dimensions} AS TEXT)",
+            "  AND chunk.id IN",
+            "<foreach collection=\"chunkIds\" item=\"chunkId\" open=\"(\" separator=\",\" close=\")\">",
+            "  #{chunkId,jdbcType=OTHER}",
+            "</foreach>",
+            "</script>"
+    })
+    @ResultMap("readableAuthorizedRetrievalHitResultMap")
+    List<AuthorizedRetrievalHit> revalidateReadableWithinSession(@Param("userId") UUID userId,
+                                                                   @Param("sessionId") UUID sessionId,
+                                                                   @Param("chunkIds") List<UUID> chunkIds,
+                                                                   @Param("embeddingProvider") String embeddingProvider,
+                                                                   @Param("embeddingModel") String embeddingModel,
+                                                                   @Param("dimensions") int dimensions);
 }

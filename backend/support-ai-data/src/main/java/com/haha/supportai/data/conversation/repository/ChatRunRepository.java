@@ -1,5 +1,6 @@
 package com.haha.supportai.data.conversation.repository;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,5 +26,18 @@ public class ChatRunRepository {
 
     public Optional<ChatRun> findActiveBySessionId(UUID sessionId) {
         return chatRunMapper.selectActiveBySessionId(sessionId);
+    }
+
+    public boolean markRunning(UUID runId, UUID sessionId, UUID userMessageId, UUID assistantMessageId,
+            String question, OffsetDateTime startedAt) {
+        return chatRunMapper.markRunning(runId, sessionId, userMessageId, assistantMessageId, question, startedAt) == 1;
+    }
+
+    public boolean complete(UUID runId, String usage, String metrics, OffsetDateTime finishedAt) {
+        return chatRunMapper.complete(runId, usage, metrics, finishedAt) == 1;
+    }
+
+    public boolean fail(UUID runId, String errorCode, String errorDetail, OffsetDateTime finishedAt) {
+        return chatRunMapper.fail(runId, errorCode, errorDetail, finishedAt) == 1;
     }
 }
