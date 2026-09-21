@@ -7,18 +7,26 @@ import 'element-plus/es/components/empty/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import type { DocumentChunk, DocumentIngestionJob, DocumentVersionStatus } from './document'
+import { useDocumentUpload } from './useDocumentUpload'
 import { useDocuments } from './useDocuments'
 
 const props = defineProps<{
   knowledgeBaseId: string
   knowledgeBaseName: string
+  writable: boolean
 }>()
 
 const emit = defineEmits<{ close: [] }>()
 const documents = reactive(useDocuments(() => props.knowledgeBaseId))
+const documentUpload = useDocumentUpload()
 const activeTab = ref<'content' | 'chunks'>('content')
+const versionUploadVisible = ref(false)
 
 const detailTitle = computed(() => documents.selectedDocument?.name ?? '文档详情')
+const versionUploadState = computed(() => {
+  const documentId = documents.selectedDocument?.documentId
+  return documentId ? documentUpload.stateFor(documentId) : null
+})
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -80,6 +88,33 @@ function selectVersion(versionId: string) {
 function retryDetail() {
   const documentId = documents.selectedDocumentId
   if (documentId) void documents.selectDocument(documentId)
+}
+
+function selectVersionFile(event: Event) {
+  const input = event.target
+  const documentId = documents.selectedDocument?.documentId
+  if (!(input instanceof HTMLInputElement) || !documentId) return
+  const selected = documentUpload.selectFile(documentId, input.files?.[0] ?? null)
+  if (!selected) input.value = ''
+}
+
+async function submitVersion(event: Event) {
+  const document = documents.selectedDocument
+  if (!document || document.pendingVersion) return
+  const form = event.currentTarget instanceof HTMLFormElement ? event.currentTarget : null
+  const receipt = await documentUpload.submitVersion(document.documentId, document.revision)
+  if (!receipt) return
+  form?.reset()
+  versionUploadVisible.value = false
+  await documents.selectDocument(document.documentId)
+}
+
+function versionUploadSummary(): string {
+  const state = versionUploadState.value
+  if (!state?.receipt) return ''
+  if ('reused' in state.receipt && state.receipt.reused) return '文件内容与当前版本一致，已复用当前可用版本。'
+  if (!state.job) return '新版本已受理，正在读取任务状态。'
+  return jobSummary(state.job) || '新版本已受理。'
 }
 
 function closeDetail() {
@@ -154,7 +189,67 @@ onMounted(documents.loadDocuments)
           <span>修订 {{ documents.selectedDocument.revision }}</span>
           <span>创建于 {{ formatDate(documents.selectedDocument.createdAt) }}</span>
           <span>更新于 {{ formatDate(documents.selectedDocument.updatedAt) }}</span>
+          <ElButton
+            v-if="writable"
+            class="document-version-upload-trigger"
+            type="primary"
+            :disabled="Boolean(documents.selectedDocument.pendingVersion)"
+            @click="versionUploadVisible = !versionUploadVisible"
+          >上传新版本</ElButton>
         </div>
+
+        <section v-if="writable && versionUploadVisible" class="document-version-upload" aria-label="上传文档新版本">
+          <div class="document-upload-heading">
+            <div>
+              <h3>上传新版本</h3>
+              <p>仅支持 UTF-8 Markdown 或 TXT，单个文件不超过 5 MB。发布前将保留当前可用版本。</p>
+            </div>
+            <ElTag v-if="versionUploadState?.receipt" size="small" :type="versionUploadState.job?.status === 'SUCCEEDED' ? 'success' : 'warning'">
+              {{ versionUploadState.job?.status ?? versionUploadState.receipt.status }}
+            </ElTag>
+          </div>
+          <form class="document-version-upload-form" @submit.prevent="submitVersion">
+            <label :for="`document-version-file-${documents.selectedDocument.documentId}`">文档文件</label>
+            <input
+              :id="`document-version-file-${documents.selectedDocument.documentId}`"
+              class="document-version-file-input"
+              type="file"
+              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              :disabled="versionUploadState?.submitting"
+              @change="selectVersionFile"
+            >
+            <span class="document-version-file-name">{{ versionUploadState?.file?.name ?? '尚未选择文件' }}</span>
+            <div class="document-version-upload-actions">
+              <ElButton
+                type="primary"
+                native-type="submit"
+                :loading="versionUploadState?.submitting"
+                :disabled="!versionUploadState?.file || versionUploadState.submitting"
+              >{{ versionUploadState?.error ? '重新提交' : '提交新版本' }}</ElButton>
+              <ElButton :disabled="versionUploadState?.submitting" @click="versionUploadVisible = false">取消</ElButton>
+            </div>
+          </form>
+          <p v-if="versionUploadState?.error" class="document-upload-error" role="alert">{{ versionUploadState.error }}</p>
+          <p v-if="versionUploadState?.jobError" class="document-upload-error" role="alert">
+            {{ versionUploadState.jobError }}
+            <ElButton text type="primary" :loading="versionUploadState.jobLoading" @click="documentUpload.refreshJob(documents.selectedDocument.documentId)">重新查询</ElButton>
+          </p>
+        </section>
+
+        <div v-if="writable && versionUploadState?.receipt" class="document-upload-receipt document-version-upload-receipt" role="status">
+          <strong>{{ versionUploadSummary() }}</strong>
+          <span>版本 {{ versionUploadState.receipt.versionId }}</span>
+          <span>任务 {{ versionUploadState.receipt.jobId }}</span>
+        </div>
+
+        <ElAlert
+          v-else-if="writable && documents.selectedDocument.pendingVersion"
+          class="document-alert"
+          type="warning"
+          :closable="false"
+          title="当前已有待处理版本，请等待发布完成；失败版本需通过后续重试或取消流程处理。"
+          show-icon
+        />
 
         <div class="document-inspection-grid">
           <aside class="document-version-list" aria-label="文档版本">

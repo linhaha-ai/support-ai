@@ -6,8 +6,9 @@ import { INGESTION_JOB_POLL_INTERVAL_MS, useDocumentUpload } from '../useDocumen
 const fetchMock = vi.fn<typeof fetch>()
 
 const knowledgeBaseId = '4f8ac4b4-1c89-452c-a5be-f3a8cb0d1234'
+const documentId = '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a'
 const receipt = {
-  documentId: '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a',
+  documentId,
   versionId: '43ec5c35-baf0-467f-b671-6ad6e9b8d4a8',
   jobId: '4e151efd-4c49-4263-8c43-a5589261d52b',
   status: 'QUEUED' as const,
@@ -73,5 +74,61 @@ describe('文档上传任务轮询', () => {
     await vi.advanceTimersByTimeAsync(INGESTION_JOB_POLL_INTERVAL_MS)
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('上传新版本时携带修订号，并接受复用当前版本的成功回执', async () => {
+    const reusedReceipt = {
+      ...receipt,
+      status: 'SUCCEEDED',
+      revision: 3,
+      reused: true,
+    }
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(reusedReceipt))
+      .mockResolvedValueOnce(ok({ ...queuedJob(), status: 'SUCCEEDED', cancellable: false }))
+
+    const scope = effectScope()
+    const documentUpload = scope.run(() => useDocumentUpload())
+    if (!documentUpload) throw new Error('未能创建文档上传状态')
+    documentUpload.selectFile(documentId, new File(['# 产品说明'], 'guide.md', { type: 'text/markdown' }))
+
+    const result = await documentUpload.submitVersion(documentId, 3)
+    await flushPromises()
+
+    expect(result).toMatchObject({ ...reusedReceipt })
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/documents/${documentId}/versions`, expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
+    }))
+    const request = fetchMock.mock.calls[1]?.[1]
+    expect(request?.body).toBeInstanceOf(FormData)
+    expect((request?.body as FormData).get('file')).toBeInstanceOf(File)
+    expect((request?.body as FormData).get('expectedRevision')).toBe('3')
+    expect(documentUpload.stateFor(documentId).job?.status).toBe('SUCCEEDED')
+    scope.stop()
+  })
+
+  it('上传新版本时接受异步处理回执并启动任务轮询', async () => {
+    const queuedReceipt = {
+      ...receipt,
+      status: 'QUEUED' as const,
+      revision: 4,
+      reused: false,
+    }
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(queuedReceipt, 202))
+      .mockResolvedValueOnce(ok(queuedJob()))
+
+    const scope = effectScope()
+    const documentUpload = scope.run(() => useDocumentUpload())
+    if (!documentUpload) throw new Error('未能创建文档上传状态')
+    documentUpload.selectFile(documentId, new File(['# 更新说明'], 'guide-v2.md', { type: 'text/markdown' }))
+
+    const result = await documentUpload.submitVersion(documentId, 3)
+    await flushPromises()
+
+    expect(result).toMatchObject(queuedReceipt)
+    expect(documentUpload.stateFor(documentId).job?.status).toBe('QUEUED')
+    scope.stop()
   })
 })

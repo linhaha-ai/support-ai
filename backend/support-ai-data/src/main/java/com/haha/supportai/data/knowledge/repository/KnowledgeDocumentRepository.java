@@ -25,6 +25,10 @@ public class KnowledgeDocumentRepository {
         return knowledgeDocumentMapper.updatePendingVersion(documentId, versionId) == 1;
     }
 
+    public boolean reservePendingVersion(UUID documentId, long expectedRevision, UUID versionId, int versionNo) {
+        return knowledgeDocumentMapper.reservePendingVersion(documentId, expectedRevision, versionId, versionNo) == 1;
+    }
+
     public boolean publishPendingVersion(UUID documentId, UUID versionId) {
         return knowledgeDocumentMapper.publishPendingVersion(documentId, versionId) == 1;
     }
@@ -41,5 +45,9 @@ public class KnowledgeDocumentRepository {
 
     public Optional<KnowledgeDocument> findAccessibleByIdAndUserId(UUID documentId, UUID userId) {
         return knowledgeDocumentMapper.selectAccessibleByIdAndUserId(documentId, userId);
+    }
+
+    public Optional<KnowledgeDocument> findAccessibleByIdAndUserIdForUpdate(UUID documentId, UUID userId) {
+        return knowledgeDocumentMapper.selectAccessibleByIdAndUserIdForUpdate(documentId, userId);
     }
 }

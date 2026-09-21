@@ -46,8 +46,22 @@ function detail() {
   }
 }
 
-function mountView() {
-  wrapper = mount(DocumentManagementView, { props: { knowledgeBaseId, knowledgeBaseName: '产品支持' } })
+function activeDetail() {
+  const activeVersion = {
+    ...version,
+    status: 'READY',
+    active: true,
+    pending: false,
+    task: { ...version.task, status: 'SUCCEEDED', retryable: false, cancellable: false },
+  }
+  return {
+    documentId, knowledgeBaseId, name: '产品说明', activeVersion, pendingVersion: null,
+    revision: 3, createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
+  }
+}
+
+function mountView(writable = false) {
+  wrapper = mount(DocumentManagementView, { props: { knowledgeBaseId, knowledgeBaseName: '产品支持', writable } })
   return wrapper
 }
 
@@ -99,5 +113,86 @@ describe('文档管理视图', () => {
     expect(view.text()).toContain('处理失败')
     expect(view.text()).toContain('DOCUMENT_READ_FAILED · 原文件暂时无法读取')
     expect(view.text()).toContain('# 产品说明')
+  })
+
+  it('只读用户不展示上传新版本入口，待处理版本则禁用入口', async () => {
+    fetchMock.mockResolvedValueOnce(ok(documentList()))
+      .mockResolvedValueOnce(ok(detail()))
+      .mockResolvedValueOnce(ok({ items: [version], nextCursor: null }))
+      .mockResolvedValueOnce(ok({
+        documentId, versionId, versionNo: 2, active: false, pending: true,
+        originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
+      }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+    const readOnlyView = mountView()
+    await flushPromises()
+    await readOnlyView.get('.document-list-item').trigger('click')
+    await flushPromises()
+    expect(readOnlyView.find('.document-version-upload-trigger').exists()).toBe(false)
+    readOnlyView.unmount()
+
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValueOnce(ok(documentList()))
+      .mockResolvedValueOnce(ok(detail()))
+      .mockResolvedValueOnce(ok({ items: [version], nextCursor: null }))
+      .mockResolvedValueOnce(ok({
+        documentId, versionId, versionNo: 2, active: false, pending: true,
+        originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
+      }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+    const writableView = mountView(true)
+    await flushPromises()
+    await writableView.get('.document-list-item').trigger('click')
+    await flushPromises()
+    expect(writableView.get('.document-version-upload-trigger').attributes('disabled')).toBeDefined()
+  })
+
+  it('相同内容复用当前版本后保留提示并刷新文档详情', async () => {
+    const active = activeDetail()
+    const versionReceipt = {
+      documentId, versionId, jobId: '93d95cdf-67ac-4ee3-a4f6-f6a2202b533d',
+      status: 'SUCCEEDED', revision: 3, reused: true,
+    }
+    fetchMock.mockResolvedValueOnce(ok([active]))
+      .mockResolvedValueOnce(ok(active))
+      .mockResolvedValueOnce(ok({ items: [active.activeVersion], nextCursor: null }))
+      .mockResolvedValueOnce(ok({
+        documentId, versionId, versionNo: 2, active: true, pending: false,
+        originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
+      }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+      .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(versionReceipt))
+      .mockResolvedValueOnce(ok({
+        jobId: versionReceipt.jobId, versionId: versionReceipt.versionId, status: 'SUCCEEDED', stage: 'PUBLISH',
+        attempt: 0, maxAttempts: 3, completedChunks: 0, totalChunks: 0, progressPercent: 0,
+        retryable: false, cancellable: false, errorCode: null, errorMessage: null, nextRunAt: null,
+        startedAt: '2026-09-21T10:00:00+08:00', finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
+      }))
+      .mockResolvedValueOnce(ok(active))
+      .mockResolvedValueOnce(ok({ items: [active.activeVersion], nextCursor: null }))
+      .mockResolvedValueOnce(ok({
+        documentId, versionId, versionNo: 2, active: true, pending: false,
+        originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
+      }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+    const view = mountView(true)
+    await flushPromises()
+    await view.get('.document-list-item').trigger('click')
+    await flushPromises()
+    await view.get('.document-version-upload-trigger').trigger('click')
+    const input = view.get('.document-version-file-input')
+    Object.defineProperty(input.element, 'files', { configurable: true, value: [new File(['# 更新说明'], 'guide-v2.md')] })
+    await input.trigger('change')
+    await view.get('.document-version-upload-form').trigger('submit')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledWith(`/api/documents/${documentId}/versions`, expect.objectContaining({ method: 'POST' }))
+    const versionRequest = fetchMock.mock.calls.find(([url]) => url === `/api/documents/${documentId}/versions`)?.[1]
+    expect((versionRequest?.body as FormData).get('expectedRevision')).toBe('3')
+    expect(fetchMock.mock.calls.filter(([url]) => url === `/api/documents/${documentId}`)).toHaveLength(2)
+    expect(view.find('.document-version-upload-form').exists()).toBe(false)
+    expect(view.text()).toContain('文件内容与当前版本一致，已复用当前可用版本。')
+    expect(view.text()).toContain(`任务 ${versionReceipt.jobId}`)
   })
 })

@@ -73,6 +73,26 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
     Optional<KnowledgeDocument> selectAccessibleByIdAndUserId(@Param("documentId") UUID documentId,
                                                                @Param("userId") UUID userId);
 
+    @Select("""
+            -- document、knowledge_base、kb_member、app_user：锁定当前成员可见的文档，供版本更新事务串行分配版本号。
+            SELECT document.id, document.kb_id, document.name, document.active_version_id,
+                   document.pending_version_id, document.next_version_no, document.created_by,
+                   document.deleted_at, document.revision, document.created_at, document.updated_at
+            FROM document
+            INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+            INNER JOIN kb_member member ON member.kb_id = kb.id
+            INNER JOIN app_user account ON account.id = member.user_id
+            WHERE document.id = #{documentId,jdbcType=OTHER}
+              AND member.user_id = #{userId,jdbcType=OTHER}
+              AND kb.status = 'ACTIVE'
+              AND account.enabled = TRUE
+              AND document.deleted_at IS NULL
+            FOR UPDATE OF document
+            """)
+    @ResultMap("knowledgeDocumentResultMap")
+    Optional<KnowledgeDocument> selectAccessibleByIdAndUserIdForUpdate(@Param("documentId") UUID documentId,
+                                                                        @Param("userId") UUID userId);
+
     @Update("""
             -- document：文档逻辑表；pending_version_id 指向本次已入队的待处理版本
             UPDATE document
@@ -81,6 +101,24 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
             WHERE id = #{documentId,jdbcType=OTHER}
             """)
     int updatePendingVersion(@Param("documentId") UUID documentId, @Param("versionId") UUID versionId);
+
+    @Update("""
+            -- document：仅修订号未变化且不存在待处理版本时登记新版，同时原子递增版本号和修订号。
+            UPDATE document
+            SET pending_version_id = #{versionId,jdbcType=OTHER},
+                next_version_no = next_version_no + 1,
+                revision = revision + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{documentId,jdbcType=OTHER}
+              AND revision = #{expectedRevision}
+              AND next_version_no = #{versionNo}
+              AND pending_version_id IS NULL
+              AND deleted_at IS NULL
+            """)
+    int reservePendingVersion(@Param("documentId") UUID documentId,
+                              @Param("expectedRevision") long expectedRevision,
+                              @Param("versionId") UUID versionId,
+                              @Param("versionNo") int versionNo);
 
     @Update("""
             -- document：仅未删除且待处理指针仍指向目标版本时发布，原活动版本保持原样直至本次切换成功。

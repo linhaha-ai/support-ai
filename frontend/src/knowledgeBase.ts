@@ -70,6 +70,15 @@ export interface DocumentUploadReceipt {
 export type IngestionJobStatus = 'QUEUED' | 'RUNNING' | 'RETRY_WAIT' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
 export type IngestionJobStage = 'PARSE' | 'CHUNK' | 'EMBED' | 'PUBLISH'
 
+export interface DocumentVersionUploadReceipt {
+  documentId: string
+  versionId: string
+  jobId: string
+  status: IngestionJobStatus
+  revision: number
+  reused: boolean
+}
+
 export interface IngestionJobDetail {
   jobId: string
   versionId: string
@@ -238,6 +247,25 @@ function parseDocumentUploadReceipt(value: unknown): DocumentUploadReceipt | nul
   }
 }
 
+function parseDocumentVersionUploadReceipt(value: unknown): DocumentVersionUploadReceipt | null {
+  const status = isRecord(value) ? parseIngestionJobStatus(value.status) : null
+  if (!isRecord(value)
+    || typeof value.documentId !== 'string'
+    || typeof value.versionId !== 'string'
+    || typeof value.jobId !== 'string'
+    || !status
+    || typeof value.revision !== 'number'
+    || typeof value.reused !== 'boolean') return null
+  return {
+    documentId: value.documentId,
+    versionId: value.versionId,
+    jobId: value.jobId,
+    status,
+    revision: value.revision,
+    reused: value.reused,
+  }
+}
+
 function parseIngestionJobStatus(value: unknown): IngestionJobStatus | null {
   return value === 'QUEUED' || value === 'RUNNING' || value === 'RETRY_WAIT'
     || value === 'SUCCEEDED' || value === 'FAILED' || value === 'CANCELLED'
@@ -325,6 +353,9 @@ function errorFor(response: Response): KnowledgeBaseApiError {
 }
 
 function uploadErrorFor(response: Response, code?: string): KnowledgeBaseApiError {
+  if (response.status === 409 || code === 'DOCUMENT_VERSION_CONFLICT') {
+    return { kind: 'conflict', message: '文档版本已发生变化或仍在处理中，请刷新详情后重试。' }
+  }
   if (response.status === 413 || code === 'DOCUMENT_FILE_TOO_LARGE') {
     return { kind: 'request', message: '文件超过 5 MB 限制，请压缩或拆分后重试。' }
   }
@@ -466,6 +497,35 @@ export async function uploadKnowledgeDocument(
   if (data) return data
   if (!response.ok) throw uploadErrorFor(response, envelope?.code)
   throw { kind: 'invalid-response', message: '上传文档的响应格式无效，请稍后重试。' } satisfies KnowledgeBaseApiError
+}
+
+export async function uploadDocumentVersion(
+  documentId: string,
+  file: File,
+  expectedRevision: number,
+): Promise<DocumentVersionUploadReceipt> {
+  const csrf = await requestCsrf()
+  const body = new FormData()
+  body.append('file', file)
+  body.append('expectedRevision', String(expectedRevision))
+
+  const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/versions`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      [csrf.headerName]: csrf.token,
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
+    body,
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const data = (response.status === 200 || response.status === 202) && envelope?.code === 'OK'
+    ? parseDocumentVersionUploadReceipt(envelope.data)
+    : null
+  if (data) return data
+  if (!response.ok) throw uploadErrorFor(response, envelope?.code)
+  throw { kind: 'invalid-response', message: '上传文档新版本的响应格式无效，请稍后重试。' } satisfies KnowledgeBaseApiError
 }
 
 export async function fetchIngestionJob(jobId: string): Promise<IngestionJobDetail> {

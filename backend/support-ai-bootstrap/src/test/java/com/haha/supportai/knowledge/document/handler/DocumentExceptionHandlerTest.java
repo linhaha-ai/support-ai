@@ -1,6 +1,7 @@
 package com.haha.supportai.knowledge.document.handler;
 
 import com.haha.supportai.common.filter.TraceIdFilter;
+import com.haha.supportai.knowledge.document.exception.DocumentVersionConflictException;
 import com.haha.supportai.knowledge.document.parsing.exception.DocumentReadFailedException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -38,12 +39,25 @@ class DocumentExceptionHandlerTest {
         assertThat(result.getResponse().getHeader(TraceIdFilter.HEADER_NAME)).isNotBlank();
     }
 
+    @Test
+    void documentVersionConflictMapsTo409WithStableErrorCode() throws Exception {
+        mvc.perform(get("/test/document-version-conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DOCUMENT_VERSION_CONFLICT"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
     @RestController
     static class FailingDocumentController {
 
         @GetMapping("/test/document-content")
         String readContent() {
             throw new DocumentReadFailedException(new IllegalStateException("storage-secret"));
+        }
+
+        @GetMapping("/test/document-version-conflict")
+        String updateVersion() {
+            throw new DocumentVersionConflictException();
         }
     }
 }

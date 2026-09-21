@@ -248,6 +248,17 @@ class OpenApiDocumentationTest {
                         .value("getKnowledgeDocument"))
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['get']['operationId']")
                         .value("listKnowledgeDocumentVersions"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['operationId']")
+                        .value("uploadKnowledgeDocumentVersion"))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['parameters']"
+                        + "[?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['requestBody']"
+                        + "['content']['multipart/form-data']['schema']['properties']['expectedRevision']")
+                        .exists())
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['responses']['200']")
+                        .exists())
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['responses']['202']")
+                        .exists())
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions/{versionId}/chunks']"
                         + "['get']['operationId']").value("listKnowledgeDocumentChunks"))
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions/{versionId}/content']"
@@ -341,6 +352,10 @@ class OpenApiDocumentationTest {
                 "KnowledgeRetrievalTestResponse");
         assertResponseDataSchema(apiDocs, "/api/documents/{documentId}", "get",
                 "DocumentDetailResponse");
+        assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions", "post", "200",
+                "DocumentVersionUploadResponse");
+        assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions", "post", "202",
+                "DocumentVersionUploadResponse");
         assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions", "get",
                 "DocumentVersionPageResponse");
         assertResponseDataSchema(apiDocs, "/api/documents/{documentId}/versions/{versionId}/chunks", "get",
