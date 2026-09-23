@@ -38,13 +38,19 @@ public class MessageSource {
     private boolean cited; // 最终答案是否显式引用该来源
 
     @TableField(value = "source_type", typeHandler = EnumTypeHandler.class)
-    private MessageSourceTypeEnum sourceType; // 来源类型，F12 仅支持文档来源
+    private MessageSourceTypeEnum sourceType; // 来源类型，支持文档证据与工单结果
 
     @TableField("kb_id")
     private UUID knowledgeBaseId; // 来源所属知识库标识
 
     @TableField("chunk_id")
-    private UUID chunkId; // 文档分块标识
+    private UUID chunkId; // 文档来源的分块标识，工单来源为空
+
+    @TableField("ticket_id")
+    private UUID ticketId; // 工单来源的内部工单标识，文档来源为空
+
+    @TableField("tool_call_id")
+    private UUID toolCallId; // 直接工具来源对应的实际工具调用标识
 
     @TableField(value = "locator", jdbcType = JdbcType.VARCHAR)
     private String locator; // 章节、页码和字符偏移等定位信息 JSON
@@ -54,4 +60,11 @@ public class MessageSource {
 
     @TableField("created_at")
     private OffsetDateTime createdAt; // 消息来源登记时间
+
+    public MessageSource(UUID id, UUID messageId, UUID originSourceId, int citationNo, boolean cited,
+            MessageSourceTypeEnum sourceType, UUID knowledgeBaseId, UUID chunkId, String locator, String snapshot,
+            OffsetDateTime createdAt) {
+        this(id, messageId, originSourceId, citationNo, cited, sourceType, knowledgeBaseId, chunkId, null, null,
+                locator, snapshot, createdAt);
+    }
 }

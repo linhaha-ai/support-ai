@@ -99,7 +99,7 @@ public class KnowledgeRetrievalService {
     }
 
     /**
-     * 后台问答线程使用准备阶段确认的用户标识，避免依赖请求线程登录上下文。
+     * 后台问答或工具线程使用准备阶段确认的用户标识，避免依赖请求线程登录上下文。
      */
     public List<KnowledgeRetrievalEvidenceResponse> retrieveReadableWithinSession(UUID userId, UUID sessionId,
             String query, int topK) {

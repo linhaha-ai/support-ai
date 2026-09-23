@@ -21,6 +21,7 @@ import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseR
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.data.assistant.repository.TicketRepository;
+import com.haha.supportai.data.assistant.repository.ToolCallRepository;
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
@@ -173,6 +174,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     TicketRepository ticketRepository;
+
+    @MockBean
+    ToolCallRepository toolCallRepository;
 
     @MockBean
     TicketQueryService ticketQueryService;

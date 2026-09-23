@@ -3,8 +3,10 @@ package com.haha.supportai.assistant.ticket.service;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.haha.supportai.assistant.ticket.entity.dto.TicketToolQueryResult;
 import com.haha.supportai.assistant.ticket.entity.vo.TicketQueryResponse;
 import com.haha.supportai.assistant.ticket.exception.TicketInvalidRequestException;
 import com.haha.supportai.assistant.ticket.exception.TicketNotFoundException;
@@ -40,6 +42,20 @@ public class TicketQueryService {
         }
         return TicketQueryResponse.from(ticket, accessContext.getKnowledgeBase(),
                 OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * 工具查询只使用服务端准备的用户和会话标识，数据层同时验证固定范围与实时成员权。
+     */
+    @Transactional(readOnly = true)
+    public TicketToolQueryResult getByTicketNoWithinSession(UUID userId, UUID sessionId, String rawTicketNo) {
+        if (userId == null || sessionId == null) {
+            throw new TicketInvalidRequestException();
+        }
+        String ticketNo = normalizeTicketNo(rawTicketNo);
+        Ticket ticket = ticketRepository.findReadableWithinSession(userId, sessionId, ticketNo)
+                .orElseThrow(TicketNotFoundException::new);
+        return TicketToolQueryResult.from(ticket, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     private String normalizeTicketNo(String rawTicketNo) {

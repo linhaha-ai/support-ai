@@ -46,19 +46,21 @@ class ChatConversationDatabaseIT {
 
     @Test
     void migratesConversationTablesIdempotentlyAndRetainsDescriptions() {
-        assertThat(firstMigrationCount).isGreaterThanOrEqualTo(11);
+        assertThat(firstMigrationCount).isGreaterThanOrEqualTo(13);
         assertThat(repeatedMigrationCount).isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT count(*)
                 FROM flyway_schema_history
-                WHERE version IN ('10', '11')
+                WHERE version IN ('10', '11', '13')
                   AND success = TRUE
-                """, Integer.class)).isEqualTo(2);
+                """, Integer.class)).isEqualTo(3);
         assertThat(jdbc.queryForObject("""
                 SELECT count(*)
                 FROM information_schema.tables
-                WHERE table_name IN ('chat_session', 'chat_session_kb', 'chat_run', 'chat_message', 'message_source')
-                """, Integer.class)).isEqualTo(5);
+                WHERE table_name IN (
+                    'chat_session', 'chat_session_kb', 'chat_run', 'chat_message', 'message_source', 'tool_call'
+                )
+                """, Integer.class)).isEqualTo(6);
         assertThat(jdbc.queryForObject("SELECT obj_description('chat_session'::regclass)", String.class))
                 .isEqualTo("会话表，保存用户创建的 RAG 会话及其消息序号分配状态");
         assertThat(jdbc.queryForObject("""
@@ -67,11 +69,15 @@ class ChatConversationDatabaseIT {
                      WHERE attrelid = 'chat_run'::regclass AND attname = 'client_request_id'))
                 """, String.class)).isEqualTo("客户端幂等请求 UUID，会话内唯一");
         assertThat(jdbc.queryForObject("SELECT obj_description('message_source'::regclass)", String.class))
-                .isEqualTo("消息来源表，保存实际送入模型的文档证据及最终引用状态");
+                .isEqualTo("消息来源表，保存实际进入模型的文档证据、工单结果及最终引用状态");
+        assertThat(jdbc.queryForObject("SELECT obj_description('tool_call'::regclass)", String.class))
+                .isEqualTo("受控工具调用审计表，保存每次只读工具执行的参数、受限结果和终态");
         assertThat(jdbc.queryForList("""
                 SELECT indexname
                 FROM pg_indexes
-                WHERE tablename IN ('chat_session', 'chat_session_kb', 'chat_run', 'chat_message', 'message_source')
+                WHERE tablename IN (
+                    'chat_session', 'chat_session_kb', 'chat_run', 'chat_message', 'message_source', 'tool_call'
+                )
                 """, String.class)).contains(
                         "uq_chat_run_active_session",
                         "idx_chat_session_user_updated_at",
@@ -80,7 +86,10 @@ class ChatConversationDatabaseIT {
                         "idx_chat_message_run_id",
                         "idx_message_source_chunk_id",
                         "idx_message_source_kb_id",
-                        "idx_message_source_origin_source_id");
+                        "idx_message_source_origin_source_id",
+                        "idx_message_source_ticket_id",
+                        "idx_message_source_tool_call_id",
+                        "idx_tool_call_run_id");
     }
 
     @Test

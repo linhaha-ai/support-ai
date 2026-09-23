@@ -25,14 +25,15 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
                任一来源失效时由业务事务按写入数量不一致回滚整批来源。 */
             INSERT INTO message_source (
                 id, message_id, origin_source_id, citation_no, is_cited, source_type,
-                kb_id, chunk_id, locator, snapshot, created_at
+                kb_id, chunk_id, ticket_id, tool_call_id, locator, snapshot, created_at
             )
             <foreach collection="sources" item="source" separator=" UNION ALL ">
             SELECT
                 #{source.id,jdbcType=OTHER}, #{source.messageId,jdbcType=OTHER},
                 CAST(#{source.originSourceId,jdbcType=OTHER} AS UUID), #{source.citationNo}, #{source.cited},
                 #{source.sourceType,jdbcType=VARCHAR}, #{source.knowledgeBaseId,jdbcType=OTHER},
-                #{source.chunkId,jdbcType=OTHER}, CAST(#{source.locator,jdbcType=VARCHAR} AS JSONB),
+                #{source.chunkId,jdbcType=OTHER}, NULL, NULL,
+                CAST(#{source.locator,jdbcType=VARCHAR} AS JSONB),
                 CAST(#{source.snapshot,jdbcType=VARCHAR} AS JSONB), #{source.createdAt}
             WHERE EXISTS (
                 SELECT 1
@@ -78,7 +79,7 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
     @Select("""
             -- message_source：按本轮引用编号读取助手消息的全部模型输入来源。
             SELECT id, message_id, origin_source_id, citation_no, is_cited, source_type,
-                   kb_id, chunk_id, locator, snapshot, created_at
+                   kb_id, chunk_id, ticket_id, tool_call_id, locator, snapshot, created_at
             FROM message_source
             WHERE message_id = #{messageId,jdbcType=OTHER}
             ORDER BY citation_no
@@ -97,6 +98,10 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
             @Result(column = "kb_id", property = "knowledgeBaseId", javaType = UUID.class,
                     typeHandler = UuidTypeHandler.class),
             @Result(column = "chunk_id", property = "chunkId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "ticket_id", property = "ticketId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "tool_call_id", property = "toolCallId", javaType = UUID.class,
                     typeHandler = UuidTypeHandler.class),
             @Result(column = "locator", property = "locator"),
             @Result(column = "snapshot", property = "snapshot"),

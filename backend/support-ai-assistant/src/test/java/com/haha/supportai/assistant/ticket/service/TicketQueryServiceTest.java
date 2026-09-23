@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.haha.supportai.assistant.ticket.entity.vo.TicketQueryResponse;
+import com.haha.supportai.assistant.ticket.entity.dto.TicketToolQueryResult;
 import com.haha.supportai.assistant.ticket.exception.TicketInvalidRequestException;
 import com.haha.supportai.assistant.ticket.exception.TicketNotFoundException;
 import com.haha.supportai.data.assistant.entity.po.Ticket;
@@ -94,6 +95,36 @@ class TicketQueryServiceTest {
         assertThatThrownBy(() -> ticketQueryService.getByTicketNo(null))
                 .isInstanceOf(TicketInvalidRequestException.class);
         verifyNoInteractions(ticketRepository, accessPolicy);
+    }
+
+    @Test
+    void queriesTicketWithinTrustedSessionScopeWithoutRequestThreadIdentity() {
+        UUID sessionId = UUID.randomUUID();
+        OffsetDateTime updatedAt = OffsetDateTime.parse("2026-09-23T02:00:00Z");
+        Ticket ticket = ticket(TicketStatusEnum.RESOLVED, updatedAt);
+        when(ticketRepository.findReadableWithinSession(USER_ID, sessionId, "T10086"))
+                .thenReturn(Optional.of(ticket));
+
+        TicketToolQueryResult result = ticketQueryService.getByTicketNoWithinSession(
+                USER_ID, sessionId, " t10086 ");
+
+        assertThat(result.getTicketId()).isEqualTo(ticket.getId());
+        assertThat(result.getKnowledgeBaseId()).isEqualTo(KNOWLEDGE_BASE_ID);
+        assertThat(result.getStatus()).isEqualTo(TicketStatusEnum.RESOLVED);
+        assertThat(result.getUpdatedAt()).isEqualTo(updatedAt);
+        verifyNoInteractions(accessPolicy);
+    }
+
+    @Test
+    void hidesMissingAndOutOfScopeTicketsInTrustedSessionQuery() {
+        UUID sessionId = UUID.randomUUID();
+        when(ticketRepository.findReadableWithinSession(USER_ID, sessionId, "T10086"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> ticketQueryService.getByTicketNoWithinSession(USER_ID, sessionId, "T10086"))
+                .isInstanceOf(TicketNotFoundException.class);
+        assertThatThrownBy(() -> ticketQueryService.getByTicketNoWithinSession(null, sessionId, "T10086"))
+                .isInstanceOf(TicketInvalidRequestException.class);
     }
 
     private Ticket ticket(TicketStatusEnum status, OffsetDateTime updatedAt) {

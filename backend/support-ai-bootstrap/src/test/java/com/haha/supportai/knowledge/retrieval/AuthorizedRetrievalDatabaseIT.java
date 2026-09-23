@@ -97,7 +97,9 @@ class AuthorizedRetrievalDatabaseIT {
                     DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(),
                     fixture.assistantReaderSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
-                    DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
+                    DIMENSIONS, PROCESSING_CONFIG_HASH)).extracting(AuthorizedRetrievalHit::getChunkId)
+                    .containsExactlyInAnyOrder(fixture.authorizedDocument().chunkId(),
+                            fixture.currentVersionDocument().chunkId());
         } finally {
             deleteFixture(fixture);
         }

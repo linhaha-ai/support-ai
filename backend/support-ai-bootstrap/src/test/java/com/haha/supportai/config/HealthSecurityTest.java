@@ -12,6 +12,7 @@ import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseR
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.data.assistant.repository.TicketRepository;
+import com.haha.supportai.data.assistant.repository.ToolCallRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
@@ -137,6 +138,9 @@ class HealthSecurityTest {
 
     @MockBean
     TicketRepository ticketRepository;
+
+    @MockBean
+    ToolCallRepository toolCallRepository;
 
     @MockBean
     TicketQueryService ticketQueryService;
