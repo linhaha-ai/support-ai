@@ -1,6 +1,7 @@
 package com.haha.supportai.knowledge.entity.dto;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalInvalidRequestException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
@@ -30,6 +31,10 @@ public class KnowledgeRetrievalTestRequest {
     @Min(1)
     @Max(50)
     private Integer topK; // 返回证据数量
+
+    @Schema(description = "本次调试使用的检索策略；不传时使用服务端默认策略", example = "FUSION",
+            allowableValues = {"VECTOR", "FUSION"})
+    private RetrievalStrategyEnum strategy; // 调试检索策略
 
     @JsonAnySetter
     public void rejectUnknownField(String name, Object value) {

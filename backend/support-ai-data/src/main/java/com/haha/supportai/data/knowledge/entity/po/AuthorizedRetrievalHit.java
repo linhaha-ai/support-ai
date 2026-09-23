@@ -37,5 +37,5 @@ public class AuthorizedRetrievalHit {
 
     private String content; // 向量存储中的分块正文
 
-    private double score; // 基于余弦距离换算的相似度分数
+    private double score; // 当前检索策略的排序分数
 }

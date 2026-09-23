@@ -32,6 +32,10 @@ class AuthorizedRetrievalDatabaseIT {
     private static final String EMBEDDING_PROVIDER = "ollama";
     private static final String EMBEDDING_MODEL = "bge-m3";
     private static final int DIMENSIONS = 1024;
+    private static final String ERROR_CODE_PATTERN =
+            "(^|[^A-Za-z0-9_-])pay-cb-1001([^A-Za-z0-9_-]|$)";
+    private static final String API_PATH_PATTERN =
+            "(^|[^A-Za-z0-9_{}./%-])/api/v1/orders/\\{merchantorderno\\}([^A-Za-z0-9_{}./%-]|$)";
 
     @Container
     static final PostgreSQLContainer<?> DATABASE = PostgresFixture.container();
@@ -88,6 +92,39 @@ class AuthorizedRetrievalDatabaseIT {
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(),
                     fixture.assistantReaderSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
                     DIMENSIONS)).isEmpty();
+        } finally {
+            deleteFixture(fixture);
+        }
+    }
+
+    @Test
+    void keywordRoutesUseExactMatchingAndTheSameAuthorizationBoundary() {
+        Fixture fixture = createFixture();
+        try {
+            List<AuthorizedRetrievalHit> writableHits = authorizedRetrievalRepository.searchWritableByKeywords(
+                    fixture.writerId(), fixture.activeKnowledgeBaseId(), List.of(ERROR_CODE_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+            assertThat(writableHits).extracting(AuthorizedRetrievalHit::getChunkId)
+                    .containsExactly(fixture.authorizedDocument().chunkId());
+
+            List<AuthorizedRetrievalHit> pathHits = authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(
+                    fixture.readerId(), fixture.readerSessionId(), List.of(API_PATH_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+            assertThat(pathHits).extracting(AuthorizedRetrievalHit::getChunkId)
+                    .containsExactly(fixture.authorizedDocument().chunkId());
+
+            assertThat(authorizedRetrievalRepository.searchWritableByKeywords(fixture.readerId(),
+                    fixture.activeKnowledgeBaseId(), List.of(ERROR_CODE_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.readerId(),
+                    fixture.deletedReaderSessionId(), List.of(ERROR_CODE_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.disabledMemberId(),
+                    fixture.disabledMemberSessionId(), List.of(ERROR_CODE_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.readerId(),
+                    fixture.readerSessionId(), List.of(ERROR_CODE_PATTERN), 10,
+                    "dashscope", "text-embedding-v4", DIMENSIONS)).isEmpty();
         } finally {
             deleteFixture(fixture);
         }
@@ -252,7 +289,7 @@ class AuthorizedRetrievalDatabaseIT {
         UUID documentId = UUID.randomUUID();
         UUID versionId = UUID.randomUUID();
         UUID chunkId = UUID.randomUUID();
-        String content = name + " 分块正文";
+        String content = retrievalContent(name);
         String configuration = "{\"embedding\":{\"provider\":\"" + embeddingProvider + "\",\"model\":\""
                 + embeddingModel + "\",\"dimensions\":" + DIMENSIONS + "}}";
         jdbcTemplate.update("""
@@ -290,6 +327,13 @@ class AuthorizedRetrievalDatabaseIT {
             jdbcTemplate.update("UPDATE document SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", documentId);
         }
         return new DocumentFixture(documentId, versionId, chunkId);
+    }
+
+    private String retrievalContent(String documentName) {
+        if ("F11 当前活动版本文档".equals(documentName)) {
+            return documentName + " 分块正文，错误码 PAY-CB-10010，接口 /api/v1/orders/{merchantOrderNo}/close。";
+        }
+        return documentName + " 分块正文，错误码 PAY-CB-1001，接口 /api/v1/orders/{merchantOrderNo}。";
     }
 
     private float[] vector(float first, float second) {

@@ -1,0 +1,15 @@
+{
+  "datasetVersion": "f21-2026-09-23-v1",
+  "recordedAt": "2026-09-23T14:10:00+08:00",
+  "status": "NOT_RUN",
+  "defaultStrategy": "VECTOR",
+  "comparisonCommand": "node evaluation/scripts/f21-evaluation.mjs compare <vector-run.json> <fusion-run.json>",
+  "requiredRuns": ["VECTOR", "FUSION"],
+  "executedCaseCount": 0,
+  "blockers": [
+    "F21 尚无 development 分割的真实纯向量基础运行记录",
+    "本机尚未上传并绑定演示语料的实际 documentId、versionId 和 chunkId",
+    "本机 Ollama 与后端在 F21 记录时均不可连接"
+  ],
+  "interpretation": "关键词召回、RRF 融合和同集比较工具已实现；本文件不代表融合策略已经取得质量收益，默认策略保持 VECTOR。"
+}

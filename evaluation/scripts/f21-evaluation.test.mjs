@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { summarizeResults, validateDataset } from "./f21-evaluation.mjs";
+import { compareResults, summarizeResults, validateDataset } from "./f21-evaluation.mjs";
 
 test("正式题集满足 60/40 分割、证据和分类约束", async () => {
   const result = await validateDataset();
@@ -21,6 +21,7 @@ test("汇总只使用人工复核结论并保留真实分母", () => {
       executionMode: "RAG",
       expectedOutcome: "ANSWER",
       evidenceIds: ["E-1"],
+      categories: ["ERROR_CODE"],
     },
     {
       id: "DEV-002",
@@ -59,4 +60,52 @@ test("汇总只使用人工复核结论并保留真实分母", () => {
   assert.equal(summary.denominators.usageKnown, 1);
   assert.equal(summary.usage.unknownRuns, 1);
   assert.equal(summary.latencyMs.generation.known, 1);
+});
+
+test("同集策略比较同时报告召回收益、回退、耗时和用量差值", () => {
+  const cases = [
+    {
+      id: "DEV-001",
+      executionMode: "RAG",
+      expectedOutcome: "ANSWER",
+      evidenceIds: ["E-1"],
+      categories: ["ERROR_CODE"],
+    },
+    {
+      id: "DEV-002",
+      executionMode: "RAG",
+      expectedOutcome: "ANSWER",
+      evidenceIds: ["E-2"],
+      categories: ["CHINESE_PARAPHRASE"],
+    },
+  ];
+  const baseResult = {
+    status: "COMPLETED",
+    noEvidence: false,
+    citedEvidenceIds: [],
+    humanReview: { citationCorrect: true, evidenceSufficient: true, notes: "人工核对" },
+  };
+  const vectorResults = [
+    { ...baseResult, caseId: "DEV-001", retrievedEvidenceIds: [], usage: { totalTokens: 10 },
+      metrics: { retrievalMs: 10, generationMs: 20, totalMs: 30 } },
+    { ...baseResult, caseId: "DEV-002", retrievedEvidenceIds: ["E-2"], usage: { totalTokens: 20 },
+      metrics: { retrievalMs: 20, generationMs: 30, totalMs: 50 } },
+  ];
+  const fusionResults = [
+    { ...baseResult, caseId: "DEV-001", retrievedEvidenceIds: ["E-1"], usage: { totalTokens: 15 },
+      metrics: { retrievalMs: 15, generationMs: 25, totalMs: 40 } },
+    { ...baseResult, caseId: "DEV-002", retrievedEvidenceIds: [], usage: { totalTokens: 25 },
+      metrics: { retrievalMs: 30, generationMs: 35, totalMs: 65 } },
+  ];
+
+  const comparison = compareResults(cases, vectorResults, fusionResults);
+
+  assert.deepEqual(comparison.changes.retrievalGains, ["DEV-001"]);
+  assert.deepEqual(comparison.changes.retrievalRegressions, ["DEV-002"]);
+  assert.deepEqual(comparison.changes.changedEvidence, ["DEV-001", "DEV-002"]);
+  assert.equal(comparison.quality.retrievalHit.passedDelta, 0);
+  assert.equal(comparison.retrievalByCategory.ERROR_CODE.passedDelta, 1);
+  assert.equal(comparison.retrievalByCategory.CHINESE_PARAPHRASE.passedDelta, -1);
+  assert.equal(comparison.usage.totalTokensDelta, 10);
+  assert.equal(comparison.latencyMs.retrieval.p95Delta, 10);
 });

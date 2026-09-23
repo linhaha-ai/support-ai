@@ -47,6 +47,14 @@ node evaluation/scripts/f21-evaluation.mjs summarize <run.json>
 
 汇总结果始终同时输出分子与分母，并分别统计检索命中、人工引用正确、人工依据充分、拒答表现、用量已知率，以及检索、生成和总耗时的 P50/P95。
 
+F22 比较必须在同一 Git 提交、环境、开发集 SHA-256、TopK、模型、融合参数和提示词配置下各运行一次，只允许 `retrieval.strategy` 分别为 `VECTOR` 和 `FUSION`：
+
+```powershell
+node evaluation/scripts/f21-evaluation.mjs compare <vector-run.json> <fusion-run.json>
+```
+
+比较结果会列出召回提升题、召回回退题、证据集合变化题，按错误码、接口名、中文改写等分类给出召回分子/分母，并给出整体质量、token 总量和 P50/P95 耗时差值。没有两份真实完整运行记录时不得据此切换默认策略。
+
 ## 当前限制
 
 F18、F19 尚未实现，F20 也未完成全链路验收，当前无法完整构造同一文档的版本切换和删除竞争场景。2026-09-23 本机 Ollama 与后端均不可连接，因此尚未生成真实模型基础结果；详见 `results/f21-baseline-status.json` 和 F21 验收记录。

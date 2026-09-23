@@ -8,6 +8,7 @@ import java.util.Set;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.config.RagProperties;
+import com.haha.supportai.knowledge.config.RetrievalProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -22,13 +23,17 @@ public class RagConfigurationSnapshotFactory {
     private final Environment environment;
     private final ObjectMapper objectMapper;
     private final RagProperties ragProperties;
+    private final RetrievalProperties retrievalProperties;
 
     public String create() {
         String chatProvider = provider("chat");
         String embeddingProvider = provider("embedding");
         Map<String, Object> retrieval = new LinkedHashMap<>();
-        retrieval.put("strategy", "VECTOR");
+        retrieval.put("strategy", retrievalProperties.getStrategy().name());
         retrieval.put("topK", ragProperties.getTopK());
+        retrieval.put("candidateMultiplier", retrievalProperties.getCandidateMultiplier());
+        retrieval.put("rrfK", retrievalProperties.getRrfK());
+        retrieval.put("maxKeywords", retrievalProperties.getMaxKeywords());
 
         Map<String, Object> chat = modelSnapshot(chatProvider, "chat");
         chat.put("temperature", optionalDouble("spring.ai." + chatProvider + ".chat.options.temperature"));
@@ -40,7 +45,7 @@ public class RagConfigurationSnapshotFactory {
         prompt.put("version", RagPromptFactory.PROMPT_VERSION);
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("schemaVersion", "f21-v1");
+        snapshot.put("schemaVersion", "f22-v1");
         snapshot.put("mode", "RAG");
         snapshot.put("retrieval", retrieval);
         snapshot.put("chat", chat);

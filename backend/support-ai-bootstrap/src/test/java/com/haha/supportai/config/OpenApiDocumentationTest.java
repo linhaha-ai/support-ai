@@ -37,6 +37,7 @@ import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentQueryService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
@@ -456,7 +457,8 @@ class OpenApiDocumentationTest {
         UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440021");
         configureAuthenticatedUser();
         when(knowledgeRetrievalService.testWritableKnowledgeBase(eq(knowledgeBaseId), any()))
-                .thenReturn(new KnowledgeRetrievalTestResponse(knowledgeBaseId, "退款状态", 3, 12L, List.of()));
+                .thenReturn(new KnowledgeRetrievalTestResponse(knowledgeBaseId, "退款状态", 3,
+                        RetrievalStrategyEnum.VECTOR, 0, 0, 12L, List.of()));
 
         AuthenticatedRequest authenticatedRequest = login();
         mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
@@ -467,6 +469,9 @@ class OpenApiDocumentationTest {
                         .content("{\"query\":\"退款状态\",\"topK\":3}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.knowledgeBaseId").value(knowledgeBaseId.toString()))
+                .andExpect(jsonPath("$.data.strategy").value("VECTOR"))
+                .andExpect(jsonPath("$.data.vectorCandidateCount").value(0))
+                .andExpect(jsonPath("$.data.keywordCandidateCount").value(0))
                 .andExpect(jsonPath("$.data.matches").isArray());
     }
 

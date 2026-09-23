@@ -3,6 +3,7 @@ package com.haha.supportai.knowledge.entity.vo;
 import java.util.List;
 import java.util.UUID;
 
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,15 @@ public class KnowledgeRetrievalTestResponse {
 
     @Schema(description = "请求的最大返回数量", requiredMode = Schema.RequiredMode.REQUIRED)
     private final int topK; // 返回数量上限
+
+    @Schema(description = "本次实际使用的检索策略", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final RetrievalStrategyEnum strategy; // 实际检索策略
+
+    @Schema(description = "融合前的向量候选数量", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int vectorCandidateCount; // 向量候选数量
+
+    @Schema(description = "融合前的关键词候选数量", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int keywordCandidateCount; // 关键词候选数量
 
     @Schema(description = "服务端检索耗时，单位毫秒", requiredMode = Schema.RequiredMode.REQUIRED)
     private final long durationMs; // 检索耗时毫秒数

@@ -21,12 +21,35 @@ public class AuthorizedRetrievalRepository {
                 embeddingProvider, embeddingModel, dimensions);
     }
 
+    public List<AuthorizedRetrievalHit> searchWritableByKeywords(UUID userId, UUID knowledgeBaseId,
+                                                                  List<String> keywordPatterns, int topK,
+                                                                  String embeddingProvider, String embeddingModel,
+                                                                  int dimensions) {
+        if (keywordPatterns.isEmpty()) {
+            return List.of();
+        }
+        return authorizedRetrievalMapper.selectWritableByKeywords(userId, knowledgeBaseId, keywordPatterns, topK,
+                embeddingProvider, embeddingModel, dimensions);
+    }
+
     public List<AuthorizedRetrievalHit> searchReadableWithinSession(UUID userId, UUID sessionId,
                                                                       float[] queryEmbedding, int topK,
                                                                       String embeddingProvider, String embeddingModel,
                                                                       int dimensions) {
         return authorizedRetrievalMapper.selectReadableWithinSession(userId, sessionId, queryEmbedding, topK,
                 embeddingProvider, embeddingModel, dimensions);
+    }
+
+    public List<AuthorizedRetrievalHit> searchReadableWithinSessionByKeywords(UUID userId, UUID sessionId,
+                                                                                List<String> keywordPatterns, int topK,
+                                                                                String embeddingProvider,
+                                                                                String embeddingModel,
+                                                                                int dimensions) {
+        if (keywordPatterns.isEmpty()) {
+            return List.of();
+        }
+        return authorizedRetrievalMapper.selectReadableWithinSessionByKeywords(userId, sessionId, keywordPatterns,
+                topK, embeddingProvider, embeddingModel, dimensions);
     }
 
     public List<AuthorizedRetrievalHit> revalidateReadableWithinSession(UUID userId, UUID sessionId,

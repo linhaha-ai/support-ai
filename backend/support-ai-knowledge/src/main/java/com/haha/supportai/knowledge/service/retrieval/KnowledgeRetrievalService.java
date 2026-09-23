@@ -1,24 +1,32 @@
 package com.haha.supportai.knowledge.service.retrieval;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.IntFunction;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.data.knowledge.entity.po.AuthorizedRetrievalHit;
 import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.knowledge.access.AccessPolicy;
+import com.haha.supportai.knowledge.config.RetrievalProperties;
 import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
 import com.haha.supportai.knowledge.document.support.DocumentProcessingSnapshotFactory;
 import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalTestRequest;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalInvalidRequestException;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
+import com.haha.supportai.knowledge.support.RetrievalKeywordExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
@@ -29,6 +37,7 @@ public class KnowledgeRetrievalService {
 
     private static final int MIN_TOP_K = 1;
     private static final int MAX_TOP_K = 50;
+    private static final int MAX_CANDIDATE_TOP_K = 250;
     private static final int MAX_QUERY_LENGTH = 2000;
 
     private final EmbeddingModel embeddingModel;
@@ -36,21 +45,33 @@ public class KnowledgeRetrievalService {
     private final AccessPolicy accessPolicy;
     private final DocumentProcessingSnapshotFactory documentProcessingSnapshotFactory;
     private final ObjectMapper objectMapper;
+    private final RetrievalProperties retrievalProperties;
+    private final RetrievalKeywordExtractor retrievalKeywordExtractor;
 
     public KnowledgeRetrievalTestResponse testWritableKnowledgeBase(UUID knowledgeBaseId,
             KnowledgeRetrievalTestRequest request) {
         String query = normalizeQuery(request == null ? null : request.getQuery());
         int topK = validateTopK(request == null ? null : request.getTopK());
+        RetrievalStrategyEnum strategy = request != null && request.getStrategy() != null
+                ? request.getStrategy()
+                : retrievalProperties.getStrategy();
         long startNanos = System.nanoTime();
 
         // 模型调用前先完成 WRITE 校验，避免无权限请求消耗模型资源。
         UUID userId = accessPolicy.requireWrite(knowledgeBaseId).getMember().getUserId();
         ProcessingConfigurationSnapshot snapshot = currentSnapshot();
+        String embeddingProvider = embeddingProvider(snapshot);
         float[] queryEmbedding = createQueryEmbedding(query);
-        List<AuthorizedRetrievalHit> hits = authorizedRetrievalRepository.searchWritable(userId, knowledgeBaseId,
-                queryEmbedding, topK, embeddingProvider(snapshot), snapshot.getEmbeddingModel(), snapshot.getDimensions());
-        return new KnowledgeRetrievalTestResponse(knowledgeBaseId, query, topK, elapsedMillis(startNanos),
-                hits.stream().map(this::toEvidence).toList());
+        RetrievalResult result = retrieve(query, topK, strategy,
+                candidateTopK -> authorizedRetrievalRepository.searchWritable(userId, knowledgeBaseId,
+                        queryEmbedding, candidateTopK, embeddingProvider, snapshot.getEmbeddingModel(),
+                        snapshot.getDimensions()),
+                (keywordPatterns, candidateTopK) -> authorizedRetrievalRepository.searchWritableByKeywords(
+                        userId, knowledgeBaseId, keywordPatterns, candidateTopK, embeddingProvider,
+                        snapshot.getEmbeddingModel(), snapshot.getDimensions()));
+        return new KnowledgeRetrievalTestResponse(knowledgeBaseId, query, topK, strategy,
+                result.vectorCandidateCount(), result.keywordCandidateCount(), elapsedMillis(startNanos),
+                result.hits().stream().map(this::toEvidence).toList());
     }
 
     /**
@@ -76,9 +97,16 @@ public class KnowledgeRetrievalService {
         String normalizedQuery = normalizeQuery(query);
         int validatedTopK = validateTopK(topK);
         ProcessingConfigurationSnapshot snapshot = currentSnapshot();
+        String embeddingProvider = embeddingProvider(snapshot);
         float[] queryEmbedding = createQueryEmbedding(normalizedQuery);
-        return authorizedRetrievalRepository.searchReadableWithinSession(userId, sessionId, queryEmbedding, validatedTopK,
-                        embeddingProvider(snapshot), snapshot.getEmbeddingModel(), snapshot.getDimensions())
+        RetrievalResult result = retrieve(normalizedQuery, validatedTopK, retrievalProperties.getStrategy(),
+                candidateTopK -> authorizedRetrievalRepository.searchReadableWithinSession(userId, sessionId,
+                        queryEmbedding, candidateTopK, embeddingProvider, snapshot.getEmbeddingModel(),
+                        snapshot.getDimensions()),
+                (keywordPatterns, candidateTopK) -> authorizedRetrievalRepository
+                        .searchReadableWithinSessionByKeywords(userId, sessionId, keywordPatterns, candidateTopK,
+                                embeddingProvider, snapshot.getEmbeddingModel(), snapshot.getDimensions()));
+        return result.hits()
                 .stream()
                 .map(this::toEvidence)
                 .toList();
@@ -129,6 +157,83 @@ public class KnowledgeRetrievalService {
         if (sessionId == null || chunkIds == null || chunkIds.stream().anyMatch(Objects::isNull)) {
             throw new KnowledgeRetrievalInvalidRequestException();
         }
+    }
+
+    private RetrievalResult retrieve(String query, int topK, RetrievalStrategyEnum strategy,
+            IntFunction<List<AuthorizedRetrievalHit>> vectorSearch,
+            BiFunction<List<String>, Integer, List<AuthorizedRetrievalHit>> keywordSearch) {
+        if (strategy == null) {
+            throw new KnowledgeRetrievalUnavailableException(
+                    new IllegalStateException("检索策略配置不能为空"));
+        }
+        int candidateTopK = strategy == RetrievalStrategyEnum.FUSION ? candidateTopK(topK) : topK;
+        List<AuthorizedRetrievalHit> vectorHits = vectorSearch.apply(candidateTopK);
+        if (strategy == RetrievalStrategyEnum.VECTOR) {
+            return new RetrievalResult(vectorHits, vectorHits.size(), 0);
+        }
+
+        List<String> keywordPatterns = retrievalKeywordExtractor.extractPatterns(query,
+                retrievalProperties.getMaxKeywords());
+        if (keywordPatterns.isEmpty()) {
+            return new RetrievalResult(limit(vectorHits, topK), vectorHits.size(), 0);
+        }
+        List<AuthorizedRetrievalHit> keywordHits = keywordSearch.apply(keywordPatterns, candidateTopK);
+        return new RetrievalResult(fuseByReciprocalRank(vectorHits, keywordHits, topK), vectorHits.size(),
+                keywordHits.size());
+    }
+
+    private int candidateTopK(int topK) {
+        long multiplied = (long) topK * retrievalProperties.getCandidateMultiplier();
+        return (int) Math.min(MAX_CANDIDATE_TOP_K, Math.max(topK, multiplied));
+    }
+
+    private List<AuthorizedRetrievalHit> fuseByReciprocalRank(List<AuthorizedRetrievalHit> vectorHits,
+            List<AuthorizedRetrievalHit> keywordHits, int topK) {
+        Map<UUID, AuthorizedRetrievalHit> hitByChunkId = new LinkedHashMap<>();
+        Map<UUID, Double> scoreByChunkId = new HashMap<>();
+        Map<UUID, Integer> bestRankByChunkId = new HashMap<>();
+        addReciprocalRanks(vectorHits, hitByChunkId, scoreByChunkId, bestRankByChunkId);
+        addReciprocalRanks(keywordHits, hitByChunkId, scoreByChunkId, bestRankByChunkId);
+        return hitByChunkId.keySet().stream()
+                .sorted((left, right) -> compareFused(left, right, scoreByChunkId, bestRankByChunkId))
+                .limit(topK)
+                .map(chunkId -> copyWithScore(hitByChunkId.get(chunkId), scoreByChunkId.get(chunkId)))
+                .toList();
+    }
+
+    private void addReciprocalRanks(List<AuthorizedRetrievalHit> hits,
+            Map<UUID, AuthorizedRetrievalHit> hitByChunkId, Map<UUID, Double> scoreByChunkId,
+            Map<UUID, Integer> bestRankByChunkId) {
+        Set<UUID> rankedChunkIds = new HashSet<>();
+        for (int index = 0; index < hits.size(); index++) {
+            AuthorizedRetrievalHit hit = hits.get(index);
+            if (hit.getChunkId() == null || !rankedChunkIds.add(hit.getChunkId())) {
+                continue;
+            }
+            int rank = index + 1;
+            hitByChunkId.putIfAbsent(hit.getChunkId(), hit);
+            scoreByChunkId.merge(hit.getChunkId(), 1.0D / (retrievalProperties.getRrfK() + rank), Double::sum);
+            bestRankByChunkId.merge(hit.getChunkId(), rank, Math::min);
+        }
+    }
+
+    private int compareFused(UUID left, UUID right, Map<UUID, Double> scores, Map<UUID, Integer> bestRanks) {
+        int scoreComparison = Double.compare(scores.get(right), scores.get(left));
+        if (scoreComparison != 0) {
+            return scoreComparison;
+        }
+        int rankComparison = Integer.compare(bestRanks.get(left), bestRanks.get(right));
+        return rankComparison != 0 ? rankComparison : left.compareTo(right);
+    }
+
+    private List<AuthorizedRetrievalHit> limit(List<AuthorizedRetrievalHit> hits, int topK) {
+        return hits.stream().limit(topK).toList();
+    }
+
+    private AuthorizedRetrievalHit copyWithScore(AuthorizedRetrievalHit hit, double score) {
+        return new AuthorizedRetrievalHit(hit.getKnowledgeBaseId(), hit.getDocumentId(), hit.getDocumentName(),
+                hit.getVersionId(), hit.getVersionNo(), hit.getChunkId(), hit.getChunkIndex(), hit.getSection(),
+                hit.getPageNo(), hit.getStartOffset(), hit.getEndOffset(), hit.getContent(), score);
     }
 
     private float[] createQueryEmbedding(String query) {
@@ -191,5 +296,9 @@ public class KnowledgeRetrievalService {
                 hit.getDocumentName(), hit.getVersionId(), hit.getVersionNo(), hit.getChunkId(), hit.getChunkIndex(),
                 hit.getSection(), hit.getPageNo(), hit.getStartOffset(), hit.getEndOffset(), hit.getContent(),
                 hit.getScore());
+    }
+
+    private record RetrievalResult(List<AuthorizedRetrievalHit> hits, int vectorCandidateCount,
+                                   int keywordCandidateCount) {
     }
 }

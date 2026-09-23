@@ -3,6 +3,8 @@ package com.haha.supportai.conversation.support;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.config.RagProperties;
+import com.haha.supportai.knowledge.config.RetrievalProperties;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -25,14 +27,22 @@ class RagConfigurationSnapshotFactoryTest {
                 .withProperty("support.ai.dimensions", "1024");
         RagProperties properties = new RagProperties();
         properties.setTopK(6);
+        RetrievalProperties retrievalProperties = new RetrievalProperties();
+        retrievalProperties.setStrategy(RetrievalStrategyEnum.FUSION);
+        retrievalProperties.setCandidateMultiplier(4);
+        retrievalProperties.setRrfK(50);
+        retrievalProperties.setMaxKeywords(7);
         RagConfigurationSnapshotFactory factory = new RagConfigurationSnapshotFactory(environment,
-                objectMapper, properties);
+                objectMapper, properties, retrievalProperties);
 
         JsonNode snapshot = objectMapper.readTree(factory.create());
 
-        assertThat(snapshot.path("schemaVersion").asText()).isEqualTo("f21-v1");
-        assertThat(snapshot.path("retrieval").path("strategy").asText()).isEqualTo("VECTOR");
+        assertThat(snapshot.path("schemaVersion").asText()).isEqualTo("f22-v1");
+        assertThat(snapshot.path("retrieval").path("strategy").asText()).isEqualTo("FUSION");
         assertThat(snapshot.path("retrieval").path("topK").asInt()).isEqualTo(6);
+        assertThat(snapshot.path("retrieval").path("candidateMultiplier").asInt()).isEqualTo(4);
+        assertThat(snapshot.path("retrieval").path("rrfK").asInt()).isEqualTo(50);
+        assertThat(snapshot.path("retrieval").path("maxKeywords").asInt()).isEqualTo(7);
         assertThat(snapshot.path("chat").path("provider").asText()).isEqualTo("ollama");
         assertThat(snapshot.path("chat").path("model").asText()).isEqualTo("qwen2.5:3b");
         assertThat(snapshot.path("chat").path("temperature").asDouble()).isZero();
@@ -50,7 +60,7 @@ class RagConfigurationSnapshotFactoryTest {
                 .withProperty("support.ai.dimensions", "1024");
 
         RagConfigurationSnapshotFactory factory = new RagConfigurationSnapshotFactory(environment,
-                objectMapper, new RagProperties());
+                objectMapper, new RagProperties(), new RetrievalProperties());
 
         assertThatThrownBy(factory::create)
                 .isInstanceOf(IllegalStateException.class)

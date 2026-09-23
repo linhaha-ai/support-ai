@@ -355,7 +355,122 @@ export function summarizeResults(cases, results) {
   };
 }
 
-async function summarizeRun(runFile) {
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function withoutRetrievalStrategy(configSnapshot) {
+  const comparable = JSON.parse(JSON.stringify(configSnapshot));
+  delete comparable.retrieval.strategy;
+  return comparable;
+}
+
+function retrievalHit(testCase, result) {
+  if (testCase.executionMode !== "RAG" || testCase.expectedOutcome !== "ANSWER"
+      || result?.status !== "COMPLETED") {
+    return false;
+  }
+  const actual = new Set(result.retrievedEvidenceIds ?? []);
+  return testCase.evidenceIds.every((evidenceId) => actual.has(evidenceId));
+}
+
+function metricComparison(vectorMetric, fusionMetric) {
+  return {
+    vector: vectorMetric,
+    fusion: fusionMetric,
+    passedDelta: fusionMetric.passed - vectorMetric.passed,
+    totalDelta: fusionMetric.total - vectorMetric.total,
+  };
+}
+
+function nullableDelta(vectorValue, fusionValue) {
+  return Number.isFinite(vectorValue) && Number.isFinite(fusionValue)
+    ? fusionValue - vectorValue
+    : null;
+}
+
+function latencyComparison(vectorLatency, fusionLatency) {
+  return {
+    vector: vectorLatency,
+    fusion: fusionLatency,
+    p50Delta: nullableDelta(vectorLatency.p50, fusionLatency.p50),
+    p95Delta: nullableDelta(vectorLatency.p95, fusionLatency.p95),
+  };
+}
+
+function retrievalMetric(cases, resultByCaseId) {
+  const answerCases = cases.filter((testCase) =>
+    testCase.executionMode === "RAG" && testCase.expectedOutcome === "ANSWER");
+  return {
+    passed: answerCases.filter((testCase) => retrievalHit(testCase, resultByCaseId.get(testCase.id))).length,
+    total: answerCases.length,
+  };
+}
+
+export function compareResults(cases, vectorResults, fusionResults) {
+  const vectorByCaseId = new Map(vectorResults.map((result) => [result.caseId, result]));
+  const fusionByCaseId = new Map(fusionResults.map((result) => [result.caseId, result]));
+  const answerCases = cases.filter((testCase) =>
+    testCase.executionMode === "RAG" && testCase.expectedOutcome === "ANSWER");
+  const retrievalGains = [];
+  const retrievalRegressions = [];
+  const changedEvidence = [];
+  for (const testCase of answerCases) {
+    const vectorResult = vectorByCaseId.get(testCase.id);
+    const fusionResult = fusionByCaseId.get(testCase.id);
+    const vectorHit = retrievalHit(testCase, vectorResult);
+    const fusionHit = retrievalHit(testCase, fusionResult);
+    if (!vectorHit && fusionHit) {
+      retrievalGains.push(testCase.id);
+    } else if (vectorHit && !fusionHit) {
+      retrievalRegressions.push(testCase.id);
+    }
+    if (canonicalJson(vectorResult?.retrievedEvidenceIds ?? [])
+        !== canonicalJson(fusionResult?.retrievedEvidenceIds ?? [])) {
+      changedEvidence.push(testCase.id);
+    }
+  }
+
+  const vectorSummary = summarizeResults(cases, vectorResults);
+  const fusionSummary = summarizeResults(cases, fusionResults);
+  const categories = [...new Set(cases.flatMap((testCase) => testCase.categories ?? []))].sort();
+  const retrievalByCategory = Object.fromEntries(categories.map((category) => {
+    const categoryCases = cases.filter((testCase) => testCase.categories?.includes(category));
+    return [category, metricComparison(
+      retrievalMetric(categoryCases, vectorByCaseId), retrievalMetric(categoryCases, fusionByCaseId))];
+  }));
+  return {
+    quality: {
+      retrievalHit: metricComparison(vectorSummary.quality.retrievalHit, fusionSummary.quality.retrievalHit),
+      citationCorrect: metricComparison(vectorSummary.quality.citationCorrect,
+        fusionSummary.quality.citationCorrect),
+      evidenceSufficient: metricComparison(vectorSummary.quality.evidenceSufficient,
+        fusionSummary.quality.evidenceSufficient),
+      refusalCorrect: metricComparison(vectorSummary.quality.refusalCorrect, fusionSummary.quality.refusalCorrect),
+    },
+    retrievalByCategory,
+    changes: { retrievalGains, retrievalRegressions, changedEvidence },
+    usage: {
+      vector: vectorSummary.usage,
+      fusion: fusionSummary.usage,
+      totalTokensDelta: nullableDelta(vectorSummary.usage.totalTokens, fusionSummary.usage.totalTokens),
+    },
+    latencyMs: {
+      retrieval: latencyComparison(vectorSummary.latencyMs.retrieval, fusionSummary.latencyMs.retrieval),
+      generation: latencyComparison(vectorSummary.latencyMs.generation, fusionSummary.latencyMs.generation),
+      total: latencyComparison(vectorSummary.latencyMs.total, fusionSummary.latencyMs.total),
+    },
+  };
+}
+
+async function loadValidatedRun(runFile) {
   const dataset = await validateDataset();
   const run = await readJson(resolve(process.cwd(), runFile));
   const metadata = run.metadata ?? {};
@@ -428,11 +543,47 @@ async function summarizeRun(runFile) {
     }
     resultIds.add(result.caseId);
   }
-  return { metadata, summary: summarizeResults(selectedCases, run.results) };
+  return { metadata, summary: summarizeResults(selectedCases, run.results), results: run.results, cases: selectedCases };
+}
+
+export async function summarizeRun(runFile) {
+  const { metadata, summary } = await loadValidatedRun(runFile);
+  return { metadata, summary };
+}
+
+export async function compareRuns(vectorRunFile, fusionRunFile) {
+  const vector = await loadValidatedRun(vectorRunFile);
+  const fusion = await loadValidatedRun(fusionRunFile);
+  ensure(vector.metadata.split === "development" && fusion.metadata.split === "development",
+    "F22 策略比较只能使用 development 分割");
+  ensure(vector.metadata.datasetVersion === fusion.metadata.datasetVersion
+      && vector.metadata.datasetSha256 === fusion.metadata.datasetSha256,
+    "两次运行必须使用同一开发集版本和 SHA-256");
+  ensure(vector.metadata.gitCommit === fusion.metadata.gitCommit,
+    "两次运行必须使用同一 Git 提交");
+  ensure(vector.metadata.environment === fusion.metadata.environment,
+    "两次运行必须使用同一环境说明");
+  ensure(vector.metadata.configSnapshot.retrieval.strategy === "VECTOR",
+    "第一份运行记录的检索策略必须为 VECTOR");
+  ensure(fusion.metadata.configSnapshot.retrieval.strategy === "FUSION",
+    "第二份运行记录的检索策略必须为 FUSION");
+  const comparableVectorConfig = withoutRetrievalStrategy(vector.metadata.configSnapshot);
+  const comparableFusionConfig = withoutRetrievalStrategy(fusion.metadata.configSnapshot);
+  ensure(canonicalJson(comparableVectorConfig) === canonicalJson(comparableFusionConfig),
+    "两次运行除检索策略外的模型、TopK、融合参数和提示词配置必须一致");
+  return {
+    datasetVersion: vector.metadata.datasetVersion,
+    datasetSha256: vector.metadata.datasetSha256,
+    gitCommit: vector.metadata.gitCommit,
+    environment: vector.metadata.environment,
+    vectorRun: vectorRunFile,
+    fusionRun: fusionRunFile,
+    comparison: compareResults(vector.cases, vector.results, fusion.results),
+  };
 }
 
 async function main() {
-  const [command, argument] = process.argv.slice(2);
+  const [command, ...argumentsList] = process.argv.slice(2);
   if (command === "validate") {
     const result = await validateDataset();
     console.log(JSON.stringify({
@@ -447,11 +598,16 @@ async function main() {
     }, null, 2));
     return;
   }
-  if (command === "summarize" && argument) {
-    console.log(JSON.stringify(await summarizeRun(argument), null, 2));
+  if (command === "summarize" && argumentsList.length === 1) {
+    console.log(JSON.stringify(await summarizeRun(argumentsList[0]), null, 2));
     return;
   }
-  throw new Error("用法：node evaluation/scripts/f21-evaluation.mjs validate | summarize <run.json>");
+  if (command === "compare" && argumentsList.length === 2) {
+    console.log(JSON.stringify(await compareRuns(argumentsList[0], argumentsList[1]), null, 2));
+    return;
+  }
+  throw new Error("用法：node evaluation/scripts/f21-evaluation.mjs validate | summarize <run.json>"
+    + " | compare <vector-run.json> <fusion-run.json>");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

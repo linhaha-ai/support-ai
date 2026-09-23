@@ -47,6 +47,6 @@ public class KnowledgeRetrievalEvidenceResponse {
     @Schema(description = "已发布分块正文", requiredMode = Schema.RequiredMode.REQUIRED)
     private final String content; // 分块正文
 
-    @Schema(description = "余弦相似度，数值越大表示越相近", requiredMode = Schema.RequiredMode.REQUIRED)
-    private final double score; // 相似度分数
+    @Schema(description = "排序分数；纯向量策略为余弦相似度，融合策略为 RRF 分数", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final double score; // 当前检索策略的排序分数
 }

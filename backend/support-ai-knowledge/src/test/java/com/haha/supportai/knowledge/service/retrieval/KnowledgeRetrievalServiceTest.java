@@ -13,13 +13,16 @@ import com.haha.supportai.data.knowledge.enums.KbPermissionEnum;
 import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.knowledge.access.AccessPolicy;
+import com.haha.supportai.knowledge.config.RetrievalProperties;
 import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
 import com.haha.supportai.knowledge.document.support.DocumentProcessingSnapshotFactory;
 import com.haha.supportai.knowledge.entity.dto.KnowledgeBaseAccessContext;
 import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalTestRequest;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalInvalidRequestException;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
+import com.haha.supportai.knowledge.support.RetrievalKeywordExtractor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -30,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -65,6 +69,9 @@ class KnowledgeRetrievalServiceTest {
         var response = service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request("  退款状态  ", 3));
 
         assertThat(response.getQuery()).isEqualTo("退款状态");
+        assertThat(response.getStrategy()).isEqualTo(RetrievalStrategyEnum.VECTOR);
+        assertThat(response.getVectorCandidateCount()).isEqualTo(1);
+        assertThat(response.getKeywordCandidateCount()).isZero();
         assertThat(response.getMatches()).hasSize(1);
         assertThat(response.getMatches().get(0).getDocumentName()).isEqualTo("退款排查手册");
         assertThat(response.getDurationMs()).isGreaterThanOrEqualTo(0);
@@ -98,6 +105,63 @@ class KnowledgeRetrievalServiceTest {
         var response = service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request("退款状态", 3));
 
         assertThat(response.getMatches()).isEmpty();
+    }
+
+    @Test
+    void fusionUsesExpandedCandidatesAndDeduplicatesByRrf() {
+        float[] embedding = embedding();
+        AuthorizedRetrievalHit vectorOnly = hit();
+        vectorOnly.setChunkId(UUID.fromString("550e8400-e29b-41d4-a716-446655440013"));
+        vectorOnly.setDocumentName("向量候选");
+        AuthorizedRetrievalHit shared = hit();
+        shared.setDocumentName("精确错误码候选");
+        AuthorizedRetrievalHit keywordOnly = hit();
+        keywordOnly.setChunkId(UUID.fromString("550e8400-e29b-41d4-a716-446655440014"));
+        keywordOnly.setDocumentName("关键词候选");
+        when(accessPolicy.requireWrite(KNOWLEDGE_BASE_ID)).thenReturn(writeAccess());
+        when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
+        when(embeddingModel.embed("PAY-CB-1001 是什么错误？")).thenReturn(embedding);
+        when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 6,
+                "ollama", "bge-m3", 1024)).thenReturn(List.of(vectorOnly, shared));
+        when(authorizedRetrievalRepository.searchWritableByKeywords(
+                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt()))
+                .thenReturn(List.of(shared, keywordOnly));
+
+        KnowledgeRetrievalTestRequest request = request("PAY-CB-1001 是什么错误？", 2);
+        request.setStrategy(RetrievalStrategyEnum.FUSION);
+        var response = service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request);
+
+        assertThat(response.getStrategy()).isEqualTo(RetrievalStrategyEnum.FUSION);
+        assertThat(response.getVectorCandidateCount()).isEqualTo(2);
+        assertThat(response.getKeywordCandidateCount()).isEqualTo(2);
+        assertThat(response.getMatches()).extracting(match -> match.getDocumentName())
+                .containsExactly("精确错误码候选", "向量候选");
+        assertThat(response.getMatches().get(0).getScore()).isGreaterThan(response.getMatches().get(1).getScore());
+        verify(authorizedRetrievalRepository).searchWritableByKeywords(any(), any(), anyList(),
+                anyInt(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void fusionWithoutExplicitKeywordKeepsSemanticRankingAndSkipsKeywordQuery() {
+        float[] embedding = embedding();
+        AuthorizedRetrievalHit first = hit();
+        AuthorizedRetrievalHit second = hit();
+        second.setChunkId(UUID.fromString("550e8400-e29b-41d4-a716-446655440013"));
+        when(accessPolicy.requireWrite(KNOWLEDGE_BASE_ID)).thenReturn(writeAccess());
+        when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
+        when(embeddingModel.embed("退款状态为什么没有更新")).thenReturn(embedding);
+        when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 3,
+                "ollama", "bge-m3", 1024)).thenReturn(List.of(first, second));
+
+        KnowledgeRetrievalTestRequest request = request("退款状态为什么没有更新", 1);
+        request.setStrategy(RetrievalStrategyEnum.FUSION);
+        var response = service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request);
+
+        assertThat(response.getMatches()).extracting(match -> match.getChunkId())
+                .containsExactly(first.getChunkId());
+        assertThat(response.getKeywordCandidateCount()).isZero();
+        verify(authorizedRetrievalRepository, never()).searchWritableByKeywords(
+                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt());
     }
 
     @Test
@@ -234,7 +298,12 @@ class KnowledgeRetrievalServiceTest {
     }
 
     @Test
-    void rejectsClientSuppliedScopeOrFilterFieldsDuringRequestDeserialization() {
+    void acceptsKnownStrategyButRejectsClientSuppliedScopeOrFilterFieldsDuringDeserialization() throws Exception {
+        KnowledgeRetrievalTestRequest request = new ObjectMapper().readValue(
+                "{\"query\":\"退款状态\",\"topK\":3,\"strategy\":\"FUSION\"}",
+                KnowledgeRetrievalTestRequest.class);
+
+        assertThat(request.getStrategy()).isEqualTo(RetrievalStrategyEnum.FUSION);
         assertThatThrownBy(() -> new ObjectMapper().readValue(
                 "{\"query\":\"退款状态\",\"topK\":3,\"kbIds\":[\"550e8400-e29b-41d4-a716-446655440001\"]}",
                 KnowledgeRetrievalTestRequest.class))
@@ -242,8 +311,10 @@ class KnowledgeRetrievalServiceTest {
     }
 
     private KnowledgeRetrievalService service() {
+        RetrievalProperties retrievalProperties = new RetrievalProperties();
         return new KnowledgeRetrievalService(embeddingModel, authorizedRetrievalRepository, accessPolicy,
-                documentProcessingSnapshotFactory, new ObjectMapper());
+                documentProcessingSnapshotFactory, new ObjectMapper(), retrievalProperties,
+                new RetrievalKeywordExtractor());
     }
 
     private KnowledgeRetrievalTestRequest request(String query, int topK) {
