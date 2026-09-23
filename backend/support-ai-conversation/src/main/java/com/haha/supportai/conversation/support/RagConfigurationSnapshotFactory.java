@@ -7,6 +7,7 @@ import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.ai.config.RerankProperties;
 import com.haha.supportai.conversation.config.RagProperties;
 import com.haha.supportai.knowledge.config.RetrievalProperties;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class RagConfigurationSnapshotFactory {
     private final ObjectMapper objectMapper;
     private final RagProperties ragProperties;
     private final RetrievalProperties retrievalProperties;
+    private final RerankProperties rerankProperties;
 
     public String create() {
         String chatProvider = provider("chat");
@@ -41,13 +43,25 @@ public class RagConfigurationSnapshotFactory {
         Map<String, Object> embedding = modelSnapshot(embeddingProvider, "embedding");
         embedding.put("dimensions", requiredPositiveInteger("support.ai.dimensions"));
 
+        Map<String, Object> rerank = new LinkedHashMap<>();
+        rerank.put("enabled", rerankProperties.isEnabled());
+        rerank.put("provider", "dashscope");
+        rerank.put("model", rerankProperties.getModel());
+        rerank.put("candidateMultiplier", rerankProperties.getCandidateMultiplier());
+        rerank.put("maxCandidates", rerankProperties.getMaxCandidates());
+        rerank.put("maxEstimatedItemTokens", rerankProperties.getMaxEstimatedItemTokens());
+        rerank.put("maxEstimatedRequestTokens", rerankProperties.getMaxEstimatedRequestTokens());
+        rerank.put("timeoutMs", rerankProperties.getTimeout().toMillis());
+        rerank.put("instruction", rerankProperties.getInstruction());
+
         Map<String, Object> prompt = new LinkedHashMap<>();
         prompt.put("version", RagPromptFactory.PROMPT_VERSION);
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("schemaVersion", "f22-v1");
+        snapshot.put("schemaVersion", "f23-v1");
         snapshot.put("mode", "RAG");
         snapshot.put("retrieval", retrieval);
+        snapshot.put("rerank", rerank);
         snapshot.put("chat", chat);
         snapshot.put("embedding", embedding);
         snapshot.put("prompt", prompt);

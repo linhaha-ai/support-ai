@@ -315,8 +315,23 @@ export function summarizeResults(cases, results) {
   const knownUsage = results.filter((result) => Number.isFinite(result.usage?.totalTokens));
   const totalTokens = knownUsage.reduce((sum, result) => sum + result.usage.totalTokens, 0);
   const retrievalMs = numericValues(results, (result) => result.metrics?.retrievalMs);
+  const rerankMs = numericValues(results, (result) => result.metrics?.rerankMs);
   const generationMs = numericValues(results, (result) => result.metrics?.generationMs);
   const totalMs = numericValues(results, (result) => result.metrics?.totalMs);
+  const attemptedRerankStatuses = new Set(["APPLIED", "FALLBACK_UNAVAILABLE", "FALLBACK_INVALID_RESPONSE"]);
+  const attemptedRerankRuns = results.filter((result) =>
+    attemptedRerankStatuses.has(result.metrics?.rerankStatus));
+  const knownRerankUsage = attemptedRerankRuns.filter((result) =>
+    Number.isFinite(result.metrics?.rerankTotalTokens));
+  const rerankTotalTokens = knownRerankUsage.reduce(
+    (sum, result) => sum + result.metrics.rerankTotalTokens, 0);
+  const rerankStatuses = {};
+  for (const result of results) {
+    const status = result.metrics?.rerankStatus;
+    if (typeof status === "string" && status.length > 0) {
+      rerankStatuses[status] = (rerankStatuses[status] ?? 0) + 1;
+    }
+  }
   return {
     denominators: {
       allCases: cases.length,
@@ -347,8 +362,19 @@ export function summarizeResults(cases, results) {
       unknownRuns: results.length - knownUsage.length,
       totalTokens: knownUsage.length === 0 ? null : totalTokens,
     },
+    rerank: {
+      statuses: rerankStatuses,
+      attemptedRuns: attemptedRerankRuns.length,
+      noCallRuns: results.length - attemptedRerankRuns.length,
+      usageKnownRuns: knownRerankUsage.length,
+      usageUnknownRuns: attemptedRerankRuns.length - knownRerankUsage.length,
+      totalTokens: attemptedRerankRuns.length === 0
+        ? 0
+        : (knownRerankUsage.length === attemptedRerankRuns.length ? rerankTotalTokens : null),
+    },
     latencyMs: {
       retrieval: { known: retrievalMs.length, p50: percentile(retrievalMs, 0.5), p95: percentile(retrievalMs, 0.95) },
+      rerank: { known: rerankMs.length, p50: percentile(rerankMs, 0.5), p95: percentile(rerankMs, 0.95) },
       generation: { known: generationMs.length, p50: percentile(generationMs, 0.5), p95: percentile(generationMs, 0.95) },
       total: { known: totalMs.length, p50: percentile(totalMs, 0.5), p95: percentile(totalMs, 0.95) },
     },
@@ -370,6 +396,49 @@ function withoutRetrievalStrategy(configSnapshot) {
   const comparable = JSON.parse(JSON.stringify(configSnapshot));
   delete comparable.retrieval.strategy;
   return comparable;
+}
+
+function withoutRerankEnabled(configSnapshot) {
+  const comparable = JSON.parse(JSON.stringify(configSnapshot));
+  delete comparable.rerank.enabled;
+  return comparable;
+}
+
+function validateRerankMetrics(run, expectedStatus) {
+  const caseById = new Map(run.cases.map((testCase) => [testCase.id, testCase]));
+  const validStatuses = new Set([
+    "NOT_REACHED",
+    "DISABLED",
+    "SKIPPED_NO_CANDIDATES",
+    "SKIPPED_INSUFFICIENT_CANDIDATES",
+    "SKIPPED_INPUT_LIMIT",
+    "APPLIED",
+    "FALLBACK_UNAVAILABLE",
+    "FALLBACK_INVALID_RESPONSE",
+  ]);
+  for (const result of run.results) {
+    const testCase = caseById.get(result.caseId);
+    if (testCase?.executionMode !== "RAG" || result.status !== "COMPLETED") {
+      continue;
+    }
+    ensure(validStatuses.has(result.metrics?.rerankStatus),
+      `${result.caseId} 缺少有效的重排序状态`);
+    ensure(Number.isInteger(result.metrics?.rerankCandidateCount)
+        && result.metrics.rerankCandidateCount >= 0,
+      `${result.caseId} 缺少有效的重排序候选数`);
+    ensure(Number.isFinite(result.metrics?.rerankMs) && result.metrics.rerankMs >= 0,
+      `${result.caseId} 缺少有效的重排序耗时`);
+    ensure(result.metrics.rerankTotalTokens == null
+        || (Number.isInteger(result.metrics.rerankTotalTokens) && result.metrics.rerankTotalTokens >= 0),
+      `${result.caseId} 的重排序 Token 用量无效`);
+    if (expectedStatus === "DISABLED") {
+      ensure(result.metrics.rerankStatus === "DISABLED",
+        `${result.caseId} 的关闭组仍执行了重排序`);
+    } else {
+      ensure(!["NOT_REACHED", "DISABLED"].includes(result.metrics.rerankStatus),
+        `${result.caseId} 的开启组未进入重排序阶段`);
+    }
+  }
 }
 
 function retrievalHit(testCase, result) {
@@ -466,6 +535,63 @@ export function compareResults(cases, vectorResults, fusionResults) {
       retrieval: latencyComparison(vectorSummary.latencyMs.retrieval, fusionSummary.latencyMs.retrieval),
       generation: latencyComparison(vectorSummary.latencyMs.generation, fusionSummary.latencyMs.generation),
       total: latencyComparison(vectorSummary.latencyMs.total, fusionSummary.latencyMs.total),
+    },
+  };
+}
+
+function rerankMetricComparison(comparison) {
+  return {
+    disabled: comparison.vector,
+    enabled: comparison.fusion,
+    passedDelta: comparison.passedDelta,
+    totalDelta: comparison.totalDelta,
+  };
+}
+
+function rerankLatencyComparison(comparison) {
+  return {
+    disabled: comparison.vector,
+    enabled: comparison.fusion,
+    p50Delta: comparison.p50Delta,
+    p95Delta: comparison.p95Delta,
+  };
+}
+
+export function compareRerankResults(cases, disabledResults, enabledResults) {
+  const baseComparison = compareResults(cases, disabledResults, enabledResults);
+  const disabledSummary = summarizeResults(cases, disabledResults);
+  const enabledSummary = summarizeResults(cases, enabledResults);
+  return {
+    quality: Object.fromEntries(Object.entries(baseComparison.quality)
+      .map(([name, comparison]) => [name, rerankMetricComparison(comparison)])),
+    retrievalByCategory: Object.fromEntries(Object.entries(baseComparison.retrievalByCategory)
+      .map(([name, comparison]) => [name, rerankMetricComparison(comparison)])),
+    changes: baseComparison.changes,
+    usage: {
+      chat: {
+        disabled: disabledSummary.usage,
+        enabled: enabledSummary.usage,
+        totalTokensDelta: nullableDelta(disabledSummary.usage.totalTokens, enabledSummary.usage.totalTokens),
+      },
+      rerank: {
+        disabled: disabledSummary.rerank,
+        enabled: enabledSummary.rerank,
+        totalTokensDelta: nullableDelta(disabledSummary.rerank.totalTokens,
+          enabledSummary.rerank.totalTokens),
+      },
+    },
+    latencyMs: {
+      retrieval: rerankLatencyComparison(baseComparison.latencyMs.retrieval),
+      rerank: {
+        disabled: disabledSummary.latencyMs.rerank,
+        enabled: enabledSummary.latencyMs.rerank,
+        p50Delta: nullableDelta(disabledSummary.latencyMs.rerank.p50,
+          enabledSummary.latencyMs.rerank.p50),
+        p95Delta: nullableDelta(disabledSummary.latencyMs.rerank.p95,
+          enabledSummary.latencyMs.rerank.p95),
+      },
+      generation: rerankLatencyComparison(baseComparison.latencyMs.generation),
+      total: rerankLatencyComparison(baseComparison.latencyMs.total),
     },
   };
 }
@@ -582,6 +708,39 @@ export async function compareRuns(vectorRunFile, fusionRunFile) {
   };
 }
 
+export async function compareRerankRuns(disabledRunFile, enabledRunFile) {
+  const disabled = await loadValidatedRun(disabledRunFile);
+  const enabled = await loadValidatedRun(enabledRunFile);
+  ensure(disabled.metadata.split === "development" && enabled.metadata.split === "development",
+    "F23 重排序比较只能使用 development 分割");
+  ensure(disabled.metadata.datasetVersion === enabled.metadata.datasetVersion
+      && disabled.metadata.datasetSha256 === enabled.metadata.datasetSha256,
+    "两次运行必须使用同一开发集版本和 SHA-256");
+  ensure(disabled.metadata.gitCommit === enabled.metadata.gitCommit,
+    "两次运行必须使用同一 Git 提交");
+  ensure(disabled.metadata.environment === enabled.metadata.environment,
+    "两次运行必须使用同一环境说明");
+  ensure(disabled.metadata.configSnapshot.rerank?.enabled === false,
+    "第一份运行记录必须关闭重排序");
+  ensure(enabled.metadata.configSnapshot.rerank?.enabled === true,
+    "第二份运行记录必须开启重排序");
+  validateRerankMetrics(disabled, "DISABLED");
+  validateRerankMetrics(enabled, "ENABLED");
+  const comparableDisabledConfig = withoutRerankEnabled(disabled.metadata.configSnapshot);
+  const comparableEnabledConfig = withoutRerankEnabled(enabled.metadata.configSnapshot);
+  ensure(canonicalJson(comparableDisabledConfig) === canonicalJson(comparableEnabledConfig),
+    "两次运行除重排序开关外的检索、模型和提示词配置必须一致");
+  return {
+    datasetVersion: disabled.metadata.datasetVersion,
+    datasetSha256: disabled.metadata.datasetSha256,
+    gitCommit: disabled.metadata.gitCommit,
+    environment: disabled.metadata.environment,
+    disabledRun: disabledRunFile,
+    enabledRun: enabledRunFile,
+    comparison: compareRerankResults(disabled.cases, disabled.results, enabled.results),
+  };
+}
+
 async function main() {
   const [command, ...argumentsList] = process.argv.slice(2);
   if (command === "validate") {
@@ -606,8 +765,13 @@ async function main() {
     console.log(JSON.stringify(await compareRuns(argumentsList[0], argumentsList[1]), null, 2));
     return;
   }
+  if (command === "compare-rerank" && argumentsList.length === 2) {
+    console.log(JSON.stringify(await compareRerankRuns(argumentsList[0], argumentsList[1]), null, 2));
+    return;
+  }
   throw new Error("用法：node evaluation/scripts/f21-evaluation.mjs validate | summarize <run.json>"
-    + " | compare <vector-run.json> <fusion-run.json>");
+    + " | compare <vector-run.json> <fusion-run.json>"
+    + " | compare-rerank <disabled-run.json> <enabled-run.json>");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

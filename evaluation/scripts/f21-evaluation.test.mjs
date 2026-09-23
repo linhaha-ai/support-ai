@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { compareResults, summarizeResults, validateDataset } from "./f21-evaluation.mjs";
+import { compareRerankResults, compareResults, summarizeResults, validateDataset } from "./f21-evaluation.mjs";
 
 test("正式题集满足 60/40 分割、证据和分类约束", async () => {
   const result = await validateDataset();
@@ -108,4 +108,56 @@ test("同集策略比较同时报告召回收益、回退、耗时和用量差�
   assert.equal(comparison.retrievalByCategory.CHINESE_PARAPHRASE.passedDelta, -1);
   assert.equal(comparison.usage.totalTokensDelta, 10);
   assert.equal(comparison.latencyMs.retrieval.p95Delta, 10);
+});
+
+test("重排序同集比较区分模型用量、回退状态和阶段耗时", () => {
+  const cases = [{
+    id: "DEV-001",
+    executionMode: "RAG",
+    expectedOutcome: "ANSWER",
+    evidenceIds: ["E-1"],
+    categories: ["CROSS_DOCUMENT"],
+  }];
+  const baseResult = {
+    caseId: "DEV-001",
+    status: "COMPLETED",
+    noEvidence: false,
+    citedEvidenceIds: ["E-1"],
+    usage: { totalTokens: 20 },
+    humanReview: { citationCorrect: true, evidenceSufficient: true, notes: "人工核对" },
+  };
+  const disabledResults = [{
+    ...baseResult,
+    retrievedEvidenceIds: [],
+    metrics: {
+      retrievalMs: 10,
+      rerankStatus: "DISABLED",
+      rerankMs: 0,
+      rerankTotalTokens: null,
+      generationMs: 20,
+      totalMs: 30,
+    },
+  }];
+  const enabledResults = [{
+    ...baseResult,
+    retrievedEvidenceIds: ["E-1"],
+    metrics: {
+      retrievalMs: 18,
+      rerankStatus: "APPLIED",
+      rerankMs: 6,
+      rerankTotalTokens: 42,
+      generationMs: 21,
+      totalMs: 41,
+    },
+  }];
+
+  const comparison = compareRerankResults(cases, disabledResults, enabledResults);
+
+  assert.equal(comparison.quality.retrievalHit.passedDelta, 1);
+  assert.deepEqual(comparison.changes.retrievalGains, ["DEV-001"]);
+  assert.equal(comparison.usage.rerank.disabled.totalTokens, 0);
+  assert.equal(comparison.usage.rerank.enabled.totalTokens, 42);
+  assert.equal(comparison.usage.rerank.totalTokensDelta, 42);
+  assert.deepEqual(comparison.usage.rerank.enabled.statuses, { APPLIED: 1 });
+  assert.equal(comparison.latencyMs.rerank.p95Delta, 6);
 });

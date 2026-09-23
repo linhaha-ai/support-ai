@@ -17,6 +17,9 @@ import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalResult;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -88,8 +91,8 @@ class RagAnswerServiceTest {
 
     @Test
     void completesWithExplicitInsufficientInformationWithoutCallingModelWhenNoEvidenceExists() {
-        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, "未知问题", 6))
-                .willReturn(List.of());
+        given(knowledgeRetrievalService.retrieveReadableWithinSessionDetailed(USER_ID, SESSION_ID, "未知问题", 6))
+                .willReturn(retrievalResult(List.of(), RerankStatusEnum.SKIPPED_NO_CANDIDATES, 0, 0L, null));
 
         var result = ragAnswerService.generate(preparedRun("未知问题"));
 
@@ -97,6 +100,7 @@ class RagAnswerServiceTest {
         assertThat(result.getContent()).contains("资料不足");
         assertThat(result.getCitedSourceNumbers()).isEmpty();
         assertThat(result.getMetrics().getRetrievalMs()).isGreaterThanOrEqualTo(0);
+        assertThat(result.getMetrics().getRerankStatus()).isEqualTo(RerankStatusEnum.SKIPPED_NO_CANDIDATES);
         assertThat(result.getMetrics().getGenerationMs()).isNull();
         then(knowledgeRetrievalService).should(never())
                 .revalidateReadableWithinSession(eq(USER_ID), eq(SESSION_ID), anyList());
@@ -110,12 +114,29 @@ class RagAnswerServiceTest {
     }
 
     @Test
+    void recordsRerankAsNotReachedWhenBaseRetrievalFails() throws Exception {
+        given(knowledgeRetrievalService.retrieveReadableWithinSessionDetailed(
+                USER_ID, SESSION_ID, "如何处理？", 6))
+                .willThrow(new IllegalStateException("embedding unavailable"));
+        ArgumentCaptor<String> metricsCaptor = ArgumentCaptor.forClass(String.class);
+
+        assertThatThrownBy(() -> ragAnswerService.generate(preparedRun("如何处理？")))
+                .isInstanceOf(RagGenerationException.class);
+
+        then(persistenceService).should().fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), eq(""),
+                eq("RETRIEVAL_FAILED"), eq("授权资料检索失败"), isNull(), metricsCaptor.capture());
+        assertThat(new ObjectMapper().readTree(metricsCaptor.getValue()).path("rerankStatus").asText())
+                .isEqualTo("NOT_REACHED");
+        then(chatModelGateway).shouldHaveNoInteractions();
+    }
+
+    @Test
     void revalidatesEvidenceAndRegistersEveryModelInputBeforeCallingModel() {
         KnowledgeRetrievalEvidenceResponse first = evidence(1, "第一条资料");
         KnowledgeRetrievalEvidenceResponse second = evidence(2, "第二条资料");
         KnowledgeRetrievalEvidenceResponse revalidatedSecond = evidence(2, "第二条资料", 0D);
-        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, "如何排查？", 6))
-                .willReturn(List.of(first, second));
+        given(knowledgeRetrievalService.retrieveReadableWithinSessionDetailed(USER_ID, SESSION_ID, "如何排查？", 6))
+                .willReturn(retrievalResult(List.of(first, second), RerankStatusEnum.APPLIED, 2, 7L, 19));
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 List.of(first.getChunkId(), second.getChunkId())))
                 .willReturn(List.of(revalidatedSecond));
@@ -145,6 +166,10 @@ class RagAnswerServiceTest {
         });
         assertThat(result.getUsage().getTotalTokens()).isEqualTo(15);
         assertThat(result.getMetrics().getRetrievalMs()).isGreaterThanOrEqualTo(0);
+        assertThat(result.getMetrics().getRerankStatus()).isEqualTo(RerankStatusEnum.APPLIED);
+        assertThat(result.getMetrics().getRerankCandidateCount()).isEqualTo(2);
+        assertThat(result.getMetrics().getRerankMs()).isEqualTo(7L);
+        assertThat(result.getMetrics().getRerankTotalTokens()).isEqualTo(19);
         assertThat(result.getMetrics().getGenerationMs()).isGreaterThanOrEqualTo(0);
     }
 
@@ -296,11 +321,17 @@ class RagAnswerServiceTest {
     }
 
     private void arrangeEvidence(List<KnowledgeRetrievalEvidenceResponse> evidenceList) {
-        given(knowledgeRetrievalService.retrieveReadableWithinSession(USER_ID, SESSION_ID, "如何处理？", 6))
-                .willReturn(evidenceList);
+        given(knowledgeRetrievalService.retrieveReadableWithinSessionDetailed(USER_ID, SESSION_ID, "如何处理？", 6))
+                .willReturn(retrievalResult(evidenceList, RerankStatusEnum.DISABLED, 0, 0L, null));
         given(knowledgeRetrievalService.revalidateReadableWithinSession(USER_ID, SESSION_ID,
                 evidenceList.stream().map(KnowledgeRetrievalEvidenceResponse::getChunkId).toList()))
                 .willReturn(evidenceList);
+    }
+
+    private KnowledgeRetrievalResult retrievalResult(List<KnowledgeRetrievalEvidenceResponse> evidenceList,
+            RerankStatusEnum rerankStatus, int rerankCandidateCount, long rerankMs, Integer rerankTotalTokens) {
+        return new KnowledgeRetrievalResult(evidenceList, RetrievalStrategyEnum.VECTOR, evidenceList.size(), 0,
+                rerankStatus, rerankCandidateCount, rerankMs, rerankTotalTokens);
     }
 
     private void streamAnswer(String answer, ChatModelUsage usage) {

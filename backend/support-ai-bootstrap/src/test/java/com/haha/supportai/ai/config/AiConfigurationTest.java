@@ -76,6 +76,37 @@ class AiConfigurationTest {
                 .run(context -> assertThat(context.getStartupFailure()).hasMessageContaining("dashscope profile"));
     }
 
+    @Test
+    void rejectsEnabledRerankWithoutSecureEndpoint() {
+        runner.withPropertyValues(
+                        "support.ai.rerank.enabled=true",
+                        "support.ai.rerank.model=qwen3-rerank",
+                        "support.ai.rerank.endpoint=https://workspace.example/api/v1/services/rerank/text-rerank/text-rerank",
+                        "spring.ai.dashscope.api-key=test-key-not-a-credential")
+                .run(context -> assertThat(context.getStartupFailure())
+                        .hasMessageContaining("SUPPORT_AI_RERANK_ENDPOINT"));
+    }
+
+    @Test
+    void rejectsEnabledRerankWithoutCloudKey() {
+        runner.withPropertyValues(
+                        "support.ai.rerank.enabled=true",
+                        "support.ai.rerank.model=qwen3-rerank",
+                        "support.ai.rerank.endpoint=https://workspace.example/compatible-api/v1/reranks")
+                .run(context -> assertThat(context.getStartupFailure())
+                        .hasMessageContaining("SPRING_AI_DASHSCOPE_API_KEY"));
+    }
+
+    @Test
+    void acceptsEnabledRerankWithIndependentCloudConfiguration() {
+        runner.withPropertyValues(
+                        "support.ai.rerank.enabled=true",
+                        "support.ai.rerank.model=qwen3-rerank",
+                        "support.ai.rerank.endpoint=https://workspace.example/compatible-api/v1/reranks",
+                        "spring.ai.dashscope.api-key=test-key-not-a-credential")
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(ChatClient.class));
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration(exclude = {
             DataSourceAutoConfiguration.class,

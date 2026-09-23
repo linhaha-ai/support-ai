@@ -37,6 +37,7 @@ import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentQueryService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
 import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
@@ -458,7 +459,8 @@ class OpenApiDocumentationTest {
         configureAuthenticatedUser();
         when(knowledgeRetrievalService.testWritableKnowledgeBase(eq(knowledgeBaseId), any()))
                 .thenReturn(new KnowledgeRetrievalTestResponse(knowledgeBaseId, "退款状态", 3,
-                        RetrievalStrategyEnum.VECTOR, 0, 0, 12L, List.of()));
+                        RetrievalStrategyEnum.VECTOR, 0, 0, RerankStatusEnum.DISABLED,
+                        0, 0L, null, 12L, List.of()));
 
         AuthenticatedRequest authenticatedRequest = login();
         mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
@@ -472,6 +474,8 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$.data.strategy").value("VECTOR"))
                 .andExpect(jsonPath("$.data.vectorCandidateCount").value(0))
                 .andExpect(jsonPath("$.data.keywordCandidateCount").value(0))
+                .andExpect(jsonPath("$.data.rerankStatus").value("DISABLED"))
+                .andExpect(jsonPath("$.data.rerankCandidateCount").value(0))
                 .andExpect(jsonPath("$.data.matches").isArray());
     }
 

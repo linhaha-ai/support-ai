@@ -1,5 +1,6 @@
 package com.haha.supportai.ai.config;
 
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Set;
@@ -45,6 +46,7 @@ public class AiConfiguration {
                 throw new IllegalStateException(
                         "SPRING_AI_DASHSCOPE_API_KEY is required when a DashScope model is selected");
             }
+            validateRerankConfiguration(environment);
             positiveDuration(environment, "support.ai.connect-timeout", Duration.ofSeconds(10));
             positiveDuration(environment, "support.ai.read-timeout", Duration.ofSeconds(180));
         };
@@ -92,6 +94,38 @@ public class AiConfiguration {
         return HttpClient.newBuilder()
                 .connectTimeout(positiveDuration(environment, "support.ai.connect-timeout", Duration.ofSeconds(10)))
                 .build();
+    }
+
+    private static void validateRerankConfiguration(Environment environment) {
+        if (!environment.getProperty("support.ai.rerank.enabled", Boolean.class, false)) {
+            return;
+        }
+        String model = environment.getProperty("support.ai.rerank.model");
+        if (!RerankProperties.SUPPORTED_MODEL.equals(model)) {
+            throw new IllegalStateException("support.ai.rerank.model must be qwen3-rerank");
+        }
+        String endpoint = environment.getProperty("support.ai.rerank.endpoint");
+        if (!isSecureEndpoint(endpoint)) {
+            throw new IllegalStateException("SUPPORT_AI_RERANK_ENDPOINT must be a valid qwen3-rerank HTTPS URL");
+        }
+        if (!StringUtils.hasText(environment.getProperty("spring.ai.dashscope.api-key"))) {
+            throw new IllegalStateException("SPRING_AI_DASHSCOPE_API_KEY is required when rerank is enabled");
+        }
+        positiveDuration(environment, "support.ai.rerank.timeout", Duration.ofSeconds(5));
+    }
+
+    private static boolean isSecureEndpoint(String endpoint) {
+        if (!StringUtils.hasText(endpoint)) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(endpoint.trim());
+            return "https".equalsIgnoreCase(uri.getScheme()) && StringUtils.hasText(uri.getHost())
+                    && uri.getUserInfo() == null && uri.getQuery() == null && uri.getFragment() == null
+                    && "/compatible-api/v1/reranks".equals(uri.getPath());
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     private static Duration positiveDuration(Environment environment, String key, Duration defaultValue) {

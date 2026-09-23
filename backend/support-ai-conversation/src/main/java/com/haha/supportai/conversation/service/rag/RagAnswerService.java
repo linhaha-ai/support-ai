@@ -27,6 +27,8 @@ import com.haha.supportai.conversation.support.RagPromptFactory.RagPrompt;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalResult;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -76,7 +78,7 @@ public class RagAnswerService {
         long retrievalStartedNanos = System.nanoTime();
         try {
             evidenceList = retrieveAndRevalidate(preparedRun.getUserId(), preparedRun.getSessionId(),
-                    preparedRun.getQuestion());
+                    preparedRun.getQuestion(), context);
         } catch (RuntimeException exception) {
             context.retrievalMs = elapsedMillis(retrievalStartedNanos);
             throw failAndCreateException(preparedRun, context, RETRIEVAL_ERROR_CODE, RETRIEVAL_ERROR_DETAIL);
@@ -136,9 +138,14 @@ public class RagAnswerService {
     }
 
     private List<KnowledgeRetrievalEvidenceResponse> retrieveAndRevalidate(UUID userId, UUID sessionId,
-            String question) {
-        List<KnowledgeRetrievalEvidenceResponse> candidates = knowledgeRetrievalService
-                .retrieveReadableWithinSession(userId, sessionId, question, ragProperties.getTopK());
+            String question, GenerationContext context) {
+        KnowledgeRetrievalResult retrieval = knowledgeRetrievalService
+                .retrieveReadableWithinSessionDetailed(userId, sessionId, question, ragProperties.getTopK());
+        context.rerankStatus = retrieval.getRerankStatus();
+        context.rerankCandidateCount = retrieval.getRerankCandidateCount();
+        context.rerankMs = retrieval.getRerankDurationMs();
+        context.rerankTotalTokens = retrieval.getRerankTotalTokens();
+        List<KnowledgeRetrievalEvidenceResponse> candidates = retrieval.getMatches();
         if (candidates.isEmpty()) {
             return List.of();
         }
@@ -322,6 +329,7 @@ public class RagAnswerService {
 
     private RagMetrics metrics(GenerationContext context, int citedCount, boolean noEvidence) {
         return new RagMetrics(context.evidenceCount, citedCount, noEvidence, context.retrievalMs,
+                context.rerankStatus, context.rerankCandidateCount, context.rerankMs, context.rerankTotalTokens,
                 context.generationMs, context.elapsedMillis(), context.firstDeltaMs);
     }
 
@@ -365,6 +373,10 @@ public class RagAnswerService {
         private Long firstDeltaMs;
         private int evidenceCount;
         private long retrievalMs;
+        private RerankStatusEnum rerankStatus = RerankStatusEnum.NOT_REACHED;
+        private int rerankCandidateCount;
+        private long rerankMs;
+        private Integer rerankTotalTokens;
         private Long generationMs;
 
         private long elapsedMillis() {

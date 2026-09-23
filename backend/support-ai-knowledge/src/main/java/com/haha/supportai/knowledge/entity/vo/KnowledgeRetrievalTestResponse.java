@@ -3,6 +3,7 @@ package com.haha.supportai.knowledge.entity.vo;
 import java.util.List;
 import java.util.UUID;
 
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
 import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -30,6 +31,18 @@ public class KnowledgeRetrievalTestResponse {
 
     @Schema(description = "融合前的关键词候选数量", requiredMode = Schema.RequiredMode.REQUIRED)
     private final int keywordCandidateCount; // 关键词候选数量
+
+    @Schema(description = "重排序执行状态", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final RerankStatusEnum rerankStatus; // 重排序执行或回退状态
+
+    @Schema(description = "重排序阶段接收的候选数量；关闭或无候选时为 0", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int rerankCandidateCount; // 重排序阶段接收的候选数量
+
+    @Schema(description = "重排序尝试耗时，单位毫秒", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final long rerankDurationMs; // 重排序尝试耗时毫秒
+
+    @Schema(description = "重排序模型返回的 Token 总量；未调用或提供方未返回时为空", nullable = true)
+    private final Integer rerankTotalTokens; // 重排序模型 Token 总量
 
     @Schema(description = "服务端检索耗时，单位毫秒", requiredMode = Schema.RequiredMode.REQUIRED)
     private final long durationMs; // 检索耗时毫秒数

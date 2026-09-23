@@ -141,6 +141,17 @@ support:
       candidate-multiplier: 3
       rrf-k: 60
       max-keywords: 8
+    rerank:
+      # 未完成同一开发集真实对比前保持关闭；地址必须指向 qwen3-rerank 的兼容接口。
+      enabled: ${SUPPORT_AI_RERANK_ENABLED:false}
+      model: qwen3-rerank
+      endpoint: ${SUPPORT_AI_RERANK_ENDPOINT:}
+      candidate-multiplier: 3
+      max-candidates: 50
+      max-estimated-item-tokens: 3500
+      max-estimated-request-tokens: 100000
+      timeout: 5s
+      instruction: Given a web search query, retrieve relevant passages that answer the query.
     chat:
       stream:
         pool-size: 4

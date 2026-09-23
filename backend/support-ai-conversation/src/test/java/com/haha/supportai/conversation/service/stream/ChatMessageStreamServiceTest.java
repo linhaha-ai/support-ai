@@ -17,6 +17,7 @@ import com.haha.supportai.conversation.service.rag.RagAnswerService;
 import com.haha.supportai.conversation.service.rag.RagRunPersistenceService;
 import com.haha.supportai.conversation.service.rag.RagStreamObserver;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -155,7 +156,8 @@ class ChatMessageStreamServiceTest {
 
     private RagAnswerResult completedResult() {
         return new RagAnswerResult(RUN_ID, ASSISTANT_MESSAGE_ID, "回答", List.of(), ChatRunStatusEnum.COMPLETED,
-                false, List.of(), null, new RagMetrics(1, 0, false, 3, 5L, 10, 2L));
+                false, List.of(), null, new RagMetrics(1, 0, false, 3,
+                        RerankStatusEnum.DISABLED, 0, 0L, null, 5L, 10, 2L));
     }
 
     private static class RecordingChatMessageStreamService extends ChatMessageStreamService {

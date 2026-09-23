@@ -11,6 +11,8 @@
 - `schemas/f21-run.schema.json`：真实运行记录契约。
 - `scripts/f21-evaluation.mjs`：结构校验和结果汇总工具。
 - `results/f21-baseline-status.json`：最近一次基础结果执行状态，不保存伪造分数。
+- `results/f22-comparison-status.json`：关键词融合对比执行状态，不保存伪造分数。
+- `results/f23-comparison-status.json`：重排序开启/关闭对比执行状态，不保存伪造分数。
 
 演示语料中的 `<!-- evidence:... -->` 是稳定证据标识。可回答题的每条 `expectedFacts` 必须逐字存在于其 `evidenceIds` 指向的证据段；资料不足、权限拒绝和契约题不得挂接虚构证据。
 
@@ -55,6 +57,14 @@ node evaluation/scripts/f21-evaluation.mjs compare <vector-run.json> <fusion-run
 
 比较结果会列出召回提升题、召回回退题、证据集合变化题，按错误码、接口名、中文改写等分类给出召回分子/分母，并给出整体质量、token 总量和 P50/P95 耗时差值。没有两份真实完整运行记录时不得据此切换默认策略。
 
+F23 比较继续使用同一 development 分割、Git 提交、环境、检索策略、TopK、模型和提示词，只允许 `rerank.enabled` 分别为 `false` 和 `true`。两组完成的 RAG 题必须包含重排序状态、候选数、耗时和可空 Token 用量：
+
+```powershell
+node evaluation/scripts/f21-evaluation.mjs compare-rerank <disabled-run.json> <enabled-run.json>
+```
+
+比较结果会同时报告整体与分类质量、收益/回退题、Chat 和重排序 Token、重排序状态分布以及检索总耗时、重排序子阶段、生成和总耗时差值。`rerankMs` 已包含在 `retrievalMs` 中，不能相加；确定未调用模型的题按 0 个重排序 Token 统计，已经尝试调用但提供方未返回用量时保留 `null`，不能推算为 0。
+
 ## 当前限制
 
-F18、F19 尚未实现，F20 也未完成全链路验收，当前无法完整构造同一文档的版本切换和删除竞争场景。2026-09-23 本机 Ollama 与后端均不可连接，因此尚未生成真实模型基础结果；详见 `results/f21-baseline-status.json` 和 F21 验收记录。
+F18、F19 尚未实现，F20 也未完成全链路验收，当前无法完整构造同一文档的版本切换和删除竞争场景。2026-09-23 本机 Ollama 与后端均不可连接，qwen3-rerank 工作空间地址与密钥也未配置，因此尚未生成真实模型基础结果或重排序比较结果；详见 `results/f21-baseline-status.json`、`results/f22-comparison-status.json`、`results/f23-comparison-status.json` 和对应验收记录。

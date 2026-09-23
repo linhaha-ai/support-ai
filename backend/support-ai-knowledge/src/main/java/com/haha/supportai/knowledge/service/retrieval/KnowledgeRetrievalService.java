@@ -1,5 +1,6 @@
 package com.haha.supportai.knowledge.service.retrieval;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -14,13 +15,21 @@ import java.util.function.IntFunction;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.ai.config.RerankProperties;
+import com.haha.supportai.ai.entity.dto.RerankDocumentScore;
+import com.haha.supportai.ai.entity.dto.RerankModelResult;
+import com.haha.supportai.ai.exception.RerankInputLimitException;
+import com.haha.supportai.ai.exception.RerankInvalidResponseException;
+import com.haha.supportai.ai.rerank.RerankModelAdapter;
 import com.haha.supportai.data.knowledge.entity.po.AuthorizedRetrievalHit;
 import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.knowledge.access.AccessPolicy;
 import com.haha.supportai.knowledge.config.RetrievalProperties;
 import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
 import com.haha.supportai.knowledge.document.support.DocumentProcessingSnapshotFactory;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalResult;
 import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalTestRequest;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
 import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
@@ -47,6 +56,8 @@ public class KnowledgeRetrievalService {
     private final ObjectMapper objectMapper;
     private final RetrievalProperties retrievalProperties;
     private final RetrievalKeywordExtractor retrievalKeywordExtractor;
+    private final RerankProperties rerankProperties;
+    private final RerankModelAdapter rerankModelAdapter;
 
     public KnowledgeRetrievalTestResponse testWritableKnowledgeBase(UUID knowledgeBaseId,
             KnowledgeRetrievalTestRequest request) {
@@ -70,8 +81,9 @@ public class KnowledgeRetrievalService {
                         userId, knowledgeBaseId, keywordPatterns, candidateTopK, embeddingProvider,
                         snapshot.getEmbeddingModel(), snapshot.getDimensions()));
         return new KnowledgeRetrievalTestResponse(knowledgeBaseId, query, topK, strategy,
-                result.vectorCandidateCount(), result.keywordCandidateCount(), elapsedMillis(startNanos),
-                result.hits().stream().map(this::toEvidence).toList());
+                result.vectorCandidateCount(), result.keywordCandidateCount(), result.rerankStatus(),
+                result.rerankCandidateCount(), result.rerankDurationMs(), result.rerankTotalTokens(),
+                elapsedMillis(startNanos), result.hits().stream().map(this::toEvidence).toList());
     }
 
     /**
@@ -91,6 +103,11 @@ public class KnowledgeRetrievalService {
      */
     public List<KnowledgeRetrievalEvidenceResponse> retrieveReadableWithinSession(UUID userId, UUID sessionId,
             String query, int topK) {
+        return retrieveReadableWithinSessionDetailed(userId, sessionId, query, topK).getMatches();
+    }
+
+    public KnowledgeRetrievalResult retrieveReadableWithinSessionDetailed(UUID userId, UUID sessionId,
+            String query, int topK) {
         if (userId == null || sessionId == null) {
             throw new KnowledgeRetrievalInvalidRequestException();
         }
@@ -106,10 +123,10 @@ public class KnowledgeRetrievalService {
                 (keywordPatterns, candidateTopK) -> authorizedRetrievalRepository
                         .searchReadableWithinSessionByKeywords(userId, sessionId, keywordPatterns, candidateTopK,
                                 embeddingProvider, snapshot.getEmbeddingModel(), snapshot.getDimensions()));
-        return result.hits()
-                .stream()
-                .map(this::toEvidence)
-                .toList();
+        return new KnowledgeRetrievalResult(result.hits().stream().map(this::toEvidence).toList(),
+                retrievalProperties.getStrategy(), result.vectorCandidateCount(), result.keywordCandidateCount(),
+                result.rerankStatus(), result.rerankCandidateCount(), result.rerankDurationMs(),
+                result.rerankTotalTokens());
     }
 
     /**
@@ -166,25 +183,117 @@ public class KnowledgeRetrievalService {
             throw new KnowledgeRetrievalUnavailableException(
                     new IllegalStateException("检索策略配置不能为空"));
         }
-        int candidateTopK = strategy == RetrievalStrategyEnum.FUSION ? candidateTopK(topK) : topK;
-        List<AuthorizedRetrievalHit> vectorHits = vectorSearch.apply(candidateTopK);
+        int rerankCandidateTopK = rerankCandidateTopK(topK);
+        int baseRouteCandidateTopK = strategy == RetrievalStrategyEnum.FUSION
+                ? fusionCandidateTopK(topK)
+                : topK;
+        int expandedRouteCandidateTopK = strategy == RetrievalStrategyEnum.FUSION
+                ? fusionCandidateTopK(rerankCandidateTopK)
+                : rerankCandidateTopK;
+        List<AuthorizedRetrievalHit> vectorHits = vectorSearch.apply(expandedRouteCandidateTopK);
+        List<AuthorizedRetrievalHit> rerankCandidates;
+        List<AuthorizedRetrievalHit> fallbackHits;
+        int keywordCandidateCount = 0;
         if (strategy == RetrievalStrategyEnum.VECTOR) {
-            return new RetrievalResult(vectorHits, vectorHits.size(), 0);
+            rerankCandidates = limit(vectorHits, rerankCandidateTopK);
+            fallbackHits = limit(vectorHits, topK);
+        } else {
+            List<String> keywordPatterns = retrievalKeywordExtractor.extractPatterns(query,
+                    retrievalProperties.getMaxKeywords());
+            if (keywordPatterns.isEmpty()) {
+                rerankCandidates = limit(vectorHits, rerankCandidateTopK);
+                fallbackHits = limit(vectorHits, topK);
+            } else {
+                List<AuthorizedRetrievalHit> keywordHits = keywordSearch.apply(
+                        keywordPatterns, expandedRouteCandidateTopK);
+                keywordCandidateCount = keywordHits.size();
+                rerankCandidates = fuseByReciprocalRank(vectorHits, keywordHits, rerankCandidateTopK);
+                fallbackHits = rerankProperties.isEnabled()
+                        ? fuseByReciprocalRank(limit(vectorHits, baseRouteCandidateTopK),
+                                limit(keywordHits, baseRouteCandidateTopK), topK)
+                        : rerankCandidates;
+            }
         }
-
-        List<String> keywordPatterns = retrievalKeywordExtractor.extractPatterns(query,
-                retrievalProperties.getMaxKeywords());
-        if (keywordPatterns.isEmpty()) {
-            return new RetrievalResult(limit(vectorHits, topK), vectorHits.size(), 0);
-        }
-        List<AuthorizedRetrievalHit> keywordHits = keywordSearch.apply(keywordPatterns, candidateTopK);
-        return new RetrievalResult(fuseByReciprocalRank(vectorHits, keywordHits, topK), vectorHits.size(),
-                keywordHits.size());
+        RerankOutcome rerankOutcome = applyRerank(query, rerankCandidates, fallbackHits, topK);
+        return new RetrievalResult(rerankOutcome.hits(), vectorHits.size(), keywordCandidateCount,
+                rerankOutcome.status(), rerankOutcome.candidateCount(), rerankOutcome.durationMs(),
+                rerankOutcome.totalTokens());
     }
 
-    private int candidateTopK(int topK) {
+    private int fusionCandidateTopK(int topK) {
         long multiplied = (long) topK * retrievalProperties.getCandidateMultiplier();
         return (int) Math.min(MAX_CANDIDATE_TOP_K, Math.max(topK, multiplied));
+    }
+
+    private int rerankCandidateTopK(int topK) {
+        if (!rerankProperties.isEnabled() || topK > rerankProperties.getMaxCandidates()) {
+            return topK;
+        }
+        long multiplied = (long) topK * rerankProperties.getCandidateMultiplier();
+        return (int) Math.min(rerankProperties.getMaxCandidates(), Math.max(topK, multiplied));
+    }
+
+    private RerankOutcome applyRerank(String query, List<AuthorizedRetrievalHit> candidates,
+            List<AuthorizedRetrievalHit> fallback, int topK) {
+        if (!rerankProperties.isEnabled()) {
+            return new RerankOutcome(fallback, RerankStatusEnum.DISABLED, 0, 0L, null);
+        }
+        if (candidates.isEmpty()) {
+            return new RerankOutcome(List.of(), RerankStatusEnum.SKIPPED_NO_CANDIDATES, 0, 0L, null);
+        }
+        if (candidates.size() == 1) {
+            return new RerankOutcome(fallback, RerankStatusEnum.SKIPPED_INSUFFICIENT_CANDIDATES,
+                    candidates.size(), 0L, null);
+        }
+        if (topK > rerankProperties.getMaxCandidates()
+                || candidates.size() > rerankProperties.getMaxCandidates()) {
+            return new RerankOutcome(fallback, RerankStatusEnum.SKIPPED_INPUT_LIMIT,
+                    candidates.size(), 0L, null);
+        }
+
+        long startedNanos = System.nanoTime();
+        try {
+            RerankModelResult modelResult = rerankModelAdapter.rerank(query,
+                    candidates.stream().map(AuthorizedRetrievalHit::getContent).toList(),
+                    Math.min(topK, candidates.size()));
+            List<AuthorizedRetrievalHit> reranked = mapRerankResult(candidates, modelResult,
+                    Math.min(topK, candidates.size()));
+            return new RerankOutcome(reranked, RerankStatusEnum.APPLIED, candidates.size(),
+                    elapsedMillis(startedNanos), modelResult.getTotalTokens());
+        } catch (RerankInputLimitException exception) {
+            return new RerankOutcome(fallback, RerankStatusEnum.SKIPPED_INPUT_LIMIT, candidates.size(),
+                    elapsedMillis(startedNanos), null);
+        } catch (RerankInvalidResponseException exception) {
+            return new RerankOutcome(fallback, RerankStatusEnum.FALLBACK_INVALID_RESPONSE, candidates.size(),
+                    elapsedMillis(startedNanos), null);
+        } catch (RuntimeException exception) {
+            return new RerankOutcome(fallback, RerankStatusEnum.FALLBACK_UNAVAILABLE, candidates.size(),
+                    elapsedMillis(startedNanos), null);
+        }
+    }
+
+    private List<AuthorizedRetrievalHit> mapRerankResult(List<AuthorizedRetrievalHit> candidates,
+            RerankModelResult modelResult, int expectedCount) {
+        if (modelResult == null || modelResult.getRankings() == null
+                || modelResult.getRankings().size() != expectedCount
+                || (modelResult.getTotalTokens() != null && modelResult.getTotalTokens() < 0)) {
+            throw new RerankInvalidResponseException();
+        }
+        boolean[] seen = new boolean[candidates.size()];
+        double previousScore = Double.POSITIVE_INFINITY;
+        List<AuthorizedRetrievalHit> reranked = new ArrayList<>(expectedCount);
+        for (RerankDocumentScore ranking : modelResult.getRankings()) {
+            if (ranking == null || ranking.getIndex() < 0 || ranking.getIndex() >= candidates.size()
+                    || seen[ranking.getIndex()] || !Double.isFinite(ranking.getScore())
+                    || ranking.getScore() < 0D || ranking.getScore() > 1D
+                    || ranking.getScore() > previousScore) {
+                throw new RerankInvalidResponseException();
+            }
+            seen[ranking.getIndex()] = true;
+            previousScore = ranking.getScore();
+            reranked.add(copyWithScore(candidates.get(ranking.getIndex()), ranking.getScore()));
+        }
+        return List.copyOf(reranked);
     }
 
     private List<AuthorizedRetrievalHit> fuseByReciprocalRank(List<AuthorizedRetrievalHit> vectorHits,
@@ -299,6 +408,11 @@ public class KnowledgeRetrievalService {
     }
 
     private record RetrievalResult(List<AuthorizedRetrievalHit> hits, int vectorCandidateCount,
-                                   int keywordCandidateCount) {
+                                   int keywordCandidateCount, RerankStatusEnum rerankStatus,
+                                   int rerankCandidateCount, long rerankDurationMs, Integer rerankTotalTokens) {
+    }
+
+    private record RerankOutcome(List<AuthorizedRetrievalHit> hits, RerankStatusEnum status,
+                                 int candidateCount, long durationMs, Integer totalTokens) {
     }
 }
