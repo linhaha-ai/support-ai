@@ -62,8 +62,8 @@ describe('运行概览', () => {
     expect(wrapper.text()).toContain('后端连接成功')
     expect(wrapper.text()).toContain('服务健康状态不代表模型已完成验收')
     expect(wrapper.text()).toContain('身份会话')
-    expect(wrapper.text()).toContain('当前阶段 · F13')
-    expect(wrapper.text()).toContain('流式问答')
+    expect(wrapper.text()).toContain('当前阶段 · F25')
+    expect(wrapper.text()).toContain('只读工单查询')
     expect(wrapper.get('.check-button').text()).toContain('重新检查')
     expect(wrapper.get('[role="status"]').attributes('aria-busy')).toBe('false')
   })
@@ -91,6 +91,19 @@ describe('运行概览', () => {
     expect(wrapper.get('#knowledge-heading').text()).toBe('知识库')
     expect(wrapper.text()).toContain('暂未获得知识库访问权限')
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/knowledge-bases', expect.objectContaining({ method: 'GET' }))
+  })
+
+  it('侧栏可进入工单查询页面', async () => {
+    fetchMock.mockResolvedValueOnce(response('UP'))
+    wrapper = mountDashboard()
+    await flushPromises()
+
+    await wrapper.findAll('.navigation-item')[3]!.trigger('click')
+
+    expect(wrapper.get('#ticket-heading').text()).toBe('工单查询')
+    expect(wrapper.get('.topbar').text()).toContain('工作空间/工单查询')
+    expect(wrapper.get('input[name="ticketNo"]')).toBeTruthy()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('HTTP 503 的 DOWN 响应显示未就绪', async () => {

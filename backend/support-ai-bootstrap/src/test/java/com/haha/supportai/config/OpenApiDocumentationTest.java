@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.haha.supportai.assistant.ticket.service.TicketQueryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
@@ -19,6 +20,7 @@ import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
+import com.haha.supportai.data.assistant.repository.TicketRepository;
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
@@ -169,6 +171,12 @@ class OpenApiDocumentationTest {
     @MockBean
     ChatMessageStreamService chatMessageStreamService;
 
+    @MockBean
+    TicketRepository ticketRepository;
+
+    @MockBean
+    TicketQueryService ticketQueryService;
+
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
         UUID userId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
@@ -263,6 +271,10 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$['paths']['/api/chunks/{chunkId}/source']['get']['operationId']")
                         .value("getDocumentChunkSource"))
                 .andExpect(jsonPath("$['paths']['/api/chunks/{chunkId}/source']['get']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/tickets/{ticketNo}']['get']['operationId']")
+                        .value("getTicketStatus"))
+                .andExpect(jsonPath("$['paths']['/api/tickets/{ticketNo}']['get']['security'][0]"
                         + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['operationId']")
                         .value("getIngestionJob"))
@@ -359,6 +371,8 @@ class OpenApiDocumentationTest {
                 "DocumentContentResponse");
         assertResponseDataSchema(apiDocs, "/api/chunks/{chunkId}/source", "get",
                 "DocumentSourceResponse");
+        assertResponseDataSchema(apiDocs, "/api/tickets/{ticketNo}", "get",
+                "TicketQueryResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
                 "IngestionJobStatusResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}/retry", "post",

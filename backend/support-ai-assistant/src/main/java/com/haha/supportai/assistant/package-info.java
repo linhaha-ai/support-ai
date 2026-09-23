@@ -1,2 +1,2 @@
-/** 预留工单与受控 Agent 能力，分别在 ticket 和 agent 子包中实现。 */
+/** 提供只读工单查询，并为后续受控 Agent 能力保留边界。 */
 package com.haha.supportai.assistant;

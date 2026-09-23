@@ -2,6 +2,7 @@ package com.haha.supportai.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.assistant.ticket.service.TicketQueryService;
 import com.haha.supportai.conversation.service.run.ChatRunService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
 import com.haha.supportai.conversation.service.stream.ChatMessageStreamService;
@@ -10,6 +11,7 @@ import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
+import com.haha.supportai.data.assistant.repository.TicketRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
@@ -133,6 +135,12 @@ class HealthSecurityTest {
     @MockBean
     ChatMessageStreamService chatMessageStreamService;
 
+    @MockBean
+    TicketRepository ticketRepository;
+
+    @MockBean
+    TicketQueryService ticketQueryService;
+
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
@@ -145,6 +153,7 @@ class HealthSecurityTest {
                 "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
                 "/api/chat/sessions", "/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests",
                 "/api/chunks/550e8400-e29b-41d4-a716-446655440000/source",
+                "/api/tickets/T10086",
                 "/" }) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
