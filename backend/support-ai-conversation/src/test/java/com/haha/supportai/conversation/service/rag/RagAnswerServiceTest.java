@@ -96,6 +96,8 @@ class RagAnswerServiceTest {
         assertThat(result.isNoEvidence()).isTrue();
         assertThat(result.getContent()).contains("资料不足");
         assertThat(result.getCitedSourceNumbers()).isEmpty();
+        assertThat(result.getMetrics().getRetrievalMs()).isGreaterThanOrEqualTo(0);
+        assertThat(result.getMetrics().getGenerationMs()).isNull();
         then(knowledgeRetrievalService).should(never())
                 .revalidateReadableWithinSession(eq(USER_ID), eq(SESSION_ID), anyList());
         then(chatModelGateway).shouldHaveNoInteractions();
@@ -142,6 +144,8 @@ class RagAnswerServiceTest {
             assertThat(source.getChunkId()).isEqualTo(second.getChunkId());
         });
         assertThat(result.getUsage().getTotalTokens()).isEqualTo(15);
+        assertThat(result.getMetrics().getRetrievalMs()).isGreaterThanOrEqualTo(0);
+        assertThat(result.getMetrics().getGenerationMs()).isGreaterThanOrEqualTo(0);
     }
 
     @Test

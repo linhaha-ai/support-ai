@@ -15,6 +15,7 @@ import com.haha.supportai.conversation.exception.ChatRunInProgressException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
 import com.haha.supportai.conversation.exception.ChatSessionScopeRevokedException;
+import com.haha.supportai.conversation.support.RagConfigurationSnapshotFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
 import com.haha.supportai.data.conversation.entity.po.ChatSession;
@@ -38,7 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatRunService {
 
     private static final String REQUEST_HASH_VERSION = "f10-v1";
-    private static final String CONFIG_SNAPSHOT = "{\"mode\":\"RAG\"}";
     private static final String EMPTY_JSON = "{}";
     private static final int MAX_QUESTION_LENGTH = 2000;
 
@@ -48,6 +48,7 @@ public class ChatRunService {
     private final ChatMessageRepository chatMessageRepository;
     private final ActiveAccountGuard activeAccountGuard;
     private final KnowledgeScopeAccess knowledgeScopeAccess;
+    private final RagConfigurationSnapshotFactory configurationSnapshotFactory;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PreparedChatRunResponse prepare(UUID sessionId, SubmitMessageCommand command) {
@@ -80,7 +81,8 @@ public class ChatRunService {
         }
         OffsetDateTime now = OffsetDateTime.now();
         ChatRun run = new ChatRun(UUID.randomUUID(), sessionId, validatedMessage.clientRequestId(),
-                validatedMessage.requestHash(), ChatRunStatusEnum.QUEUED, CONFIG_SNAPSHOT, null, EMPTY_JSON, null,
+                validatedMessage.requestHash(), ChatRunStatusEnum.QUEUED, configurationSnapshotFactory.create(),
+                null, EMPTY_JSON, null,
                 null, null, null, null, now, now);
         chatRunRepository.insert(run);
 

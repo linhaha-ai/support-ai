@@ -2,6 +2,8 @@
 
 用途：F12 开发集的首批 20 个功能场景。此文件用于功能调试，后续 F21 建立正式评测集时归入 60 道开发题，不进入 40 道固定测试题。
 
+> F21 已将本页 F12-Q01 至 F12-Q20 及其同事实改写登记到 [`datasets/f21-development.jsonl`](datasets/f21-development.jsonl)。本页保留为便于阅读的原始清单，正式字段、证据绑定和分割规则以 F21 JSONL 与 [`f21-manifest.json`](f21-manifest.json) 为准。
+
 ## 使用规则
 
 - 资料内问题必须先绑定实际已上传文档、READY 版本和预期片段，不能根据题面臆造标准答案。

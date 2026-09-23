@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://support-ai.local/schemas/f21-run.schema.json",
+  "title": "SupportAI F21 evaluation run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "results"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "datasetVersion",
+        "split",
+        "datasetSha256",
+        "gitCommit",
+        "startedAt",
+        "completedAt",
+        "environment",
+        "configSnapshot",
+        "reviewer"
+      ],
+      "properties": {
+        "datasetVersion": { "type": "string", "minLength": 1 },
+        "split": { "enum": ["development", "test"] },
+        "datasetSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "environment": { "type": "string", "minLength": 1 },
+        "configSnapshot": { "type": "object" },
+        "reviewer": { "type": "string", "minLength": 1 }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "caseId",
+          "status",
+          "answer",
+          "noEvidence",
+          "retrievedEvidenceIds",
+          "citedEvidenceIds",
+          "usage",
+          "metrics",
+          "humanReview"
+        ],
+        "properties": {
+          "caseId": { "type": "string", "pattern": "^(DEV|TEST)-[0-9]{3}$" },
+          "status": { "enum": ["COMPLETED", "DENIED", "FAILED", "CONTRACT_PASSED", "CONTRACT_FAILED"] },
+          "answer": { "type": ["string", "null"] },
+          "noEvidence": { "type": ["boolean", "null"] },
+          "retrievedEvidenceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "citedEvidenceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "usage": { "type": ["object", "null"] },
+          "metrics": { "type": ["object", "null"] },
+          "humanReview": {
+            "type": "object",
+            "required": ["citationCorrect", "evidenceSufficient", "notes"],
+            "properties": {
+              "citationCorrect": { "type": ["boolean", "null"] },
+              "evidenceSufficient": { "type": ["boolean", "null"] },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

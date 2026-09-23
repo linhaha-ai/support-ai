@@ -1,0 +1,25 @@
+{
+  "datasetVersion": "f21-2026-09-23-v1",
+  "recordedAt": "2026-09-23T13:25:00+08:00",
+  "status": "NOT_RUN",
+  "executedCaseCount": 0,
+  "validatedArtifacts": {
+    "totalCases": 100,
+    "developmentCases": 60,
+    "testCases": 40,
+    "evidenceSections": 66,
+    "developmentSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+    "fixedTestSha256": "b367d40354c66f69e59a64c4e52cf7d43b16e72c66bc5af976b3b0e8ea372239"
+  },
+  "runtimeProbe": {
+    "ollama": "UNREACHABLE",
+    "backend": "UNREACHABLE"
+  },
+  "blockers": [
+    "F18 和 F19 尚未实现，无法完成版本变化与删除竞争场景准备",
+    "F20 尚未完成前置与真实场景验收",
+    "本机 Ollama 与后端在记录时均不可连接",
+    "尚未上传并绑定演示语料的实际 documentId、versionId 和 chunkId"
+  ],
+  "interpretation": "该文件只证明题集和证据结构可重复校验，不代表当前 RAG 已取得任何质量分数。"
+}

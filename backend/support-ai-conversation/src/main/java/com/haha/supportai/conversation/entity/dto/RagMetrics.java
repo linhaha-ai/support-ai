@@ -18,6 +18,12 @@ public class RagMetrics {
     @Schema(description = "是否走资料不足分支", requiredMode = Schema.RequiredMode.REQUIRED)
     private final boolean noEvidence; // 是否走资料不足分支
 
+    @Schema(description = "授权检索与证据复核耗时毫秒", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final long retrievalMs; // 授权检索与证据复核耗时毫秒
+
+    @Schema(description = "模型流式生成耗时毫秒；未调用模型时为空", nullable = true)
+    private final Long generationMs; // 模型流式生成耗时毫秒，未调用模型时为空
+
     @Schema(description = "从开始执行到终态提交前的总耗时毫秒", requiredMode = Schema.RequiredMode.REQUIRED)
     private final long totalMs; // 从开始执行到终态提交前的总耗时毫秒
 

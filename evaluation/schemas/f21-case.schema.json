@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://support-ai.local/schemas/f21-case.schema.json",
+  "title": "SupportAI F21 evaluation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "split",
+    "canonicalFactId",
+    "question",
+    "expectedOutcome",
+    "executionMode",
+    "categories",
+    "expectedFacts",
+    "evidenceIds"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^(DEV|TEST)-[0-9]{3}$" },
+    "split": { "enum": ["development", "test"] },
+    "origin": { "type": "string", "minLength": 1 },
+    "variantOf": { "type": "string", "pattern": "^DEV-[0-9]{3}$" },
+    "canonicalFactId": { "type": "string", "pattern": "^[a-z0-9.-]+$" },
+    "question": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "expectedOutcome": { "enum": ["ANSWER", "INSUFFICIENT", "DENIED", "CONTRACT"] },
+    "executionMode": { "enum": ["RAG", "CONTRACT_TEST"] },
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ERROR_CODE",
+          "API_NAME",
+          "CHINESE_PARAPHRASE",
+          "CROSS_DOCUMENT",
+          "INSUFFICIENT",
+          "PERMISSION",
+          "VERSION_CHANGE"
+        ]
+      }
+    },
+    "expectedFacts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidenceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Z0-9-]+$" }
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "expectedAssertions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scenario": { "type": "object" }
+  }
+}

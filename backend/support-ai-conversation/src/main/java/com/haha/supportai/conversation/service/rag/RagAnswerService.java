@@ -73,12 +73,15 @@ public class RagAnswerService {
         notifyStarted(safeObserver);
 
         List<KnowledgeRetrievalEvidenceResponse> evidenceList;
+        long retrievalStartedNanos = System.nanoTime();
         try {
             evidenceList = retrieveAndRevalidate(preparedRun.getUserId(), preparedRun.getSessionId(),
                     preparedRun.getQuestion());
         } catch (RuntimeException exception) {
+            context.retrievalMs = elapsedMillis(retrievalStartedNanos);
             throw failAndCreateException(preparedRun, context, RETRIEVAL_ERROR_CODE, RETRIEVAL_ERROR_DETAIL);
         }
+        context.retrievalMs = elapsedMillis(retrievalStartedNanos);
 
         if (evidenceList.isEmpty()) {
             return completeWithoutEvidence(preparedRun, safeObserver, context);
@@ -99,14 +102,18 @@ public class RagAnswerService {
         } catch (RuntimeException exception) {
             throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
         }
+        long generationStartedNanos = System.nanoTime();
         try {
             chatModelGateway.stream(prompt.systemPrompt(), prompt.userPrompt(),
                     chunk -> acceptChunk(preparedRun, safeObserver, context, chunk));
         } catch (RagPersistenceException exception) {
+            context.generationMs = elapsedMillis(generationStartedNanos);
             throw failAndCreateException(preparedRun, context, PERSISTENCE_ERROR_CODE, PERSISTENCE_ERROR_DETAIL);
         } catch (RuntimeException exception) {
+            context.generationMs = elapsedMillis(generationStartedNanos);
             throw failAndCreateException(preparedRun, context, MODEL_ERROR_CODE, MODEL_ERROR_DETAIL);
         }
+        context.generationMs = elapsedMillis(generationStartedNanos);
         String answer = context.content.toString();
         if (answer == null || answer.isBlank()) {
             throw failAndCreateException(preparedRun, context, EMPTY_MODEL_ERROR_CODE, EMPTY_MODEL_ERROR_DETAIL);
@@ -314,8 +321,12 @@ public class RagAnswerService {
     }
 
     private RagMetrics metrics(GenerationContext context, int citedCount, boolean noEvidence) {
-        return new RagMetrics(context.evidenceCount, citedCount, noEvidence, context.elapsedMillis(),
-                context.firstDeltaMs);
+        return new RagMetrics(context.evidenceCount, citedCount, noEvidence, context.retrievalMs,
+                context.generationMs, context.elapsedMillis(), context.firstDeltaMs);
+    }
+
+    private long elapsedMillis(long startedNanos) {
+        return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
     }
 
     private RagGenerationException failAndCreateException(PreparedChatRunResponse preparedRun,
@@ -353,6 +364,8 @@ public class RagAnswerService {
         private ChatModelUsage usage;
         private Long firstDeltaMs;
         private int evidenceCount;
+        private long retrievalMs;
+        private Long generationMs;
 
         private long elapsedMillis() {
             return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);

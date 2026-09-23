@@ -155,7 +155,7 @@ class ChatMessageStreamServiceTest {
 
     private RagAnswerResult completedResult() {
         return new RagAnswerResult(RUN_ID, ASSISTANT_MESSAGE_ID, "回答", List.of(), ChatRunStatusEnum.COMPLETED,
-                false, List.of(), null, new RagMetrics(1, 0, false, 10, 2L));
+                false, List.of(), null, new RagMetrics(1, 0, false, 3, 5L, 10, 2L));
     }
 
     private static class RecordingChatMessageStreamService extends ChatMessageStreamService {

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "datasetVersion": "f21-2026-09-23-v1",
+  "development": {
+    "file": "datasets/f21-development.jsonl",
+    "expectedCount": 60
+  },
+  "test": {
+    "file": "datasets/f21-test.jsonl",
+    "expectedCount": 40,
+    "sha256": "b367d40354c66f69e59a64c4e52cf7d43b16e72c66bc5af976b3b0e8ea372239"
+  },
+  "categoryMinimums": {
+    "ERROR_CODE": 8,
+    "API_NAME": 15,
+    "CHINESE_PARAPHRASE": 20,
+    "CROSS_DOCUMENT": 15,
+    "INSUFFICIENT": 10,
+    "PERMISSION": 12,
+    "VERSION_CHANGE": 7
+  },
+  "corpus": [
+    {
+      "documentKey": "payment-callback-guide",
+      "version": "1.0",
+      "active": false,
+      "file": "../data/demo/knowledge/f21/payment-callback-guide-v1.md",
+      "sha256": "6d5893e7e28e347952da94d2e3057631e43f3ccbd25b3638fb951290ad8b353a"
+    },
+    {
+      "documentKey": "payment-callback-guide",
+      "version": "2.0",
+      "active": true,
+      "file": "../data/demo/knowledge/f21/payment-callback-guide-v2.md",
+      "sha256": "b1f18703524aae37daafd3b2498d7f6782032c37c0c8d1d8f92c71367733821f"
+    },
+    {
+      "documentKey": "order-api-reference",
+      "version": "1.0",
+      "active": true,
+      "file": "../data/demo/knowledge/f21/order-api-reference-v1.md",
+      "sha256": "778efc171509179eed1c2ff83cb09749e94aa1821613d0425f4c026ed26c65b6"
+    },
+    {
+      "documentKey": "refund-guide",
+      "version": "1.0",
+      "active": true,
+      "file": "../data/demo/knowledge/f21/refund-guide-v1.md",
+      "sha256": "8e1f914a077669a7a2ce24ed41fa6fddf365e3e2e78d0e9fb40bc148d270ccfb"
+    },
+    {
+      "documentKey": "reconciliation-guide",
+      "version": "1.0",
+      "active": true,
+      "file": "../data/demo/knowledge/f21/reconciliation-guide-v1.md",
+      "sha256": "c2f67c7f0a75f5457b6411cdf17ed5f8f6ee58f2ec7a8062bf6423839d6f38f6"
+    },
+    {
+      "documentKey": "merchant-console-guide",
+      "version": "1.0",
+      "active": true,
+      "file": "../data/demo/knowledge/f21/merchant-console-guide-v1.md",
+      "sha256": "8ccc192cfbe9a5c3ee0f883e3507b4efafa9af171777cde72e28be51a75d68d4"
+    },
+    {
+      "documentKey": "operations-sla-guide",
+      "version": "1.0",
+      "active": true,
+      "file": "../data/demo/knowledge/f21/operations-sla-guide-v1.md",
+      "sha256": "b647719bed45ee0575315e21aff7bf9e09abefeb0b8c792782a4338e2ddc1e7f"
+    }
+  ]
+}
