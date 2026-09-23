@@ -11,14 +11,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.haha.supportai.conversation.config.ChatStreamProperties;
+import com.haha.supportai.conversation.config.AssistantAgentProperties;
+import com.haha.supportai.conversation.entity.dto.AgentMetrics;
+import com.haha.supportai.conversation.entity.dto.AssistantAnswerResult;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
 import com.haha.supportai.conversation.entity.dto.RetrievalQueryDiagnostics;
 import com.haha.supportai.conversation.entity.vo.ChatStreamDoneResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamErrorResponse;
+import com.haha.supportai.conversation.entity.vo.ChatStreamToolResponse;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
 import com.haha.supportai.conversation.enums.RetrievalQueryRewriteStatusEnum;
+import com.haha.supportai.conversation.enums.AssistantToolEventStatusEnum;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatStreamCapacityException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
@@ -26,7 +31,10 @@ import com.haha.supportai.conversation.service.rag.RagAnswerService;
 import com.haha.supportai.conversation.service.rag.RagRunPersistenceService;
 import com.haha.supportai.conversation.service.rag.RagStreamObserver;
 import com.haha.supportai.conversation.service.run.ChatRunExecutionRegistry;
+import com.haha.supportai.conversation.service.assistant.AssistantAnswerService;
+import com.haha.supportai.conversation.service.assistant.AssistantStreamObserver;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
@@ -66,6 +74,9 @@ class ChatMessageStreamServiceTest {
     RagAnswerService ragAnswerService;
 
     @Mock
+    AssistantAnswerService assistantAnswerService;
+
+    @Mock
     RagRunPersistenceService persistenceService;
 
     @Mock
@@ -96,13 +107,15 @@ class ChatMessageStreamServiceTest {
         ChatStreamProperties properties = new ChatStreamProperties();
         properties.setTimeout(Duration.ofSeconds(30));
         properties.setExecutionTimeout(Duration.ofSeconds(20));
-        lenient().when(timeoutScheduler.schedule(any(Runnable.class), any(Instant.class))).thenReturn(timeoutFuture);
+        AssistantAgentProperties assistantProperties = new AssistantAgentProperties();
+        lenient().doReturn(timeoutFuture).when(timeoutScheduler)
+                .schedule(any(Runnable.class), any(Instant.class));
         eventNames = new ArrayList<>();
         eventPayloads = new ArrayList<>();
         executionRegistry = new ChatRunExecutionRegistry();
-        streamService = new RecordingChatMessageStreamService(ragAnswerService, persistenceService,
-                sessionKnowledgeBaseRepository, knowledgeScopeAccess, properties, taskExecutor, timeoutScheduler,
-                executionRegistry, eventNames, eventPayloads);
+        streamService = new RecordingChatMessageStreamService(ragAnswerService, assistantAnswerService,
+                persistenceService, sessionKnowledgeBaseRepository, knowledgeScopeAccess, properties,
+                assistantProperties, taskExecutor, timeoutScheduler, executionRegistry, eventNames, eventPayloads);
     }
 
     @Test
@@ -124,6 +137,35 @@ class ChatMessageStreamServiceTest {
         assertThat(eventNames).containsExactly("start", "delta", "sources", "done");
         verify(ragAnswerService).generateStreaming(eq(preparedRun), any(RagStreamObserver.class));
         verify(timeoutFuture).cancel(false);
+    }
+
+    @Test
+    void assistantRunEmitsWhitelistedToolProgressAndReusesTerminalProtocol() {
+        PreparedChatRunResponse preparedRun = new PreparedChatRunResponse(RUN_ID, SESSION_ID, USER_ID,
+                USER_MESSAGE_ID, ASSISTANT_MESSAGE_ID, "T10086 当前状态", ChatSessionModeEnum.ASSISTANT,
+                ChatRunStatusEnum.QUEUED, false);
+        ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        AgentMetrics metrics = new AgentMetrics(1, 1, false, 12, 8L, 2, 1, 300,
+                2, 3);
+        doAnswer(invocation -> {
+            AssistantStreamObserver observer = invocation.getArgument(1);
+            observer.onStarted();
+            observer.onTool("getTicketStatus", AssistantToolEventStatusEnum.STARTED);
+            observer.onTool("getTicketStatus", AssistantToolEventStatusEnum.SUCCEEDED);
+            observer.onDelta("工单处理中。[1]");
+            return new AssistantAnswerResult(RUN_ID, ASSISTANT_MESSAGE_ID, "工单处理中。[1]",
+                    ChatRunStatusEnum.COMPLETED, List.of(), metrics);
+        }).when(assistantAnswerService).generateStreaming(eq(preparedRun), any(AssistantStreamObserver.class));
+
+        streamService.open(preparedRun, "trace-agent");
+        verify(taskExecutor).execute(taskCaptor.capture());
+        taskCaptor.getValue().run();
+
+        assertThat(eventNames).containsExactly("start", "tool", "tool", "delta", "sources", "done");
+        assertThat(eventPayloads).filteredOn(ChatStreamToolResponse.class::isInstance)
+                .extracting(payload -> ((ChatStreamToolResponse) payload).getStatus())
+                .containsExactly(AssistantToolEventStatusEnum.STARTED, AssistantToolEventStatusEnum.SUCCEEDED);
+        verify(ragAnswerService, never()).generateStreaming(any(), any());
     }
 
     @Test
@@ -345,14 +387,17 @@ class ChatMessageStreamServiceTest {
         private final List<Object> eventPayloads;
 
         private RecordingChatMessageStreamService(RagAnswerService ragAnswerService,
+                AssistantAnswerService assistantAnswerService,
                 RagRunPersistenceService persistenceService,
                 ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository,
                 KnowledgeScopeAccess knowledgeScopeAccess, ChatStreamProperties properties,
+                AssistantAgentProperties assistantAgentProperties,
                 ThreadPoolTaskExecutor taskExecutor, ThreadPoolTaskScheduler timeoutScheduler,
                 ChatRunExecutionRegistry executionRegistry,
                 List<String> eventNames, List<Object> eventPayloads) {
-            super(ragAnswerService, persistenceService, sessionKnowledgeBaseRepository, knowledgeScopeAccess,
-                    properties, taskExecutor, timeoutScheduler, executionRegistry);
+            super(ragAnswerService, assistantAnswerService, persistenceService, sessionKnowledgeBaseRepository,
+                    knowledgeScopeAccess, properties, assistantAgentProperties, taskExecutor, timeoutScheduler,
+                    executionRegistry);
             this.eventNames = eventNames;
             this.eventPayloads = eventPayloads;
         }

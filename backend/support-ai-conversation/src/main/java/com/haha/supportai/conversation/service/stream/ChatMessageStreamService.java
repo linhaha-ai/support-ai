@@ -1,6 +1,7 @@
 package com.haha.supportai.conversation.service.stream;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.haha.supportai.conversation.config.ChatStreamConfiguration;
 import com.haha.supportai.conversation.config.ChatStreamProperties;
+import com.haha.supportai.conversation.config.AssistantAgentProperties;
+import com.haha.supportai.conversation.entity.dto.AssistantAnswerResult;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagAnswerResult;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
@@ -19,8 +22,11 @@ import com.haha.supportai.conversation.entity.vo.ChatStreamDoneResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamErrorResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamSourcesResponse;
 import com.haha.supportai.conversation.entity.vo.ChatStreamStartResponse;
+import com.haha.supportai.conversation.entity.vo.ChatStreamToolResponse;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.conversation.enums.AssistantToolEventStatusEnum;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
+import com.haha.supportai.conversation.exception.AssistantGenerationException;
 import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.exception.ChatStreamCapacityException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
@@ -28,10 +34,14 @@ import com.haha.supportai.conversation.service.rag.RagAnswerService;
 import com.haha.supportai.conversation.service.rag.RagRunPersistenceService;
 import com.haha.supportai.conversation.service.rag.RagStreamObserver;
 import com.haha.supportai.conversation.service.run.ChatRunExecutionRegistry;
+import com.haha.supportai.conversation.service.assistant.AssistantAnswerService;
+import com.haha.supportai.conversation.service.assistant.AssistantStreamObserver;
 import com.haha.supportai.conversation.support.ChatStreamEventNameConstant;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.http.MediaType;
@@ -53,28 +63,46 @@ public class ChatMessageStreamService {
     private static final String PUBLIC_TIMEOUT_MESSAGE = "回答生成超时，请稍后重试";
 
     private final RagAnswerService ragAnswerService;
+    private final AssistantAnswerService assistantAnswerService;
     private final RagRunPersistenceService persistenceService;
     private final ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository;
     private final KnowledgeScopeAccess knowledgeScopeAccess;
     private final ChatStreamProperties properties;
+    private final AssistantAgentProperties assistantAgentProperties;
     private final ThreadPoolTaskExecutor taskExecutor;
     private final ThreadPoolTaskScheduler timeoutScheduler;
     private final ChatRunExecutionRegistry executionRegistry;
 
-    public ChatMessageStreamService(RagAnswerService ragAnswerService, RagRunPersistenceService persistenceService,
+    @Autowired
+    public ChatMessageStreamService(RagAnswerService ragAnswerService, AssistantAnswerService assistantAnswerService,
+            RagRunPersistenceService persistenceService,
             ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository,
             KnowledgeScopeAccess knowledgeScopeAccess, ChatStreamProperties properties,
+            AssistantAgentProperties assistantAgentProperties,
             @Qualifier(ChatStreamConfiguration.TASK_EXECUTOR_BEAN_NAME) ThreadPoolTaskExecutor taskExecutor,
             @Qualifier(ChatStreamConfiguration.TIMEOUT_SCHEDULER_BEAN_NAME) ThreadPoolTaskScheduler timeoutScheduler,
             ChatRunExecutionRegistry executionRegistry) {
         this.ragAnswerService = ragAnswerService;
+        this.assistantAnswerService = assistantAnswerService;
         this.persistenceService = persistenceService;
         this.sessionKnowledgeBaseRepository = sessionKnowledgeBaseRepository;
         this.knowledgeScopeAccess = knowledgeScopeAccess;
         this.properties = properties;
+        this.assistantAgentProperties = assistantAgentProperties;
         this.taskExecutor = taskExecutor;
         this.timeoutScheduler = timeoutScheduler;
         this.executionRegistry = executionRegistry;
+    }
+
+    ChatMessageStreamService(RagAnswerService ragAnswerService, RagRunPersistenceService persistenceService,
+            ChatSessionKnowledgeBaseRepository sessionKnowledgeBaseRepository,
+            KnowledgeScopeAccess knowledgeScopeAccess, ChatStreamProperties properties,
+            ThreadPoolTaskExecutor taskExecutor, ThreadPoolTaskScheduler timeoutScheduler,
+            ChatRunExecutionRegistry executionRegistry) {
+        this(ragAnswerService, (preparedRun, observer) -> {
+            throw new IllegalStateException("测试未配置智能助手服务");
+        }, persistenceService, sessionKnowledgeBaseRepository, knowledgeScopeAccess, properties,
+                new AssistantAgentProperties(), taskExecutor, timeoutScheduler, executionRegistry);
     }
 
     public SseEmitter open(PreparedChatRunResponse preparedRun, String traceId) {
@@ -103,7 +131,7 @@ public class ChatMessageStreamService {
         try {
             timeoutTask = timeoutScheduler.schedule(
                     () -> timeoutRun(preparedRun, traceId, emitter, connected, started, terminalSent),
-                    Instant.now().plus(properties.getExecutionTimeout()));
+                    Instant.now().plus(executionTimeout(preparedRun)));
             if (timeoutTask == null) {
                 throw new IllegalStateException("问答超时任务创建失败");
             }
@@ -131,7 +159,7 @@ public class ChatMessageStreamService {
     private void generate(PreparedChatRunResponse preparedRun, String traceId, SseEmitter emitter,
             AtomicBoolean connected, AtomicBoolean started, AtomicBoolean terminalSent, FutureTask<Void> task,
             ScheduledFuture<?> timeoutTask) {
-        RagStreamObserver observer = new RagStreamObserver() {
+        RagStreamObserver ragObserver = new RagStreamObserver() {
             @Override
             public void onStarted() {
                 sendStart(preparedRun, emitter, connected, started);
@@ -142,27 +170,61 @@ public class ChatMessageStreamService {
                 send(emitter, connected, ChatStreamEventNameConstant.DELTA, new ChatStreamDeltaResponse(delta));
             }
         };
+        AssistantStreamObserver assistantObserver = new AssistantStreamObserver() {
+            @Override
+            public void onStarted() {
+                sendStart(preparedRun, emitter, connected, started);
+            }
+
+            @Override
+            public void onTool(String name, AssistantToolEventStatusEnum status) {
+                send(emitter, connected, ChatStreamEventNameConstant.TOOL, new ChatStreamToolResponse(name, status));
+            }
+
+            @Override
+            public void onDelta(String delta) {
+                send(emitter, connected, ChatStreamEventNameConstant.DELTA, new ChatStreamDeltaResponse(delta));
+            }
+        };
         try {
-            RagAnswerResult result = ragAnswerService.generateStreaming(preparedRun, observer);
-            if (terminalSent.compareAndSet(false, true)) {
-                List<RagSourceResponse> sources = sourcesForDelivery(preparedRun, result);
-                send(emitter, connected, ChatStreamEventNameConstant.SOURCES,
-                        new ChatStreamSourcesResponse(sources));
-                RagMetrics metrics = metricsForDelivery(preparedRun, result.getMetrics());
-                send(emitter, connected, ChatStreamEventNameConstant.DONE,
-                        new ChatStreamDoneResponse(result.getRunId(), result.getStatus(), result.getUsage(),
-                                metrics));
+            if (preparedRun.getMode() == ChatSessionModeEnum.ASSISTANT) {
+                AssistantAnswerResult result = assistantAnswerService.generateStreaming(preparedRun,
+                        assistantObserver);
+                if (terminalSent.compareAndSet(false, true)) {
+                    send(emitter, connected, ChatStreamEventNameConstant.SOURCES,
+                            new ChatStreamSourcesResponse(result.getSources()));
+                    send(emitter, connected, ChatStreamEventNameConstant.DONE,
+                            new ChatStreamDoneResponse(result.getRunId(), result.getStatus(), null,
+                                    result.getMetrics()));
+                }
+            } else {
+                RagAnswerResult result = ragAnswerService.generateStreaming(preparedRun, ragObserver);
+                if (terminalSent.compareAndSet(false, true)) {
+                    List<RagSourceResponse> sources = sourcesForDelivery(preparedRun, result);
+                    send(emitter, connected, ChatStreamEventNameConstant.SOURCES,
+                            new ChatStreamSourcesResponse(sources));
+                    RagMetrics metrics = metricsForDelivery(preparedRun, result.getMetrics());
+                    send(emitter, connected, ChatStreamEventNameConstant.DONE,
+                            new ChatStreamDoneResponse(result.getRunId(), result.getStatus(), result.getUsage(),
+                                    metrics));
+                }
             }
         } catch (ChatRunCancelledException exception) {
             cancelStream(preparedRun, traceId, emitter, connected, started, terminalSent);
+        } catch (AssistantGenerationException exception) {
+            sendTerminalError(emitter, connected, terminalSent,
+                    new ChatStreamErrorResponse(exception.getErrorCode(), exception.getMessage(),
+                            ChatRunStatusEnum.FAILED, normalizeTraceId(traceId)));
         } catch (RagGenerationException exception) {
             sendTerminalError(emitter, connected, terminalSent,
                     new ChatStreamErrorResponse(exception.getErrorCode(), exception.getMessage(),
                             ChatRunStatusEnum.FAILED, normalizeTraceId(traceId)));
         } catch (RuntimeException exception) {
             failUnexpectedly(preparedRun);
+            String errorCode = preparedRun.getMode() == ChatSessionModeEnum.ASSISTANT
+                    ? "ASSISTANT_GENERATION_FAILED" : INTERNAL_ERROR_CODE;
             sendTerminalError(emitter, connected, terminalSent,
-                    new ChatStreamErrorResponse(INTERNAL_ERROR_CODE, PUBLIC_ERROR_MESSAGE,
+                    new ChatStreamErrorResponse(errorCode, PUBLIC_ERROR_MESSAGE,
                             ChatRunStatusEnum.FAILED, normalizeTraceId(traceId)));
         } finally {
             cancelScheduledTimeout(timeoutTask);
@@ -280,9 +342,13 @@ public class ChatMessageStreamService {
     }
 
     private void failUnexpectedly(PreparedChatRunResponse preparedRun) {
+        String errorCode = preparedRun.getMode() == ChatSessionModeEnum.ASSISTANT
+                ? "ASSISTANT_GENERATION_FAILED" : INTERNAL_ERROR_CODE;
+        String errorDetail = preparedRun.getMode() == ChatSessionModeEnum.ASSISTANT
+                ? "智能助手生成流程异常" : INTERNAL_ERROR_DETAIL;
         try {
             persistenceService.fail(preparedRun.getRunId(), preparedRun.getAssistantMessageId(), null,
-                    INTERNAL_ERROR_CODE, INTERNAL_ERROR_DETAIL, null, null);
+                    errorCode, errorDetail, null, null);
         } catch (RuntimeException ignored) {
             // 仅返回稳定错误，禁止将底层异常内容写入事件或运行详情。
         }
@@ -291,9 +357,14 @@ public class ChatMessageStreamService {
     private void validate(PreparedChatRunResponse preparedRun) {
         if (preparedRun == null || preparedRun.isReused() || preparedRun.getStatus() != ChatRunStatusEnum.QUEUED
                 || preparedRun.getRunId() == null || preparedRun.getAssistantMessageId() == null
-                || preparedRun.getUserId() == null) {
+                || preparedRun.getUserId() == null || preparedRun.getMode() == null) {
             throw new ChatSessionInvalidRequestException();
         }
+    }
+
+    private Duration executionTimeout(PreparedChatRunResponse preparedRun) {
+        return preparedRun.getMode() == ChatSessionModeEnum.ASSISTANT
+                ? assistantAgentProperties.getExecutionTimeout() : properties.getExecutionTimeout();
     }
 
     private String normalizeTraceId(String traceId) {

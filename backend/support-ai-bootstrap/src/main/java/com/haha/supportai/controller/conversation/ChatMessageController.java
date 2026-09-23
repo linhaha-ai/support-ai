@@ -33,7 +33,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 @RequestMapping("/api/chat/sessions/{sessionId}/messages")
 @RequiredArgsConstructor
-@Tag(name = "会话消息", description = "提交个人 RAG 会话消息并逐步接收回答")
+@Tag(name = "会话消息", description = "提交个人 RAG 或智能助手会话消息并逐步接收回答")
 @SecurityRequirement(name = IdentityOpenApiConfiguration.SA_TOKEN_COOKIE)
 public class ChatMessageController {
 
@@ -45,7 +45,8 @@ public class ChatMessageController {
     @Operation(
             operationId = "submitChatMessage",
             summary = "提交消息并逐步接收回答",
-            description = "新请求返回 text/event-stream，并依次发送 start、delta、sources、done 或 error；"
+            description = "新请求返回 text/event-stream；RAG 会话依次发送 start、delta、sources、done 或 error，"
+                    + "智能助手会话可在回答前追加 tool 工具状态事件；"
                     + "命中相同幂等请求时返回 application/json，且不会再次调用模型",
             parameters = @Parameter(
                     name = CsrfTokenService.HEADER_NAME,

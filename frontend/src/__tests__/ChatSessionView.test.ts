@@ -74,6 +74,62 @@ describe('会话创建页面', () => {
     expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
   })
 
+  it('创建智能助手会话并展示工具状态和工单来源', async () => {
+    const encoder = new TextEncoder()
+    const stream = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          sseEvent('start', { runId, assistantMessageId })
+          + sseEvent('tool', { name: 'getTicketStatus', status: 'STARTED' })
+          + sseEvent('tool', { name: 'getTicketStatus', status: 'SUCCEEDED' })
+          + sseEvent('delta', { text: '工单仍在处理中。[1]' })
+          + sseEvent('sources', { sources: [{
+            number: 1,
+            type: 'TICKET',
+            documentId: null,
+            versionId: null,
+            chunkId: null,
+            title: '支付工单',
+            section: '张工',
+            available: true,
+            isCurrent: true,
+            previewPath: null,
+            ticketNo: 'T10086',
+            ticketStatus: 'IN_PROGRESS',
+            ticketUpdatedAt: '2026-09-23T12:00:00Z',
+          }] })
+          + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+        ))
+        controller.close()
+      },
+    }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+    fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+      .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok({
+        sessionId, title: '智能助手会话', mode: 'ASSISTANT', knowledgeBaseIds: [knowledgeBaseId],
+        createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
+      }, 201))
+      .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(stream)
+    const view = mountView()
+    await flushPromises()
+
+    await view.get('input[type="radio"][value="ASSISTANT"]').setValue(true)
+    await view.get('input[type="checkbox"]').setValue(true)
+    await view.get('.chat-session-form').trigger('submit')
+    await flushPromises()
+    await view.get('textarea').setValue('T10086 当前状态')
+    await view.get('.chat-composer').trigger('submit')
+    await flushPromises()
+
+    expect(fetchMock.mock.calls[3]?.[1]?.body)
+      .toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'ASSISTANT' }))
+    expect(view.text()).toContain('智能助手')
+    expect(view.text()).toContain('查询工单 · 已完成')
+    expect(view.text()).toContain('[1] T10086 · IN_PROGRESS')
+  })
+
   it('逐步追加回答，完成后展示可打开的授权来源', async () => {
     const stream = pendingStream()
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))

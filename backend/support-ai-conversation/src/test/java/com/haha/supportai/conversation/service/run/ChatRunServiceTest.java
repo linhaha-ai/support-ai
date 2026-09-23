@@ -86,7 +86,7 @@ class ChatRunServiceTest {
                 .willReturn(Optional.empty());
         given(chatRunRepository.findActiveBySessionId(SESSION_ID)).willReturn(Optional.empty());
         given(chatSessionRepository.advanceNextMessageSeq(SESSION_ID, 1)).willReturn(true);
-        given(configurationSnapshotFactory.create()).willReturn("""
+        given(configurationSnapshotFactory.create(ChatSessionModeEnum.RAG)).willReturn("""
                 {"mode":"RAG","chat":{"provider":"ollama","model":"qwen2.5:3b"},
                 "prompt":{"version":"rag-cited-v1"},"retrieval":{"strategy":"vector-cosine-exact","topK":6},
                 "index":{"store":"pgvector","metric":"cosine",

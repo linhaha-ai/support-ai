@@ -13,6 +13,7 @@ import com.haha.supportai.conversation.exception.ChatSessionActiveRunException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionKnowledgeBaseUnavailableException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
+import com.haha.supportai.conversation.support.StoredMessageSourceResponseFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
 import com.haha.supportai.data.conversation.entity.po.ChatSession;
@@ -78,6 +79,9 @@ class ChatSessionServiceTest {
     @Mock
     DocumentSourceQueryService documentSourceQueryService;
 
+    @Mock
+    StoredMessageSourceResponseFactory sourceResponseFactory;
+
     @InjectMocks
     ChatSessionService chatSessionService;
 
@@ -101,14 +105,28 @@ class ChatSessionServiceTest {
     }
 
     @Test
-    void rejectsEmptyDuplicateOrNonRagKnowledgeBaseScope() {
+    void rejectsEmptyDuplicateOrMissingModeKnowledgeBaseScope() {
         assertThatThrownBy(() -> chatSessionService.create(request(List.of(), ChatSessionModeEnum.RAG)))
                 .isInstanceOf(ChatSessionInvalidRequestException.class);
         assertThatThrownBy(() -> chatSessionService.create(request(List.of(FIRST_KB_ID, FIRST_KB_ID),
                 ChatSessionModeEnum.RAG))).isInstanceOf(ChatSessionInvalidRequestException.class);
-        assertThatThrownBy(() -> chatSessionService.create(request(List.of(FIRST_KB_ID), ChatSessionModeEnum.ASSISTANT)))
+        assertThatThrownBy(() -> chatSessionService.create(request(List.of(FIRST_KB_ID), null)))
                 .isInstanceOf(ChatSessionInvalidRequestException.class);
         then(knowledgeScopeAccess).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void createsAssistantSessionWithTheSameFixedReadableScope() {
+        CreateChatSessionRequest request = request(List.of(FIRST_KB_ID), ChatSessionModeEnum.ASSISTANT);
+        given(activeAccountGuard.currentUser()).willReturn(currentUser());
+        given(knowledgeScopeAccess.lockAllReadable(USER_ID, List.of(FIRST_KB_ID))).willReturn(true);
+
+        var response = chatSessionService.create(request);
+
+        ArgumentCaptor<ChatSession> sessionCaptor = ArgumentCaptor.forClass(ChatSession.class);
+        then(chatSessionRepository).should().insert(sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getMode()).isEqualTo(ChatSessionModeEnum.ASSISTANT);
+        assertThat(response.getMode()).isEqualTo(ChatSessionModeEnum.ASSISTANT);
     }
 
     @Test

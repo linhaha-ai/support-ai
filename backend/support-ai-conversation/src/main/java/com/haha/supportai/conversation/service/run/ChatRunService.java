@@ -22,6 +22,7 @@ import com.haha.supportai.data.conversation.entity.po.ChatSession;
 import com.haha.supportai.data.conversation.enums.ChatMessageRoleEnum;
 import com.haha.supportai.data.conversation.enums.ChatMessageStatusEnum;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
+import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
 import com.haha.supportai.data.conversation.repository.ChatMessageRepository;
 import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
@@ -69,7 +70,7 @@ public class ChatRunService {
             if (!existingRun.getRequestHash().equals(validatedMessage.requestHash())) {
                 throw new ChatIdempotencyConflictException();
             }
-            return responseForExistingRun(existingRun, currentUser.getId());
+            return responseForExistingRun(existingRun, currentUser.getId(), session.getMode());
         }
         if (chatRunRepository.findActiveBySessionId(sessionId).isPresent()) {
             throw new ChatRunInProgressException();
@@ -81,7 +82,8 @@ public class ChatRunService {
         }
         OffsetDateTime now = OffsetDateTime.now();
         ChatRun run = new ChatRun(UUID.randomUUID(), sessionId, validatedMessage.clientRequestId(),
-                validatedMessage.requestHash(), ChatRunStatusEnum.QUEUED, configurationSnapshotFactory.create(), null,
+                validatedMessage.requestHash(), ChatRunStatusEnum.QUEUED,
+                configurationSnapshotFactory.create(session.getMode()), null,
                 EMPTY_JSON, null, null, null, null, null, now, now);
         chatRunRepository.insert(run);
 
@@ -92,10 +94,10 @@ public class ChatRunService {
         chatMessageRepository.insert(userMessage);
         chatMessageRepository.insert(assistantMessage);
         return new PreparedChatRunResponse(run.getId(), sessionId, currentUser.getId(), userMessage.getId(),
-                assistantMessage.getId(), userMessage.getContent(), run.getStatus(), false);
+                assistantMessage.getId(), userMessage.getContent(), session.getMode(), run.getStatus(), false);
     }
 
-    private PreparedChatRunResponse responseForExistingRun(ChatRun run, UUID userId) {
+    private PreparedChatRunResponse responseForExistingRun(ChatRun run, UUID userId, ChatSessionModeEnum mode) {
         ChatMessage userMessage = null;
         ChatMessage assistantMessage = null;
         for (ChatMessage message : chatMessageRepository.listByRunId(run.getId())) {
@@ -109,7 +111,7 @@ public class ChatRunService {
             throw new IllegalStateException("会话运行缺少成对消息记录");
         }
         return new PreparedChatRunResponse(run.getId(), run.getSessionId(), userId, userMessage.getId(),
-                assistantMessage.getId(), userMessage.getContent(), run.getStatus(), true);
+                assistantMessage.getId(), userMessage.getContent(), mode, run.getStatus(), true);
     }
 
     private ValidatedMessage validateCommand(UUID sessionId, SubmitMessageCommand command) {

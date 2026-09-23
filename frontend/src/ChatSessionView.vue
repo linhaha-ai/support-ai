@@ -10,6 +10,8 @@ import {
   ElIcon,
   ElInput,
   ElPopconfirm,
+  ElRadioButton,
+  ElRadioGroup,
   ElSkeleton,
   ElTag,
   ElTooltip,
@@ -23,6 +25,8 @@ import 'element-plus/es/components/empty/style/css'
 import 'element-plus/es/components/icon/style/css'
 import 'element-plus/es/components/input/style/css'
 import 'element-plus/es/components/popconfirm/style/css'
+import 'element-plus/es/components/radio-button/style/css'
+import 'element-plus/es/components/radio-group/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import 'element-plus/es/components/tooltip/style/css'
@@ -55,6 +59,20 @@ function statusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
   if (status === 'STREAMING' || status === 'BACKGROUND') return 'info'
   if (status === 'CANCELLED') return 'warning'
   return 'danger'
+}
+
+function modeLabel(mode: string): string {
+  return mode === 'ASSISTANT' ? '智能助手' : 'RAG'
+}
+
+function toolLabel(name: string): string {
+  return name === 'getTicketStatus' ? '查询工单' : '检索知识'
+}
+
+function toolStatusLabel(status: string): string {
+  if (status === 'STARTED') return '执行中'
+  if (status === 'SUCCEEDED') return '已完成'
+  return '失败'
 }
 
 function beginRename() {
@@ -106,9 +124,9 @@ onMounted(() => {
             </ElPopconfirm>
           </template>
         </div>
-        <p>{{ sessions.createdSession ? '知识库范围已固定。' : '选择本次会话可使用的知识库。' }}</p>
+        <p>{{ sessions.createdSession ? '知识库范围与会话模式已固定。' : '选择会话模式和可使用的知识库。' }}</p>
       </div>
-      <ElTag type="info" effect="plain">RAG</ElTag>
+      <ElTag type="info" effect="plain">{{ modeLabel(sessions.createdSession?.mode || sessions.selectedMode) }}</ElTag>
     </div>
 
     <div class="chat-workspace">
@@ -138,6 +156,7 @@ onMounted(() => {
           >
             <strong>{{ session.title }}</strong>
             <span>{{ formatDate(session.updatedAt) }}</span>
+            <ElTag size="small" effect="plain">{{ modeLabel(session.mode) }}</ElTag>
             <ElTag v-if="!session.contentReadable" size="small" type="warning" effect="plain">已受限</ElTag>
           </button>
           <ElButton v-if="sessions.canLoadMoreSessions" text type="primary" :loading="sessions.sessionsLoadingMore" @click="sessions.loadSessions(true)">加载更多</ElButton>
@@ -238,18 +257,36 @@ onMounted(() => {
           <p v-else-if="message.status === 'STREAMING'" class="chat-message-pending">正在生成回答...</p>
           <p v-else-if="!sessions.historyContentReadable" class="chat-message-pending">内容已受限</p>
           <p v-if="message.errorMessage" class="chat-message-error">{{ message.errorMessage }}</p>
+          <div v-if="message.tools.length > 0" class="chat-tools" aria-label="工具执行过程">
+            <ElTag
+              v-for="(tool, index) in message.tools"
+              :key="`${tool.name}-${index}`"
+              size="small"
+              effect="plain"
+              :type="tool.status === 'FAILED' ? 'danger' : tool.status === 'SUCCEEDED' ? 'success' : 'info'"
+            >
+              {{ toolLabel(tool.name) }} · {{ toolStatusLabel(tool.status) }}
+            </ElTag>
+          </div>
           <div v-if="message.sources.length > 0" class="chat-sources" aria-label="回答来源">
-            <button
+            <template
               v-for="source in message.sources"
               :key="source.number"
-              class="chat-source-button"
-              :class="{ 'chat-source-button-unavailable': !source.available }"
-              type="button"
-              :disabled="!source.available"
-              @click="sessions.openSource(source)"
             >
-              [{{ source.number }}] {{ source.title }}{{ source.available ? '' : ' · 已失效' }}
-            </button>
+              <button
+                v-if="source.type === 'DOCUMENT'"
+                class="chat-source-button"
+                :class="{ 'chat-source-button-unavailable': !source.available }"
+                type="button"
+                :disabled="!source.available"
+                @click="sessions.openSource(source)"
+              >
+                [{{ source.number }}] {{ source.title }}{{ source.available ? '' : ' · 已失效' }}
+              </button>
+              <span v-else class="chat-ticket-source">
+                [{{ source.number }}] {{ source.ticketNo }} · {{ source.ticketStatus }}
+              </span>
+            </template>
           </div>
         </article>
         <ElButton v-if="sessions.canLoadMoreMessages" class="chat-history-more" text type="primary" :loading="sessions.historyLoadingMore" @click="sessions.loadMoreMessages">加载更多消息</ElButton>
@@ -312,6 +349,10 @@ onMounted(() => {
       <ElSkeleton v-if="sessions.loading" :rows="4" animated />
       <ElEmpty v-else-if="sessions.knowledgeBases.length === 0 && !sessions.loadError" description="暂无可用于会话的知识库" />
       <form v-else-if="sessions.knowledgeBases.length > 0" class="chat-session-form" @submit.prevent="sessions.create">
+        <ElRadioGroup v-model="sessions.selectedMode" class="chat-mode-selector" aria-label="会话模式">
+          <ElRadioButton value="RAG">知识问答</ElRadioButton>
+          <ElRadioButton value="ASSISTANT">智能助手</ElRadioButton>
+        </ElRadioGroup>
         <ElCheckboxGroup v-model="sessions.selectedKnowledgeBaseIds" class="chat-session-options" aria-label="会话知识库范围">
           <ElCheckbox v-for="knowledgeBase in sessions.knowledgeBases" :key="knowledgeBase.id" :value="knowledgeBase.id">
             <span class="chat-session-option-name">{{ knowledgeBase.name }}</span>

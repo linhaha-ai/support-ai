@@ -3,6 +3,7 @@ package com.haha.supportai.conversation.support;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.config.RagProperties;
+import com.haha.supportai.data.conversation.enums.ChatSessionModeEnum;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -53,6 +54,33 @@ class ChatRunConfigurationSnapshotFactoryTest {
         assertThat(snapshot.path("index").path("embedding").path("model").asText()).isEqualTo("bge-m3");
         assertThat(snapshot.path("index").path("embedding").path("dimensions").asInt()).isEqualTo(1024);
         assertThat(factory.create()).doesNotContain("must-not-be-snapshotted");
+    }
+
+    @Test
+    void snapshotsAssistantWhitelistAndExecutionBudgets() throws Exception {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.model.chat", "ollama")
+                .withProperty("spring.ai.model.embedding", "ollama")
+                .withProperty("spring.ai.ollama.chat.options.model", "qwen2.5:3b")
+                .withProperty("spring.ai.ollama.embedding.options.model", "bge-m3")
+                .withProperty("spring.ai.ollama.api-key", "must-not-be-snapshotted")
+                .withProperty("support.ai.dimensions", "1024");
+        ChatRunConfigurationSnapshotFactory factory = new ChatRunConfigurationSnapshotFactory(environment,
+                objectMapper, new RagProperties());
+
+        JsonNode snapshot = objectMapper.readTree(factory.create(ChatSessionModeEnum.ASSISTANT));
+
+        assertThat(snapshot.path("mode").asText()).isEqualTo("ASSISTANT");
+        assertThat(snapshot.has("prompt")).isFalse();
+        assertThat(snapshot.has("retrieval")).isFalse();
+        assertThat(snapshot.path("agent").path("framework").asText())
+                .isEqualTo("spring-ai-alibaba-react-agent");
+        assertThat(snapshot.path("agent").path("maxToolCalls").asInt()).isEqualTo(2);
+        assertThat(snapshot.path("agent").path("maxModelCalls").asInt()).isEqualTo(3);
+        assertThat(snapshot.path("agent").path("maxContextTokens").asInt()).isEqualTo(8000);
+        assertThat(objectMapper.convertValue(snapshot.path("agent").path("tools"), String[].class))
+                .containsExactly("searchKnowledge", "getTicketStatus");
+        assertThat(factory.create(ChatSessionModeEnum.ASSISTANT)).doesNotContain("must-not-be-snapshotted");
     }
 
     @Test

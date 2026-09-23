@@ -150,6 +150,15 @@ support:
         queue-capacity: 32
         timeout: 200s
         execution-timeout: 180s
+    assistant:
+      agent:
+        # ReactAgent 仅允许在这些预算内使用服务端白名单工具。
+        max-tool-calls: 2
+        max-model-calls: 3
+        max-context-tokens: 8000
+        recursion-limit: 16
+        tool-timeout: 20s
+        execution-timeout: 60s
     ingestion:
       worker:
         enabled: true

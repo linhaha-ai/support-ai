@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/chat/sessions")
 @RequiredArgsConstructor
-@Tag(name = "会话", description = "个人 RAG 会话及固定知识库范围")
+@Tag(name = "会话", description = "个人 RAG、智能助手会话及固定知识库范围")
 @SecurityRequirement(name = IdentityOpenApiConfiguration.SA_TOKEN_COOKIE)
 public class ChatSessionController {
 
@@ -46,8 +46,8 @@ public class ChatSessionController {
 
     @Operation(
             operationId = "createChatSession",
-            summary = "创建个人 RAG 会话",
-            description = "使用当前登录身份创建固定且非空的知识库范围；创建操作不会提交问题或调用模型",
+            summary = "创建个人问答会话",
+            description = "使用当前登录身份创建 RAG 或智能助手会话，并固定非空知识库范围；创建操作不会提交问题或调用模型",
             parameters = @Parameter(
                     name = CsrfTokenService.HEADER_NAME,
                     description = "从 GET /api/auth/csrf 获取的令牌",

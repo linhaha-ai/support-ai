@@ -3,6 +3,7 @@ package com.haha.supportai.conversation.entity.vo;
 import java.util.UUID;
 
 import com.haha.supportai.conversation.entity.dto.ChatModelUsage;
+import com.haha.supportai.conversation.entity.dto.AgentMetrics;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,6 +24,7 @@ public class ChatStreamDoneResponse {
     @Schema(description = "模型用量；提供方未返回时整体为空", nullable = true)
     private final ChatModelUsage usage; // 模型用量，提供方未返回时为空
 
-    @Schema(description = "检索与生成指标", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "RAG 或受控助手执行指标", requiredMode = Schema.RequiredMode.REQUIRED,
+            oneOf = { RagMetrics.class, AgentMetrics.class })
     private final RagMetrics metrics; // 检索与生成指标
 }

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.haha.supportai.conversation.entity.dto.ChatModelUsage;
+import com.haha.supportai.conversation.entity.dto.AgentMetrics;
 import com.haha.supportai.conversation.entity.dto.RagMetrics;
 import com.haha.supportai.data.conversation.enums.ChatMessageStatusEnum;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
@@ -47,7 +48,8 @@ public class ChatRunStatusResponse {
     @Schema(description = "模型用量；提供方未返回或运行未结束时为空", nullable = true)
     private final ChatModelUsage usage; // 已保存的模型用量
 
-    @Schema(description = "检索与生成指标；运行尚未形成指标时为空", nullable = true)
+    @Schema(description = "RAG 或受控助手执行指标；运行尚未形成指标时为空", nullable = true,
+            oneOf = { RagMetrics.class, AgentMetrics.class })
     private final RagMetrics metrics; // 已保存的 RAG 指标
 
     @Schema(description = "稳定且脱敏的终态错误码", nullable = true)

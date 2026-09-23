@@ -22,6 +22,7 @@ import com.haha.supportai.conversation.exception.ChatSessionActiveRunException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionKnowledgeBaseUnavailableException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
+import com.haha.supportai.conversation.support.StoredMessageSourceResponseFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatSession;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
@@ -60,6 +61,7 @@ public class ChatSessionService {
     private final ActiveAccountGuard activeAccountGuard;
     private final KnowledgeScopeAccess knowledgeScopeAccess;
     private final DocumentSourceQueryService documentSourceQueryService;
+    private final StoredMessageSourceResponseFactory sourceResponseFactory;
 
     @Transactional
     public ChatSessionResponse create(CreateChatSessionRequest request) {
@@ -71,7 +73,7 @@ public class ChatSessionService {
 
         OffsetDateTime now = OffsetDateTime.now();
         ChatSession session = new ChatSession(UUID.randomUUID(), currentUser.getId(), DEFAULT_TITLE,
-                ChatSessionModeEnum.RAG, 1, null, now, now);
+                request.getMode(), 1, null, now, now);
         chatSessionRepository.insert(session);
         chatSessionKnowledgeBaseRepository.insert(session.getId(), knowledgeBaseIds, now);
         return ChatSessionResponse.from(session, knowledgeBaseIds);
@@ -155,7 +157,7 @@ public class ChatSessionService {
     }
 
     private List<UUID> normalizeKnowledgeBaseIds(CreateChatSessionRequest request) {
-        if (request == null || request.getMode() != ChatSessionModeEnum.RAG || request.getKbIds() == null
+        if (request == null || request.getMode() == null || request.getKbIds() == null
                 || request.getKbIds().isEmpty() || request.getKbIds().stream().anyMatch(id -> id == null)) {
             throw new ChatSessionInvalidRequestException();
         }
@@ -197,13 +199,17 @@ public class ChatSessionService {
     private List<RagSourceResponse> readableSources(UUID userId, UUID assistantMessageId) {
         List<RagSourceResponse> sources = new ArrayList<>();
         for (MessageSource source : messageSourceRepository.listByMessageId(assistantMessageId)) {
-            if (!source.isCited() || source.getSourceType() != MessageSourceTypeEnum.DOCUMENT) {
+            if (!source.isCited()) {
                 continue;
             }
             try {
-                documentSourceQueryService.findAuthorizedSource(userId, source.getChunkId())
-                        .map(documentSource -> toSourceResponse(source.getCitationNo(), documentSource))
-                        .ifPresent(sources::add);
+                if (source.getSourceType() == MessageSourceTypeEnum.DOCUMENT) {
+                    documentSourceQueryService.findAuthorizedSource(userId, source.getChunkId())
+                            .map(documentSource -> toSourceResponse(source.getCitationNo(), documentSource))
+                            .ifPresent(sources::add);
+                } else if (sourceResponseFactory != null) {
+                    sourceResponseFactory.create(userId, source).ifPresent(sources::add);
+                }
             } catch (RuntimeException ignored) {
                 // 撤权、停用或未知来源必须隐藏，不能返回生成时保存的快照。
             }

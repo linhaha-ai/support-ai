@@ -239,6 +239,12 @@ footer > span:first-child { letter-spacing: .4px; }
 .document-preview-heading > div:first-child > span { display: block; margin-top: 6px; color: #8b9588; font-size: 10px; }
 .document-tabs { display: flex; flex-shrink: 0; gap: 6px; }
 .document-tabs .el-button { min-height: 30px; margin-left: 0; border-radius: 6px; }
+.document-task-control { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 14px; padding: 12px 13px; border: 1px solid #e3e8df; border-radius: 6px; background: #fbfcf9; }
+.document-task-control > div:first-child { display: grid; min-width: 0; gap: 5px; }
+.document-task-control strong { color: #6b5749; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.document-task-control span { color: #8a9487; font-size: 9px; }
+.document-task-actions { display: flex; flex-shrink: 0; gap: 7px; }
+.document-task-actions .el-button { min-height: 30px; margin-left: 0; border-radius: 6px; }
 .document-content { max-height: 540px; margin: 0; padding: 16px; overflow: auto; border: 1px solid #e3e8df; border-radius: 6px; background: #fbfcf9; color: #52604d; font: 11px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .document-chunk-list { display: grid; gap: 10px; }
 .document-chunk-item { padding: 14px; border: 1px solid #e3e8df; border-radius: 6px; background: #fbfcf9; }
@@ -273,6 +279,8 @@ footer > span:first-child { letter-spacing: .4px; }
 .chat-session-alert { margin-bottom: 16px; border-radius: 6px; }
 .chat-session-alert .el-alert__content { display: flex; align-items: center; gap: 8px; }
 .chat-session-form { max-width: 720px; }
+.chat-mode-selector { margin-bottom: 16px; }
+.chat-mode-selector .el-radio-button__inner { min-height: 34px; padding: 9px 16px; border-radius: 0; font-size: 11px; }
 .chat-session-options { display: grid; border-top: 1px solid #e2e6dd; }
 .chat-session-options .el-checkbox { display: flex; align-items: start; min-height: 58px; margin-right: 0; padding: 15px 4px; border-bottom: 1px solid #e2e6dd; }
 .chat-session-options .el-checkbox__label { display: grid; min-width: 0; gap: 5px; padding-left: 10px; }
@@ -300,12 +308,15 @@ footer > span:first-child { letter-spacing: .4px; }
 .chat-message-content { color: #3f4c3c; font-size: 13px; line-height: 1.75; }
 .chat-message-pending { color: #899486; font-size: 11px; }
 .chat-message-error { color: #b14f4f; font-size: 10px; line-height: 1.6; }
+.chat-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-tools .el-tag { border-radius: 4px; }
 .chat-sources { display: flex; flex-wrap: wrap; gap: 7px; }
 .chat-source-button { max-width: 100%; padding: 6px 8px; overflow: hidden; border: 1px solid #cfdcca; border-radius: 4px; background: #f5f8f1; color: #496248; font: inherit; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .chat-source-button:hover { border-color: #83a487; background: #eef4ec; }
 .chat-source-button:focus-visible { outline: 3px solid #89ad98; outline-offset: 2px; }
 .chat-source-button-unavailable,
 .chat-source-button-unavailable:hover { border-color: #d8d8d3; background: #f3f3f0; color: #7a7a74; cursor: not-allowed; }
+.chat-ticket-source { max-width: 100%; padding: 6px 8px; overflow: hidden; border: 1px solid #d5ddcf; border-radius: 4px; background: #f7f8f5; color: #596653; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .chat-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
 .chat-composer .el-textarea__inner { min-height: 60px; border-radius: 6px; font-size: 12px; line-height: 1.6; }
 .chat-composer-actions { display: flex; align-items: end; gap: 8px; }
@@ -316,6 +327,29 @@ footer > span:first-child { letter-spacing: .4px; }
 .chat-source-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: #7c8878; font-size: 10px; }
 .chat-source-metadata .el-tag { border-radius: 4px; }
 .chat-source-content { max-height: calc(100vh - 190px); margin: 0; padding: 16px; overflow: auto; border: 1px solid #e3e8df; border-radius: 6px; background: #fbfcf9; color: #52604d; font: 11px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+.ticket-page { min-width: 0; }
+.ticket-heading { margin-bottom: 22px; }
+.ticket-search { display: grid; max-width: 680px; gap: 8px; padding-bottom: 21px; border-bottom: 1px solid #e2e6dd; }
+.ticket-search label { color: #53624f; font-size: 11px; font-weight: 600; }
+.ticket-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.ticket-search-row .el-input__wrapper { min-height: 38px; border-radius: 6px; }
+.ticket-search-row .el-button { min-width: 82px; min-height: 38px; border-radius: 6px; }
+.ticket-alert { max-width: 680px; margin-top: 18px; border-radius: 6px; }
+.ticket-alert .el-alert__content { display: flex; align-items: center; gap: 8px; }
+.ticket-loading { max-width: 680px; padding: 24px 0; }
+.ticket-card { max-width: 760px; margin-top: 22px; padding: 22px; border: 1px solid #dfe5db; border-radius: 8px; background: #fff; }
+.ticket-card-header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.ticket-number { color: #71816c; font: 600 10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.ticket-card-header h2 { margin-top: 7px; color: #3f4d3d; font-size: 16px; line-height: 1.5; }
+.ticket-card-header .el-tag { flex-shrink: 0; border-radius: 4px; }
+.ticket-description { margin-top: 15px; color: #6f7c6b; font-size: 11px; line-height: 1.75; white-space: pre-wrap; }
+.ticket-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 20px; border-top: 1px solid #e7ebe4; border-left: 1px solid #e7ebe4; }
+.ticket-facts > div { min-width: 0; padding: 13px 14px; border-right: 1px solid #e7ebe4; border-bottom: 1px solid #e7ebe4; }
+.ticket-facts dt { color: #949e91; font-size: 9px; }
+.ticket-facts dd { margin-top: 6px; overflow-wrap: anywhere; color: #4e5e4a; font-size: 11px; line-height: 1.5; }
+.ticket-empty { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; max-width: 680px; min-height: 190px; margin-top: 22px; border: 1px dashed #d9e1d4; border-radius: 8px; color: #9aa396; background: #fbfcf9; }
+.ticket-empty span { font: 500 24px/1 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.ticket-empty p { font-size: 11px; }
 @keyframes breathe { 50% { opacity: .35; } }
 @media (min-width: 1500px) { main { padding-top: 62px; } .status-card { padding-top: 27px; } .connection-visual { margin-top: 45px; } .connection-copy { margin-top: 24px; } .check-button.el-button { margin-bottom: 32px; } }
 @media (max-width: 1100px) { .sidebar { width: 206px; padding-left: 16px; padding-right: 16px; } .topbar { padding: 0 28px; } main { padding: 35px 28px 24px; } .model-card { padding: 23px 21px; } }
@@ -325,3 +359,5 @@ footer > span:first-child { letter-spacing: .4px; }
 @media (max-width: 760px) { .chat-workspace { grid-template-columns: 1fr; gap: 18px; } .chat-session-sidebar { padding: 0 0 14px; border-right: 0; border-bottom: 1px solid #e2e6dd; } .chat-session-list { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); } .chat-session-list .el-button { grid-column: 1 / -1; justify-self: center; } }
 @media (max-width: 600px) { .chat-conversation .chat-session-created { grid-template-columns: minmax(0, 1fr) auto; } .chat-conversation .chat-session-summary { grid-column: 1 / -1; } .chat-session-scope { min-width: 0; } .chat-composer { grid-template-columns: 1fr; } .chat-composer-actions { width: 100%; } .chat-composer .el-button { flex: 1; width: 100%; } .chat-message-assistant { padding-right: 12px; padding-left: 12px; } .chat-title-editor { grid-template-columns: 1fr auto; } .chat-title-editor .el-input { grid-column: 1 / -1; } }
 @media (max-width: 600px) { .document-version-upload-form { grid-template-columns: 1fr; } .document-version-upload-form label, .document-version-file-input, .document-version-file-name, .document-version-upload-actions { grid-column: 1; grid-row: auto; } .document-version-upload-actions { margin-top: 4px; } }
+@media (max-width: 600px) { .document-task-control { align-items: stretch; flex-direction: column; } .document-task-actions { width: 100%; } .document-task-actions .el-button { flex: 1; } }
+@media (max-width: 600px) { .ticket-search-row { grid-template-columns: 1fr; } .ticket-search-row .el-button { width: 100%; } .ticket-card { padding: 17px; } .ticket-card-header { flex-direction: column; } .ticket-facts { grid-template-columns: 1fr; } }

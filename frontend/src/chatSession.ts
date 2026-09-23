@@ -1,4 +1,4 @@
-export type ChatSessionMode = 'RAG'
+export type ChatSessionMode = 'RAG' | 'ASSISTANT'
 
 export interface ChatSessionSummary {
   sessionId: string
@@ -36,7 +36,7 @@ export interface ChatMessagePage {
 
 export type ChatRunStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
-export interface ChatSourceReference {
+export interface DocumentChatSourceReference {
   number: number
   type: 'DOCUMENT'
   documentId: string
@@ -47,6 +47,32 @@ export interface ChatSourceReference {
   available: boolean
   isCurrent: boolean
   previewPath: string | null
+  ticketNo: null
+  ticketStatus: null
+  ticketUpdatedAt: null
+}
+
+export interface TicketChatSourceReference {
+  number: number
+  type: 'TICKET'
+  documentId: null
+  versionId: null
+  chunkId: null
+  title: string
+  section: string | null
+  available: true
+  isCurrent: true
+  previewPath: null
+  ticketNo: string
+  ticketStatus: string
+  ticketUpdatedAt: string
+}
+
+export type ChatSourceReference = DocumentChatSourceReference | TicketChatSourceReference
+
+export interface ChatToolEvent {
+  name: 'searchKnowledge' | 'getTicketStatus'
+  status: 'STARTED' | 'SUCCEEDED' | 'FAILED'
 }
 
 export interface DocumentSource {
@@ -67,6 +93,7 @@ export interface DocumentSource {
 
 export type ChatStreamEvent =
   | { event: 'start', data: { runId: string, assistantMessageId: string } }
+  | { event: 'tool', data: ChatToolEvent }
   | { event: 'delta', data: { text: string } }
   | { event: 'sources', data: { sources: ChatSourceReference[] } }
   | { event: 'done', data: { runId: string, status: 'COMPLETED', usage: unknown, metrics: unknown } }
@@ -143,7 +170,7 @@ function parseSession(value: unknown, allowMissingContentReadable = false): Chat
   if (!isRecord(value)
     || typeof value.sessionId !== 'string'
     || typeof value.title !== 'string'
-    || value.mode !== 'RAG'
+    || (value.mode !== 'RAG' && value.mode !== 'ASSISTANT')
     || !Array.isArray(value.knowledgeBaseIds)
     || value.knowledgeBaseIds.length === 0
     || !value.knowledgeBaseIds.every((item) => typeof item === 'string')
@@ -258,29 +285,60 @@ function expectedPreviewPath(chunkId: string): string {
 function parseSourceReference(value: unknown): ChatSourceReference | null {
   if (!isRecord(value)
     || !Number.isInteger(value.number) || (value.number as number) < 1
-    || value.type !== 'DOCUMENT'
-    || typeof value.documentId !== 'string'
-    || typeof value.versionId !== 'string'
-    || typeof value.chunkId !== 'string'
     || typeof value.title !== 'string' || value.title.trim() === ''
     || !(typeof value.section === 'string' || value.section === null)
     || typeof value.available !== 'boolean'
     || typeof value.isCurrent !== 'boolean'
-    || !(typeof value.previewPath === 'string' || value.previewPath === null)
-    || value.available && value.previewPath !== expectedPreviewPath(value.chunkId)
-    || !value.available && (value.previewPath !== null || value.isCurrent)) return null
-  return {
-    number: value.number as number,
-    type: 'DOCUMENT',
-    documentId: value.documentId,
-    versionId: value.versionId,
-    chunkId: value.chunkId,
-    title: value.title,
-    section: value.section,
-    available: value.available,
-    isCurrent: value.isCurrent,
-    previewPath: value.previewPath,
+    || !(typeof value.previewPath === 'string' || value.previewPath === null)) return null
+  if (value.type === 'DOCUMENT'
+    && typeof value.documentId === 'string'
+    && typeof value.versionId === 'string'
+    && typeof value.chunkId === 'string'
+    && (value.available ? value.previewPath === expectedPreviewPath(value.chunkId)
+      : value.previewPath === null && !value.isCurrent)) {
+    return {
+      number: value.number as number,
+      type: 'DOCUMENT',
+      documentId: value.documentId,
+      versionId: value.versionId,
+      chunkId: value.chunkId,
+      title: value.title,
+      section: value.section,
+      available: value.available,
+      isCurrent: value.isCurrent,
+      previewPath: value.previewPath,
+      ticketNo: null,
+      ticketStatus: null,
+      ticketUpdatedAt: null,
+    }
   }
+  if (value.type === 'TICKET'
+    && value.documentId === null
+    && value.versionId === null
+    && value.chunkId === null
+    && value.available === true
+    && value.isCurrent === true
+    && value.previewPath === null
+    && typeof value.ticketNo === 'string'
+    && typeof value.ticketStatus === 'string'
+    && typeof value.ticketUpdatedAt === 'string') {
+    return {
+      number: value.number as number,
+      type: 'TICKET',
+      documentId: null,
+      versionId: null,
+      chunkId: null,
+      title: value.title,
+      section: value.section,
+      available: true,
+      isCurrent: true,
+      previewPath: null,
+      ticketNo: value.ticketNo,
+      ticketStatus: value.ticketStatus,
+      ticketUpdatedAt: value.ticketUpdatedAt,
+    }
+  }
+  return null
 }
 
 function parseHistoryMessage(value: unknown): ChatHistoryMessage | null {
@@ -343,13 +401,18 @@ function invalidStream(message = '回答流格式无效，请稍后重试。'): 
 }
 
 function parseStreamEvent(eventName: string, json: unknown): ChatStreamEvent | null {
-  if (!['start', 'delta', 'sources', 'done', 'error'].includes(eventName)) return null
+  if (!['start', 'tool', 'delta', 'sources', 'done', 'error'].includes(eventName)) return null
   if (!isRecord(json)) throw invalidStream()
   if (eventName === 'start' && typeof json.runId === 'string' && typeof json.assistantMessageId === 'string') {
     return { event: 'start', data: { runId: json.runId, assistantMessageId: json.assistantMessageId } }
   }
   if (eventName === 'delta' && typeof json.text === 'string' && json.text.length > 0) {
     return { event: 'delta', data: { text: json.text } }
+  }
+  if (eventName === 'tool'
+    && (json.name === 'searchKnowledge' || json.name === 'getTicketStatus')
+    && (json.status === 'STARTED' || json.status === 'SUCCEEDED' || json.status === 'FAILED')) {
+    return { event: 'tool', data: { name: json.name, status: json.status } }
   }
   if (eventName === 'sources' && Array.isArray(json.sources)) {
     const sources = json.sources.map(parseSourceReference)
@@ -400,7 +463,7 @@ function assertEventOrder(event: ChatStreamEvent, state: { started: boolean, sou
   if (event.event === 'start') {
     if (state.started) throw invalidStream()
     state.started = true
-  } else if (event.event === 'delta') {
+  } else if (event.event === 'delta' || event.event === 'tool') {
     if (state.sourced) throw invalidStream()
   } else if (event.event === 'sources') {
     if (state.sourced) throw invalidStream()
@@ -427,7 +490,7 @@ export async function consumeChatEventStream(
     while (next) {
       buffer = next.rest
       const parsed = parseSseFrame(next.frame)
-      if (parsed && ['start', 'delta', 'sources', 'done', 'error'].includes(parsed.event)) {
+      if (parsed && ['start', 'tool', 'delta', 'sources', 'done', 'error'].includes(parsed.event)) {
         let json: unknown
         try {
           json = JSON.parse(parsed.data)
@@ -499,7 +562,10 @@ async function requestCsrf(action: 'create' | 'message' | 'run' | 'session', sig
   throw errorFor(response, action)
 }
 
-export async function createChatSession(knowledgeBaseIds: string[]): Promise<ChatSessionSummary> {
+export async function createChatSession(
+  knowledgeBaseIds: string[],
+  mode: ChatSessionMode = 'RAG',
+): Promise<ChatSessionSummary> {
   const csrf = await requestCsrf('create')
   const response = await fetch('/api/chat/sessions', {
     method: 'POST',
@@ -510,7 +576,7 @@ export async function createChatSession(knowledgeBaseIds: string[]): Promise<Cha
     },
     credentials: 'same-origin',
     cache: 'no-store',
-    body: JSON.stringify({ kbIds: knowledgeBaseIds, mode: 'RAG' }),
+    body: JSON.stringify({ kbIds: knowledgeBaseIds, mode }),
   })
   const envelope = parseEnvelope<unknown>(await readJson(response))
   const data = response.status === 201 && envelope?.code === 'OK' ? parseSession(envelope.data, true) : null

@@ -14,7 +14,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@Schema(name = "CreateChatSessionRequest", description = "创建固定知识范围的 RAG 会话请求")
+@Schema(name = "CreateChatSessionRequest", description = "创建固定知识范围的问答会话请求")
 public class CreateChatSessionRequest {
 
     @NotEmpty
@@ -22,6 +22,7 @@ public class CreateChatSessionRequest {
     private List<@NotNull UUID> kbIds; // 固定知识库范围
 
     @NotNull
-    @Schema(description = "会话模式，当前仅支持 RAG", example = "RAG", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "会话模式，支持 RAG 或受控智能助手", example = "ASSISTANT",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private ChatSessionModeEnum mode; // 会话模式
 }

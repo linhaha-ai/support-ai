@@ -81,7 +81,7 @@ afterEach(() => {
 })
 
 describe('会话创建接口', () => {
-  it('获取 CSRF 后以固定 RAG 模式创建会话，不发送用户身份', async () => {
+  it('获取 CSRF 后按所选模式创建会话，不发送用户身份', async () => {
     fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '支付支持', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -99,9 +99,20 @@ describe('会话创建接口', () => {
       headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
     }))
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
+
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok({
+        sessionId, title: '支付支持', mode: 'ASSISTANT', knowledgeBaseIds: [knowledgeBaseId],
+        createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
+      }, 201))
+
+    await expect(createChatSession([knowledgeBaseId], 'ASSISTANT'))
+      .resolves.toMatchObject({ sessionId, mode: 'ASSISTANT' })
+    expect(fetchMock.mock.calls[3]?.[1]?.body)
+      .toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'ASSISTANT' }))
   })
 
-  it('拒绝非 RAG 或缺少知识库范围的成功响应', async () => {
+  it('拒绝缺少知识库范围的成功响应', async () => {
     fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '支付支持', mode: 'ASSISTANT', knowledgeBaseIds: [],
@@ -288,7 +299,7 @@ describe('流式问答接口', () => {
     fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(streamResponse([encoder.encode(
         sseEvent('start', { runId, assistantMessageId })
-        + sseEvent('tool', { callId: 'future-tool' })
+        + sseEvent('heartbeat', { sequence: 1 })
         + sseEvent('sources', { sources: [] })
         + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
       )]))
@@ -305,6 +316,39 @@ describe('流式问答接口', () => {
       )]))
     await expect(submitChatMessage(sessionId, 'request-6', '缺少来源事件', vi.fn()))
       .rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('解析受控工具事件并保持在来源事件之前', async () => {
+    const encoder = new TextEncoder()
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(streamResponse([encoder.encode(
+        sseEvent('start', { runId, assistantMessageId })
+        + sseEvent('tool', { name: 'getTicketStatus', status: 'STARTED' })
+        + sseEvent('tool', { name: 'getTicketStatus', status: 'SUCCEEDED' })
+        + sseEvent('delta', { text: '工单仍在处理中。[1]' })
+        + sseEvent('sources', { sources: [{
+          number: 1,
+          type: 'TICKET',
+          documentId: null,
+          versionId: null,
+          chunkId: null,
+          title: '支付工单',
+          section: '张工',
+          available: true,
+          isCurrent: true,
+          previewPath: null,
+          ticketNo: 'T10086',
+          ticketStatus: 'PROCESSING',
+          ticketUpdatedAt: '2026-09-23T12:00:00Z',
+        }] })
+        + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+      )]))
+    const events: ChatStreamEvent[] = []
+
+    await expect(submitChatMessage(sessionId, 'request-agent', 'T10086 当前状态',
+      (event) => events.push(event))).resolves.toMatchObject({ kind: 'stream' })
+    expect(events.map((event) => event.event))
+      .toEqual(['start', 'tool', 'tool', 'delta', 'sources', 'done'])
   })
 })
 

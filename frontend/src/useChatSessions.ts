@@ -11,10 +11,12 @@ import {
   submitChatMessage,
   type ChatAssistantStatus,
   type ChatRunStatusResponse,
+  type ChatSessionMode,
   type ChatSessionSummary,
   type ChatHistoryMessage,
   type ChatSourceReference,
   type ChatStreamEvent,
+  type ChatToolEvent,
   type DocumentSource,
 } from './chatSession'
 import { fetchKnowledgeBaseSummaries, type KnowledgeBaseSummary } from './knowledgeBase'
@@ -25,6 +27,7 @@ export interface ChatTranscriptMessage {
   content: string
   status: 'COMPLETED' | 'STREAMING' | 'BACKGROUND' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
   sources: ChatSourceReference[]
+  tools: ChatToolEvent[]
   errorMessage: string
 }
 
@@ -36,6 +39,7 @@ function transcriptMessageFor(message: ChatHistoryMessage, contentReadable: bool
     content: contentReadable ? message.content ?? '' : '',
     status: isAssistant ? message.status : 'COMPLETED',
     sources: contentReadable && isAssistant ? message.sources : [],
+    tools: [],
     errorMessage: contentReadable || !isAssistant ? '' : '当前资料授权已变化，回答正文不可读取。',
   }
 }
@@ -49,6 +53,7 @@ function messageFor(error: unknown): string {
 export function useChatSessions() {
   const knowledgeBases = ref<KnowledgeBaseSummary[]>([])
   const selectedKnowledgeBaseIds = ref<string[]>([])
+  const selectedMode = ref<ChatSessionMode>('RAG')
   const createdSession = ref<ChatSessionSummary | null>(null)
   const sessionItems = ref<ChatSessionSummary[]>([])
   const sessionsLoading = ref(false)
@@ -133,6 +138,7 @@ export function useChatSessions() {
           content: question || '已提交的问题',
           status: 'COMPLETED',
           sources: [],
+          tools: [],
           errorMessage: '',
         })
       }
@@ -142,6 +148,7 @@ export function useChatSessions() {
         content: '',
         status: 'STREAMING',
         sources: [],
+        tools: [],
         errorMessage: '',
       })
       assistantIndex = messages.value.length - 1
@@ -194,6 +201,7 @@ export function useChatSessions() {
       ...message,
       content: '',
       sources: [],
+      tools: [],
       errorMessage: message.role === 'assistant' ? '当前资料授权已变化，回答正文不可读取。' : '',
     }))
   }
@@ -306,7 +314,7 @@ export function useChatSessions() {
     createError.value = ''
     const knowledgeBaseIds = [...new Set(selectedKnowledgeBaseIds.value)]
     try {
-      const session = await createChatSession(knowledgeBaseIds)
+      const session = await createChatSession(knowledgeBaseIds, selectedMode.value)
       if (!disposed && request === createRequest) {
         createdSession.value = session
         historyContentReadable.value = true
@@ -331,6 +339,7 @@ export function useChatSessions() {
     createdSession.value = null
     createError.value = ''
     selectedKnowledgeBaseIds.value = []
+    selectedMode.value = 'RAG'
     messageInput.value = ''
     messages.value = []
     sending.value = false
@@ -385,7 +394,8 @@ export function useChatSessions() {
   function handleStreamEvent(question: string, event: ChatStreamEvent, assistantIndex: { value: number }) {
     if (event.event === 'start') {
       messages.value.push({
-        id: crypto.randomUUID(), role: 'user', content: question, status: 'COMPLETED', sources: [], errorMessage: '',
+        id: crypto.randomUUID(), role: 'user', content: question, status: 'COMPLETED', sources: [], tools: [],
+        errorMessage: '',
       })
       messages.value.push({
         id: event.data.assistantMessageId,
@@ -393,6 +403,7 @@ export function useChatSessions() {
         content: '',
         status: 'STREAMING',
         sources: [],
+        tools: [],
         errorMessage: '',
       })
       assistantIndex.value = messages.value.length - 1
@@ -406,7 +417,12 @@ export function useChatSessions() {
     }
     const assistant = messages.value[assistantIndex.value]
     if (!assistant) return
-    if (event.event === 'delta') {
+    if (event.event === 'tool') {
+      const runningIndex = assistant.tools.map((tool) => tool.name === event.data.name
+        && tool.status === 'STARTED').lastIndexOf(true)
+      if (event.data.status !== 'STARTED' && runningIndex >= 0) assistant.tools.splice(runningIndex, 1, event.data)
+      else assistant.tools.push(event.data)
+    } else if (event.event === 'delta') {
       assistant.content += event.data.text
     } else if (event.event === 'sources') {
       assistant.sources = event.data.sources
@@ -532,7 +548,7 @@ export function useChatSessions() {
   }
 
   async function openSource(source: ChatSourceReference) {
-    if (!source.available || !source.previewPath) return
+    if (source.type !== 'DOCUMENT' || !source.available || !source.previewPath) return
     const request = ++sourceRequest
     const controller = new AbortController()
     sourceAbortController?.abort()
@@ -581,6 +597,7 @@ export function useChatSessions() {
   return {
     knowledgeBases,
     selectedKnowledgeBaseIds,
+    selectedMode,
     createdSession,
     sessionItems,
     sessionsLoading,
