@@ -5,6 +5,6 @@ import com.haha.supportai.knowledge.ingestion.exception.IngestionProcessingExcep
 public class DocumentIndexIntegrityException extends IngestionProcessingException {
 
     public DocumentIndexIntegrityException() {
-        super("DOCUMENT_INDEX_INCONSISTENT", "文档索引数据不完整");
+        super("DOCUMENT_INDEX_INCONSISTENT", "文档索引数据不完整", false);
     }
 }

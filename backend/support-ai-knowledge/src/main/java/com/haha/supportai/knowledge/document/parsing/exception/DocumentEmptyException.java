@@ -5,6 +5,6 @@ import com.haha.supportai.knowledge.ingestion.exception.IngestionProcessingExcep
 public class DocumentEmptyException extends IngestionProcessingException {
 
     public DocumentEmptyException() {
-        super("DOCUMENT_EMPTY", "文档没有可处理内容");
+        super("DOCUMENT_EMPTY", "文档没有可处理内容", false);
     }
 }

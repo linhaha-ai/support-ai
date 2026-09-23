@@ -7,7 +7,6 @@ import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.entity.po.IngestionJob;
 import com.haha.supportai.data.knowledge.enums.IngestionStageEnum;
-import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.knowledge.ingestion.config.IngestionWorkerProperties;
 import com.haha.supportai.knowledge.ingestion.entity.dto.IngestionStageResult;
@@ -26,7 +25,6 @@ public class IngestionTaskCoordinator {
     private static final String PROCESSING_ERROR_DETAIL = "文档处理暂时失败";
 
     private final IngestionJobRepository ingestionJobRepository;
-    private final DocumentVersionRepository documentVersionRepository;
     private final IngestionWorkerProperties properties;
     private final String leaseOwner = "support-ai-" + UUID.randomUUID();
 
@@ -65,13 +63,19 @@ public class IngestionTaskCoordinator {
 
     @Transactional
     public void recordFailure(IngestionTaskLease lease) {
-        recordFailure(lease, PROCESSING_ERROR_CODE, PROCESSING_ERROR_DETAIL);
+        recordFailure(lease, PROCESSING_ERROR_CODE, PROCESSING_ERROR_DETAIL, true);
     }
 
     @Transactional
     public void recordFailure(IngestionTaskLease lease, String errorCode, String errorDetail) {
+        recordFailure(lease, errorCode, errorDetail, true);
+    }
+
+    @Transactional
+    public void recordFailure(IngestionTaskLease lease, String errorCode, String errorDetail,
+            boolean automaticRetryAllowed) {
         boolean updated;
-        if (lease.getAttempt() < lease.getMaxAttempts()) {
+        if (automaticRetryAllowed && lease.getAttempt() < lease.getMaxAttempts()) {
             OffsetDateTime nextRunAt = now().plus(properties.getRetryDelay());
             updated = ingestionJobRepository.markRetryWait(lease.getJobId(), lease.getLeaseOwner(),
                     lease.getLeaseToken(), nextRunAt, errorCode, errorDetail);
@@ -80,10 +84,6 @@ public class IngestionTaskCoordinator {
                     lease.getLeaseToken(), errorCode, errorDetail);
         }
         requireLease(updated);
-        if (lease.getAttempt() >= lease.getMaxAttempts()
-                && !documentVersionRepository.markFailedIfQueuedOrBuilding(lease.getVersionId())) {
-            throw new IngestionStateConflictException("文档版本失败状态更新冲突");
-        }
     }
 
     @Transactional

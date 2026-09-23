@@ -5,10 +5,10 @@ import com.haha.supportai.knowledge.ingestion.exception.IngestionProcessingExcep
 public class DocumentProcessingConfigurationException extends IngestionProcessingException {
 
     public DocumentProcessingConfigurationException() {
-        super("INGESTION_PROCESSING_FAILED", "文档处理暂时失败");
+        super("DOCUMENT_CONFIGURATION_INVALID", "文档处理配置已失效", false);
     }
 
     public DocumentProcessingConfigurationException(Throwable cause) {
-        super("INGESTION_PROCESSING_FAILED", "文档处理暂时失败", cause);
+        super("DOCUMENT_CONFIGURATION_INVALID", "文档处理配置已失效", false, cause);
     }
 }

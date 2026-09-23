@@ -5,7 +5,6 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.enums.IngestionStageEnum;
-import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.knowledge.ingestion.config.IngestionWorkerProperties;
 import com.haha.supportai.knowledge.ingestion.entity.dto.IngestionStageResult;
@@ -22,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,9 +37,6 @@ class IngestionTaskCoordinatorTest {
     @Mock
     IngestionJobRepository ingestionJobRepository;
 
-    @Mock
-    DocumentVersionRepository documentVersionRepository;
-
     IngestionTaskCoordinator ingestionTaskCoordinator;
 
     @BeforeEach
@@ -47,8 +44,7 @@ class IngestionTaskCoordinatorTest {
         IngestionWorkerProperties properties = new IngestionWorkerProperties();
         properties.setLeaseDuration(Duration.ofSeconds(60));
         properties.setRetryDelay(Duration.ofSeconds(10));
-        ingestionTaskCoordinator = new IngestionTaskCoordinator(ingestionJobRepository, documentVersionRepository,
-                properties);
+        ingestionTaskCoordinator = new IngestionTaskCoordinator(ingestionJobRepository, properties);
     }
 
     @Test
@@ -62,7 +58,6 @@ class IngestionTaskCoordinatorTest {
         ArgumentCaptor<OffsetDateTime> nextRunAtCaptor = ArgumentCaptor.forClass(OffsetDateTime.class);
         verify(ingestionJobRepository).markRetryWait(eq(JOB_ID), any(String.class), eq(LEASE_TOKEN),
                 nextRunAtCaptor.capture(), eq("INGESTION_PROCESSING_FAILED"), eq("文档处理暂时失败"));
-        verify(ingestionJobRepository, never()).markFailed(any(), any(), any(), any(), any());
         assertThat(nextRunAtCaptor.getValue()).isAfter(OffsetDateTime.now().minusSeconds(1));
     }
 
@@ -71,14 +66,23 @@ class IngestionTaskCoordinatorTest {
         IngestionTaskLease lease = lease(IngestionStageEnum.EMBED, 3, 3);
         when(ingestionJobRepository.markFailed(JOB_ID, lease.getLeaseOwner(), LEASE_TOKEN,
                 "INGESTION_PROCESSING_FAILED", "文档处理暂时失败")).thenReturn(true);
-        when(documentVersionRepository.markFailedIfQueuedOrBuilding(VERSION_ID)).thenReturn(true);
 
         ingestionTaskCoordinator.recordFailure(lease);
 
         verify(ingestionJobRepository).markFailed(JOB_ID, lease.getLeaseOwner(), LEASE_TOKEN,
                 "INGESTION_PROCESSING_FAILED", "文档处理暂时失败");
-        verify(documentVersionRepository).markFailedIfQueuedOrBuilding(VERSION_ID);
-        verify(ingestionJobRepository, never()).markRetryWait(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void terminalFailureStopsBeforeAutomaticRetryLimit() {
+        IngestionTaskLease lease = lease(IngestionStageEnum.PARSE, 1, 3);
+        when(ingestionJobRepository.markFailed(JOB_ID, lease.getLeaseOwner(), LEASE_TOKEN,
+                "DOCUMENT_EMPTY", "文档没有可处理内容")).thenReturn(true);
+
+        ingestionTaskCoordinator.recordFailure(lease, "DOCUMENT_EMPTY", "文档没有可处理内容", false);
+
+        verify(ingestionJobRepository).markFailed(JOB_ID, lease.getLeaseOwner(), LEASE_TOKEN,
+                "DOCUMENT_EMPTY", "文档没有可处理内容");
     }
 
     @Test
@@ -89,7 +93,7 @@ class IngestionTaskCoordinatorTest {
                 IngestionStageResult.advance(IngestionStageEnum.EMBED, 1, 2)))
                 .isInstanceOf(IngestionStateConflictException.class);
 
-        verify(ingestionJobRepository, never()).updateProgress(any(), any(), any(), any(), any());
+        verify(ingestionJobRepository, never()).updateProgress(any(), any(), any(), anyInt(), anyInt());
         verify(ingestionJobRepository, never()).advanceToNextStage(any(), any(), any(), any());
     }
 
@@ -102,7 +106,7 @@ class IngestionTaskCoordinatorTest {
                 .isInstanceOf(IngestionStateConflictException.class)
                 .hasMessageContaining("版本发布事务");
 
-        verify(ingestionJobRepository, never()).updateProgress(any(), any(), any(), any(), any());
+        verify(ingestionJobRepository, never()).updateProgress(any(), any(), any(), anyInt(), anyInt());
         verify(ingestionJobRepository, never()).advanceToNextStage(any(), any(), any(), any());
     }
 

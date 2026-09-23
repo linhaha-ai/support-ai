@@ -23,9 +23,11 @@ import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
+import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVectorRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
@@ -39,6 +41,7 @@ import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
+import com.haha.supportai.knowledge.ingestion.service.IngestionJobControlService;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -99,6 +102,9 @@ class OpenApiDocumentationTest {
     DocumentChunkRepository documentChunkRepository;
 
     @MockBean
+    DocumentVectorRepository documentVectorRepository;
+
+    @MockBean
     IngestionJobRepository ingestionJobRepository;
 
     @MockBean
@@ -123,6 +129,9 @@ class OpenApiDocumentationTest {
     IngestionJobQueryService ingestionJobQueryService;
 
     @MockBean
+    IngestionJobControlService ingestionJobControlService;
+
+    @MockBean
     KnowledgeRetrievalService knowledgeRetrievalService;
 
     @MockBean
@@ -145,6 +154,9 @@ class OpenApiDocumentationTest {
 
     @MockBean
     AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
+
+    @MockBean
+    AuthorizedRetrievalRepository authorizedRetrievalRepository;
 
     @MockBean
     ChatSessionService chatSessionService;
@@ -256,6 +268,14 @@ class OpenApiDocumentationTest {
                         + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['responses']['200']")
                         .exists())
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/retry']['post']['operationId']")
+                        .value("retryIngestionJob"))
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/retry']['post']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/cancel']['post']['operationId']")
+                        .value("cancelIngestionJob"))
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/cancel']['post']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['operationId']")
                         .value("createChatSession"))
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['parameters'][0]['name']")
@@ -338,6 +358,10 @@ class OpenApiDocumentationTest {
         assertResponseDataSchema(apiDocs, "/api/chunks/{chunkId}/source", "get",
                 "DocumentSourceResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
+                "IngestionJobStatusResponse");
+        assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}/retry", "post",
+                "IngestionJobStatusResponse");
+        assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}/cancel", "post",
                 "IngestionJobStatusResponse");
         assertResponseDataSchema(apiDocs, "/api/chat/sessions", "post", "201",
                 "ChatSessionResponse");

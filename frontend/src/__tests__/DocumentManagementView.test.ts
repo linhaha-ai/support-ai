@@ -22,12 +22,12 @@ function failure(status = 503) {
 }
 
 const version = {
-  versionId, versionNo: 2, status: 'FAILED', active: false, pending: true,
+  versionId, versionNo: 2, status: 'FAILED', active: false, pending: false,
   originalFilename: 'guide.md', fileSize: 1024, mediaType: 'text/markdown', chunkCount: 0,
   task: {
     jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, status: 'FAILED', stage: 'PARSE',
     attempt: 1, maxAttempts: 3, completedChunks: 0, totalChunks: 0, progressPercent: 0,
-    retryable: true, cancellable: false, errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取',
+    retryable: true, cancellable: false, errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取', errorStage: 'PARSE',
     nextRunAt: null, startedAt: '2026-09-21T10:00:00+08:00', finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
   },
   createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
@@ -35,7 +35,7 @@ const version = {
 
 function documentList() {
   return [{
-    documentId, name: '产品说明', activeVersion: null, pendingVersion: version,
+    documentId, name: '产品说明', activeVersion: null, pendingVersion: null,
     revision: 1, createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
   }]
 }
@@ -47,7 +47,9 @@ function detail() {
 }
 
 function mountView() {
-  wrapper = mount(DocumentManagementView, { props: { knowledgeBaseId, knowledgeBaseName: '产品支持' } })
+  wrapper = mount(DocumentManagementView, {
+    props: { knowledgeBaseId, knowledgeBaseName: '产品支持', canManage: true },
+  })
   return wrapper
 }
 
@@ -86,7 +88,7 @@ describe('文档管理视图', () => {
       .mockResolvedValueOnce(ok(detail()))
       .mockResolvedValueOnce(ok({ items: [version], nextCursor: null }))
       .mockResolvedValueOnce(ok({
-        documentId, versionId, versionNo: 2, active: false, pending: true,
+        documentId, versionId, versionNo: 2, active: false, pending: false,
         originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
       }))
       .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
@@ -97,7 +99,8 @@ describe('文档管理视图', () => {
     await flushPromises()
 
     expect(view.text()).toContain('处理失败')
-    expect(view.text()).toContain('DOCUMENT_READ_FAILED · 原文件暂时无法读取')
+    expect(view.text()).toContain('解析阶段终止失败 · DOCUMENT_READ_FAILED · 原文件暂时无法读取')
+    expect(view.text()).toContain('重新处理')
     expect(view.text()).toContain('# 产品说明')
   })
 })

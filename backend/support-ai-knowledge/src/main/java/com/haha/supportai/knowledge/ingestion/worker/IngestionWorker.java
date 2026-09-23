@@ -101,7 +101,8 @@ public class IngestionWorker {
         try {
             if (processingException instanceof IngestionProcessingException ingestionProcessingException) {
                 coordinator.recordFailure(lease, ingestionProcessingException.getErrorCode(),
-                        ingestionProcessingException.getSafeDetail());
+                        ingestionProcessingException.getSafeDetail(),
+                        ingestionProcessingException.isAutomaticRetryAllowed());
             } else {
                 coordinator.recordFailure(lease);
             }

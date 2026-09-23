@@ -231,6 +231,7 @@ onMounted(knowledgeBases.load)
       v-if="inspectedKnowledgeBase"
       :knowledge-base-id="inspectedKnowledgeBase.id"
       :knowledge-base-name="inspectedKnowledgeBase.name"
+      :can-manage="inspectedKnowledgeBase.permission === 'WRITE'"
       @close="closeDocumentManagement"
     />
     <template v-else>

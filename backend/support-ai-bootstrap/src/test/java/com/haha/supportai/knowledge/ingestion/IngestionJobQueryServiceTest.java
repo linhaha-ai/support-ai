@@ -42,6 +42,7 @@ class IngestionJobQueryServiceTest {
         IngestionJob job = job(IngestionJobStatusEnum.FAILED, "INTERNAL_STORAGE_EXCEPTION", "S3 secret endpoint");
         when(accessPolicy.currentUser()).thenReturn(currentUser());
         when(ingestionJobRepository.findAccessibleByIdAndUserId(JOB_ID, USER_ID)).thenReturn(Optional.of(job));
+        when(ingestionJobRepository.hasWriteAccess(JOB_ID, USER_ID)).thenReturn(true);
 
         IngestionJobStatusResponse response = service().get(JOB_ID);
 
@@ -50,6 +51,7 @@ class IngestionJobQueryServiceTest {
         assertThat(userIdCaptor.getValue()).isEqualTo(USER_ID);
         assertThat(response.getErrorCode()).isEqualTo("INGESTION_PROCESSING_FAILED");
         assertThat(response.getErrorMessage()).isEqualTo("文档处理暂时失败");
+        assertThat(response.getErrorStage()).isEqualTo(IngestionStageEnum.PARSE);
         assertThat(response.getErrorMessage()).doesNotContain("S3").doesNotContain("secret");
     }
 
@@ -60,6 +62,7 @@ class IngestionJobQueryServiceTest {
         job.setTotalChunks(null);
         when(accessPolicy.currentUser()).thenReturn(currentUser());
         when(ingestionJobRepository.findAccessibleByIdAndUserId(JOB_ID, USER_ID)).thenReturn(Optional.of(job));
+        when(ingestionJobRepository.hasWriteAccess(JOB_ID, USER_ID)).thenReturn(true);
 
         IngestionJobStatusResponse response = service().get(JOB_ID);
 
@@ -77,10 +80,24 @@ class IngestionJobQueryServiceTest {
         job.setTotalChunks(10);
         when(accessPolicy.currentUser()).thenReturn(currentUser());
         when(ingestionJobRepository.findAccessibleByIdAndUserId(JOB_ID, USER_ID)).thenReturn(Optional.of(job));
+        when(ingestionJobRepository.hasWriteAccess(JOB_ID, USER_ID)).thenReturn(true);
 
         IngestionJobStatusResponse response = service().get(JOB_ID);
 
         assertThat(response.getProgressPercent()).isEqualTo(100);
+    }
+
+    @Test
+    void hidesTaskActionsFromReadOnlyMember() {
+        IngestionJob job = job(IngestionJobStatusEnum.FAILED, "DOCUMENT_READ_FAILED", "原文件暂时无法读取");
+        when(accessPolicy.currentUser()).thenReturn(currentUser());
+        when(ingestionJobRepository.findAccessibleByIdAndUserId(JOB_ID, USER_ID)).thenReturn(Optional.of(job));
+        when(ingestionJobRepository.hasWriteAccess(JOB_ID, USER_ID)).thenReturn(false);
+
+        IngestionJobStatusResponse response = service().get(JOB_ID);
+
+        assertThat(response.isRetryable()).isFalse();
+        assertThat(response.isCancellable()).isFalse();
     }
 
     private IngestionJobQueryService service() {

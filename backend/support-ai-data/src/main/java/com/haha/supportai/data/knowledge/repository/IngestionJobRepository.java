@@ -32,6 +32,18 @@ public class IngestionJobRepository {
         return ingestionJobMapper.selectAccessibleByIdAndUserId(jobId, userId);
     }
 
+    public boolean hasWriteAccess(UUID jobId, UUID userId) {
+        return ingestionJobMapper.hasWriteAccess(jobId, userId);
+    }
+
+    public Optional<IngestionJob> cancel(UUID jobId, UUID userId) {
+        return ingestionJobMapper.cancelByIdAndUserId(jobId, userId);
+    }
+
+    public Optional<IngestionJob> retry(UUID jobId, UUID userId) {
+        return ingestionJobMapper.retryByIdAndUserId(jobId, userId);
+    }
+
     public List<IngestionJob> findByVersionIds(Collection<UUID> versionIds) {
         if (versionIds.isEmpty()) {
             return List.of();
@@ -67,7 +79,7 @@ public class IngestionJobRepository {
     }
 
     public boolean markFailed(UUID jobId, String leaseOwner, UUID leaseToken, String errorCode, String errorDetail) {
-        return ingestionJobMapper.markFailed(jobId, leaseOwner, leaseToken, errorCode, errorDetail) == 1;
+        return ingestionJobMapper.markFailed(jobId, leaseOwner, leaseToken, errorCode, errorDetail).isPresent();
     }
 
     public int markExpiredExhaustedRunningAsFailed() {

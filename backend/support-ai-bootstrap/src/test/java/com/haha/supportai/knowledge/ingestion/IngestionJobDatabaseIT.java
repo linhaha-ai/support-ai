@@ -155,6 +155,145 @@ class IngestionJobDatabaseIT {
     }
 
     @Test
+    void terminalFailureClearsPendingWhileAutomaticRetryKeepsIt() {
+        IngestionFixture retryFixture = createFixture();
+        String retryOwner = "worker-retry";
+        UUID retryToken = UUID.randomUUID();
+        try {
+            assertThat(ingestionJobRepository.claimNextByStage(IngestionStageEnum.PARSE, retryOwner, retryToken,
+                    OffsetDateTime.now().plusSeconds(60))).isPresent();
+            assertThat(ingestionJobRepository.markRetryWait(retryFixture.jobId(), retryOwner, retryToken,
+                    OffsetDateTime.now().plusSeconds(10), "DOCUMENT_READ_FAILED", "原文件暂时无法读取")).isTrue();
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id FROM document WHERE id = ?",
+                    UUID.class, retryFixture.documentId())).isEqualTo(retryFixture.versionId());
+        } finally {
+            deleteFixture(retryFixture);
+        }
+
+        IngestionFixture failedFixture = createFixture();
+        String failedOwner = "worker-failed";
+        UUID failedToken = UUID.randomUUID();
+        try {
+            assertThat(ingestionJobRepository.claimNextByStage(IngestionStageEnum.PARSE, failedOwner, failedToken,
+                    OffsetDateTime.now().plusSeconds(60))).isPresent();
+            assertThat(ingestionJobRepository.markFailed(failedFixture.jobId(), failedOwner, failedToken,
+                    "DOCUMENT_EMPTY", "文档没有可处理内容")).isTrue();
+
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM ingestion_job WHERE id = ?", String.class,
+                    failedFixture.jobId())).isEqualTo("FAILED");
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM document_version WHERE id = ?", String.class,
+                    failedFixture.versionId())).isEqualTo("FAILED");
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id IS NULL FROM document WHERE id = ?",
+                    Boolean.class, failedFixture.documentId())).isTrue();
+        } finally {
+            deleteFixture(failedFixture);
+        }
+    }
+
+    @Test
+    void cancelEndpointInvalidatesLeaseAndCannotBeClaimedAgain() throws Exception {
+        IngestionFixture fixture = createFixture();
+        String leaseOwner = "worker-cancelled";
+        UUID leaseToken = UUID.randomUUID();
+        try {
+            assertThat(ingestionJobRepository.claimNextByStage(IngestionStageEnum.PARSE, leaseOwner, leaseToken,
+                    OffsetDateTime.now().plusSeconds(60))).isPresent();
+            AuthenticatedRequest administrator = login("admin", "admin");
+
+            mvc.perform(post("/api/ingestion-jobs/{jobId}/cancel", fixture.jobId())
+                            .session(administrator.session()).cookie(administrator.cookie())
+                            .header(administrator.csrfHeader(), administrator.csrfToken()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                    .andExpect(jsonPath("$.data.cancellable").value(false));
+
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM document_version WHERE id = ?", String.class,
+                    fixture.versionId())).isEqualTo("CANCELLED");
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id IS NULL FROM document WHERE id = ?",
+                    Boolean.class, fixture.documentId())).isTrue();
+            assertThat(ingestionJobRepository.updateProgress(fixture.jobId(), leaseOwner, leaseToken, 1, 1)).isFalse();
+            assertThat(ingestionJobRepository.claimNextByStage(IngestionStageEnum.PARSE, "worker-new",
+                    UUID.randomUUID(), OffsetDateTime.now().plusSeconds(60))).isEmpty();
+
+            mvc.perform(post("/api/ingestion-jobs/{jobId}/cancel", fixture.jobId())
+                            .session(administrator.session()).cookie(administrator.cookie())
+                            .header(administrator.csrfHeader(), administrator.csrfToken()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+        } finally {
+            deleteFixture(fixture);
+        }
+    }
+
+    @Test
+    void retryEndpointRestoresFailedVersionWithoutResettingAttempt() throws Exception {
+        IngestionFixture fixture = createFixture();
+        try {
+            jdbcTemplate.update("""
+                    UPDATE ingestion_job
+                    SET status = 'FAILED', attempt = 1, error_code = 'DOCUMENT_EMPTY',
+                        error_detail = '文档没有可处理内容', finished_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """, fixture.jobId());
+            jdbcTemplate.update("UPDATE document_version SET status = 'FAILED' WHERE id = ?", fixture.versionId());
+            jdbcTemplate.update("UPDATE document SET pending_version_id = NULL WHERE id = ?", fixture.documentId());
+            AuthenticatedRequest administrator = login("admin", "admin");
+
+            mvc.perform(post("/api/ingestion-jobs/{jobId}/retry", fixture.jobId())
+                            .session(administrator.session()).cookie(administrator.cookie())
+                            .header(administrator.csrfHeader(), administrator.csrfToken()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("QUEUED"))
+                    .andExpect(jsonPath("$.data.attempt").value(1))
+                    .andExpect(jsonPath("$.data.errorCode").isEmpty());
+
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM document_version WHERE id = ?", String.class,
+                    fixture.versionId())).isEqualTo("QUEUED");
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id FROM document WHERE id = ?",
+                    UUID.class, fixture.documentId())).isEqualTo(fixture.versionId());
+            IngestionJob claimed = ingestionJobRepository.claimNextByStage(IngestionStageEnum.PARSE, "worker-retry",
+                    UUID.randomUUID(), OffsetDateTime.now().plusSeconds(60)).orElseThrow();
+            assertThat(claimed.getAttempt()).isEqualTo(2);
+        } finally {
+            deleteFixture(fixture);
+        }
+    }
+
+    @Test
+    void manualRetryRejectsOtherPendingHigherActiveAndExhaustedAttempt() {
+        IngestionFixture fixture = createFixture();
+        UUID ownerId = jdbcTemplate.queryForObject("SELECT id FROM app_user WHERE username = 'admin'", UUID.class);
+        UUID higherVersionId = UUID.randomUUID();
+        try {
+            jdbcTemplate.update("""
+                    UPDATE ingestion_job
+                    SET status = 'FAILED', attempt = 1, error_code = 'DOCUMENT_EMPTY',
+                        error_detail = '文档没有可处理内容', finished_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """, fixture.jobId());
+            jdbcTemplate.update("UPDATE document_version SET status = 'FAILED' WHERE id = ?", fixture.versionId());
+            insertHigherVersion(fixture.documentId(), higherVersionId, "QUEUED");
+            jdbcTemplate.update("UPDATE document SET pending_version_id = ? WHERE id = ?", higherVersionId,
+                    fixture.documentId());
+            assertThat(ingestionJobRepository.retry(fixture.jobId(), ownerId)).isEmpty();
+
+            jdbcTemplate.update("UPDATE document_version SET status = 'READY' WHERE id = ?", higherVersionId);
+            jdbcTemplate.update("UPDATE document SET active_version_id = ?, pending_version_id = NULL WHERE id = ?",
+                    higherVersionId, fixture.documentId());
+            assertThat(ingestionJobRepository.retry(fixture.jobId(), ownerId)).isEmpty();
+
+            jdbcTemplate.update("UPDATE document SET active_version_id = NULL WHERE id = ?", fixture.documentId());
+            jdbcTemplate.update("UPDATE ingestion_job SET attempt = max_attempts WHERE id = ?", fixture.jobId());
+            assertThat(ingestionJobRepository.retry(fixture.jobId(), ownerId)).isEmpty();
+        } finally {
+            jdbcTemplate.update("UPDATE document SET active_version_id = NULL, pending_version_id = NULL WHERE id = ?",
+                    fixture.documentId());
+            jdbcTemplate.update("DELETE FROM document_version WHERE id = ?", higherVersionId);
+            deleteFixture(fixture);
+        }
+    }
+
+    @Test
     void nonMemberGetsNotFoundForAnotherKnowledgeBaseJob() throws Exception {
         IngestionFixture fixture = createFixture();
         try {
@@ -216,6 +355,7 @@ class IngestionJobDatabaseIT {
                           'token-budget-v1', 'bge-m3', 1024, ?,
                           CAST('{"embedding":{"model":"bge-m3","dimensions":1024}}' AS JSONB), 0)
                 """, versionId, documentId, "2026/09/" + versionId + ".md", "a".repeat(64), "b".repeat(64));
+        jdbcTemplate.update("UPDATE document SET pending_version_id = ? WHERE id = ?", versionId, documentId);
         jdbcTemplate.update("""
                 INSERT INTO ingestion_job (id, version_id, status, stage, attempt, max_attempts, next_run_at)
                 VALUES (?, ?, 'QUEUED', 'PARSE', 0, 3, CURRENT_TIMESTAMP)
@@ -223,11 +363,26 @@ class IngestionJobDatabaseIT {
         return new IngestionFixture(knowledgeBaseId, documentId, versionId, jobId);
     }
 
+    private void insertHigherVersion(UUID documentId, UUID versionId, String status) {
+        jdbcTemplate.update("""
+                INSERT INTO document_version (
+                    id, document_id, version_no, storage_key, file_hash, file_size, media_type, original_filename,
+                    status, parser_version, chunker_version, embedding_model, dimensions, config_hash,
+                    config_snapshot, chunk_count
+                ) VALUES (?, ?, 2, ?, ?, 19, 'text/markdown', 'f20-v2.md', ?, 'plain-text-v1',
+                          'token-budget-v1', 'bge-m3', 1024, ?,
+                          CAST('{"embedding":{"model":"bge-m3","dimensions":1024}}' AS JSONB), 0)
+                """, versionId, documentId, "2026/09/" + versionId + ".md", "c".repeat(64), status,
+                "d".repeat(64));
+    }
+
     private void deleteFixture(IngestionFixture fixture) {
         if (fixture == null) {
             return;
         }
         jdbcTemplate.update("DELETE FROM ingestion_job WHERE id = ?", fixture.jobId());
+        jdbcTemplate.update("UPDATE document SET active_version_id = NULL, pending_version_id = NULL WHERE id = ?",
+                fixture.documentId());
         jdbcTemplate.update("DELETE FROM document_version WHERE id = ?", fixture.versionId());
         jdbcTemplate.update("DELETE FROM document WHERE id = ?", fixture.documentId());
         jdbcTemplate.update("DELETE FROM kb_member WHERE kb_id = ?", fixture.knowledgeBaseId());
@@ -243,7 +398,7 @@ class IngestionJobDatabaseIT {
                 .andExpect(status().isOk()).andReturn();
         Cookie cookie = loginCookie(result);
         SessionCsrf currentCsrf = csrf((MockHttpSession) result.getRequest().getSession(false), cookie);
-        return new AuthenticatedRequest(currentCsrf.session(), cookie);
+        return new AuthenticatedRequest(currentCsrf.session(), cookie, currentCsrf.headerName(), currentCsrf.token());
     }
 
     private SessionCsrf csrf(MockHttpSession session, Cookie cookie) throws Exception {
@@ -277,6 +432,6 @@ class IngestionJobDatabaseIT {
     private record SessionCsrf(String token, String headerName, MockHttpSession session) {
     }
 
-    private record AuthenticatedRequest(MockHttpSession session, Cookie cookie) {
+    private record AuthenticatedRequest(MockHttpSession session, Cookie cookie, String csrfHeader, String csrfToken) {
     }
 }

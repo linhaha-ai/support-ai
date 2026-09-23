@@ -1,13 +1,16 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import {
+  cancelIngestionJob,
   fetchDocument,
   fetchDocumentChunks,
   fetchDocumentContent,
   fetchDocuments,
   fetchDocumentVersions,
+  retryIngestionJob,
   type DocumentChunk,
   type DocumentContent,
   type DocumentDetail,
+  type DocumentIngestionJob,
   type DocumentSummary,
   type DocumentVersionSummary,
 } from './document'
@@ -35,6 +38,9 @@ export function useDocuments(knowledgeBaseId: () => string) {
   const detailError = ref('')
   const contentError = ref('')
   const chunksError = ref('')
+  const taskActionError = ref('')
+  const taskAction = ref<'retry' | 'cancel' | null>(null)
+  const taskActionJobId = ref<string | null>(null)
   const nextVersionCursor = ref<string | null>(null)
   const nextChunkCursor = ref<string | null>(null)
   let disposed = false
@@ -43,6 +49,7 @@ export function useDocuments(knowledgeBaseId: () => string) {
   let versionRequest = 0
   let contentRequest = 0
   let chunkRequest = 0
+  let taskActionRequest = 0
 
   const canLoadMoreVersions = computed(() => nextVersionCursor.value !== null && !versionsLoading.value)
   const canLoadMoreChunks = computed(() => nextChunkCursor.value !== null && !chunksLoading.value)
@@ -57,12 +64,16 @@ export function useDocuments(knowledgeBaseId: () => string) {
     detailError.value = ''
     contentError.value = ''
     chunksError.value = ''
+    taskActionError.value = ''
     nextVersionCursor.value = null
     nextChunkCursor.value = null
     detailRequest += 1
     versionRequest += 1
     contentRequest += 1
     chunkRequest += 1
+    taskActionRequest += 1
+    taskAction.value = null
+    taskActionJobId.value = null
   }
 
   async function loadDocuments() {
@@ -89,6 +100,7 @@ export function useDocuments(knowledgeBaseId: () => string) {
     selectedVersion.value = null
     content.value = null
     chunks.value = []
+    taskActionError.value = ''
     nextVersionCursor.value = null
     nextChunkCursor.value = null
     versionRequest += 1
@@ -134,6 +146,7 @@ export function useDocuments(knowledgeBaseId: () => string) {
     chunks.value = []
     contentError.value = ''
     chunksError.value = ''
+    taskActionError.value = ''
     nextChunkCursor.value = null
     const selection = `${documentId}:${version.versionId}`
     contentRequest += 1
@@ -181,6 +194,76 @@ export function useDocuments(knowledgeBaseId: () => string) {
     }
   }
 
+  function applyTaskAction(version: DocumentVersionSummary, job: DocumentIngestionJob,
+    action: 'retry' | 'cancel') {
+    const pending = action === 'retry'
+    const status = action === 'cancel' ? 'CANCELLED' : job.stage === 'PARSE' ? 'QUEUED' : 'BUILDING'
+    const updatedVersion: DocumentVersionSummary = {
+      ...version,
+      status,
+      pending,
+      task: job,
+      updatedAt: job.updatedAt,
+    }
+    versions.value = versions.value.map((item) => item.versionId === version.versionId ? updatedVersion : item)
+    if (selectedVersion.value?.versionId === version.versionId) selectedVersion.value = updatedVersion
+
+    const currentDocument = selectedDocument.value
+    if (!currentDocument) return
+    const documentId = currentDocument.documentId
+    const updateDocument = <T extends DocumentSummary | DocumentDetail>(document: T): T => {
+      const pointerChanges = action === 'retry'
+        ? document.pendingVersion?.versionId !== version.versionId
+        : document.pendingVersion?.versionId === version.versionId
+      const pendingVersion = action === 'retry'
+        ? updatedVersion
+        : document.pendingVersion?.versionId === version.versionId ? null : document.pendingVersion
+      return {
+        ...document,
+        pendingVersion,
+        revision: document.revision + (pointerChanges ? 1 : 0),
+        updatedAt: job.updatedAt,
+      }
+    }
+    selectedDocument.value = updateDocument(currentDocument)
+    documents.value = documents.value.map((document) => document.documentId === documentId
+      ? updateDocument(document)
+      : document)
+  }
+
+  async function runTaskAction(version: DocumentVersionSummary, action: 'retry' | 'cancel'): Promise<boolean> {
+    const job = version.task
+    if (!job || taskAction.value !== null) return false
+    const request = ++taskActionRequest
+    taskAction.value = action
+    taskActionJobId.value = job.jobId
+    taskActionError.value = ''
+    try {
+      const updatedJob = action === 'retry'
+        ? await retryIngestionJob(job.jobId)
+        : await cancelIngestionJob(job.jobId)
+      if (disposed || request !== taskActionRequest) return false
+      applyTaskAction(version, updatedJob, action)
+      return true
+    } catch (error) {
+      if (!disposed && request === taskActionRequest) taskActionError.value = messageFor(error)
+      return false
+    } finally {
+      if (!disposed && request === taskActionRequest) {
+        taskAction.value = null
+        taskActionJobId.value = null
+      }
+    }
+  }
+
+  function retryTask(version: DocumentVersionSummary): Promise<boolean> {
+    return runTaskAction(version, 'retry')
+  }
+
+  function cancelTask(version: DocumentVersionSummary): Promise<boolean> {
+    return runTaskAction(version, 'cancel')
+  }
+
   onScopeDispose(() => {
     disposed = true
     documentsRequest += 1
@@ -188,13 +271,15 @@ export function useDocuments(knowledgeBaseId: () => string) {
     versionRequest += 1
     contentRequest += 1
     chunkRequest += 1
+    taskActionRequest += 1
   })
 
   return {
     documents, selectedDocumentId, selectedDocument, versions, selectedVersion, content, chunks,
     documentsLoading, detailLoading, versionsLoading, contentLoading, chunksLoading,
-    documentsError, detailError, contentError, chunksError,
+    documentsError, detailError, contentError, chunksError, taskActionError, taskAction, taskActionJobId,
     canLoadMoreVersions, canLoadMoreChunks,
     loadDocuments, selectDocument, resetSelection, loadVersions, selectVersion, loadContent, loadChunks,
+    retryTask, cancelTask,
   }
 }

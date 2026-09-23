@@ -22,6 +22,7 @@ public class IngestionJobQueryService {
         AuthenticatedUser currentUser = accessPolicy.currentUser();
         IngestionJob job = ingestionJobRepository.findAccessibleByIdAndUserId(jobId, currentUser.getId())
                 .orElseThrow(IngestionJobNotFoundException::new);
-        return IngestionJobStatusResponse.from(job);
+        boolean canManage = ingestionJobRepository.hasWriteAccess(jobId, currentUser.getId());
+        return IngestionJobStatusResponse.from(job, canManage);
     }
 }

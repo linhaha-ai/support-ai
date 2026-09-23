@@ -14,6 +14,7 @@ import com.haha.supportai.data.knowledge.entity.po.DocumentChunkContent;
 import com.haha.supportai.data.knowledge.entity.po.DocumentVersion;
 import com.haha.supportai.data.knowledge.entity.po.IngestionJob;
 import com.haha.supportai.data.knowledge.entity.po.KnowledgeDocument;
+import com.haha.supportai.data.knowledge.enums.KbPermissionEnum;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
@@ -29,6 +30,7 @@ import com.haha.supportai.knowledge.document.entity.vo.DocumentVersionSummaryRes
 import com.haha.supportai.knowledge.document.exception.DocumentNotFoundException;
 import com.haha.supportai.knowledge.document.exception.DocumentQueryInvalidException;
 import com.haha.supportai.knowledge.document.parsing.service.DocumentSourceReader;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeBaseAccessContext;
 import com.haha.supportai.knowledge.ingestion.entity.vo.IngestionJobStatusResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -53,11 +55,12 @@ public class DocumentQueryService {
 
     @Transactional(readOnly = true)
     public List<DocumentSummaryResponse> list(UUID knowledgeBaseId) {
-        UUID userId = accessPolicy.requireRead(knowledgeBaseId).getMember().getUserId();
+        KnowledgeBaseAccessContext accessContext = accessPolicy.requireRead(knowledgeBaseId);
+        UUID userId = accessContext.getMember().getUserId();
         List<KnowledgeDocument> documents = knowledgeDocumentRepository
                 .listAccessibleByKnowledgeBaseId(knowledgeBaseId, userId);
         Map<UUID, DocumentVersion> versions = loadReferencedVersions(documents, userId);
-        Map<UUID, IngestionJobStatusResponse> tasks = loadTasks(versions.keySet());
+        Map<UUID, IngestionJobStatusResponse> tasks = loadTasks(versions.keySet(), canManage(accessContext));
         return documents.stream()
                 .map(document -> toSummary(document, versions, tasks))
                 .toList();
@@ -68,7 +71,8 @@ public class DocumentQueryService {
         UUID userId = accessPolicy.currentUser().getId();
         KnowledgeDocument document = requireAccessibleDocument(documentId, userId);
         Map<UUID, DocumentVersion> versions = loadReferencedVersions(List.of(document), userId);
-        Map<UUID, IngestionJobStatusResponse> tasks = loadTasks(versions.keySet());
+        boolean canManage = canManage(accessPolicy.requireRead(document.getKbId()));
+        Map<UUID, IngestionJobStatusResponse> tasks = loadTasks(versions.keySet(), canManage);
         return new DocumentDetailResponse(document.getId(), document.getKbId(), document.getName(),
                 toVersionSummary(versions.get(document.getActiveVersionId()), document, tasks),
                 toVersionSummary(versions.get(document.getPendingVersionId()), document, tasks),
@@ -85,9 +89,10 @@ public class DocumentQueryService {
                 documentId, userId, beforeVersionNo, pageLimit + 1);
         boolean hasNext = fetched.size() > pageLimit;
         List<DocumentVersion> page = hasNext ? fetched.subList(0, pageLimit) : fetched;
+        boolean canManage = canManage(accessPolicy.requireRead(document.getKbId()));
         Map<UUID, IngestionJobStatusResponse> tasks = loadTasks(page.stream()
                 .map(DocumentVersion::getId)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()), canManage);
         List<DocumentVersionSummaryResponse> items = page.stream()
                 .map(version -> toVersionSummary(version, document, tasks))
                 .toList();
@@ -158,13 +163,18 @@ public class DocumentQueryService {
                 .ifPresent(version -> versions.put(versionId, version));
     }
 
-    private Map<UUID, IngestionJobStatusResponse> loadTasks(Collection<UUID> versionIds) {
+    private Map<UUID, IngestionJobStatusResponse> loadTasks(Collection<UUID> versionIds, boolean canManage) {
         if (versionIds.isEmpty()) {
             return Map.of();
         }
         return ingestionJobRepository.findByVersionIds(versionIds).stream()
-                .collect(Collectors.toMap(IngestionJob::getVersionId, IngestionJobStatusResponse::from,
+                .collect(Collectors.toMap(IngestionJob::getVersionId,
+                        job -> IngestionJobStatusResponse.from(job, canManage),
                         (first, ignored) -> first));
+    }
+
+    private boolean canManage(KnowledgeBaseAccessContext accessContext) {
+        return accessContext.getMember().getPermission() == KbPermissionEnum.WRITE;
     }
 
     private DocumentSummaryResponse toSummary(KnowledgeDocument document, Map<UUID, DocumentVersion> versions,

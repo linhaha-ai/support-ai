@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElAlert, ElButton, ElEmpty, ElSkeleton, ElTag } from 'element-plus'
+import { ElAlert, ElButton, ElEmpty, ElPopconfirm, ElSkeleton, ElTag } from 'element-plus'
 import 'element-plus/es/components/alert/style/css'
 import 'element-plus/es/components/button/style/css'
 import 'element-plus/es/components/empty/style/css'
+import 'element-plus/es/components/popconfirm/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import type { DocumentChunk, DocumentIngestionJob, DocumentVersionStatus } from './document'
@@ -12,6 +13,7 @@ import { useDocuments } from './useDocuments'
 const props = defineProps<{
   knowledgeBaseId: string
   knowledgeBaseName: string
+  canManage: boolean
 }>()
 
 const emit = defineEmits<{ close: [] }>()
@@ -19,6 +21,7 @@ const documents = reactive(useDocuments(() => props.knowledgeBaseId))
 const activeTab = ref<'content' | 'chunks'>('content')
 
 const detailTitle = computed(() => documents.selectedDocument?.name ?? '文档详情')
+const selectedTask = computed(() => documents.selectedVersion?.task ?? null)
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -49,14 +52,47 @@ function versionStatusType(status: DocumentVersionStatus): 'info' | 'warning' | 
   return 'info'
 }
 
+function stageLabel(stage: DocumentIngestionJob['stage']): string {
+  if (stage === 'PARSE') return '解析'
+  if (stage === 'CHUNK') return '分块'
+  if (stage === 'EMBED') return '向量生成'
+  return '发布'
+}
+
 function jobSummary(job: DocumentIngestionJob | null): string {
   if (!job) return ''
-  if (job.status === 'FAILED') return [job.errorCode, job.errorMessage || '任务处理失败'].filter(Boolean).join(' · ')
-  if (job.status === 'RETRY_WAIT') return '任务等待重试'
-  if (job.status === 'RUNNING') return `${job.stage} · 任务处理中${job.progressPercent === null ? '' : `，${job.progressPercent}%`}`
-  if (job.status === 'QUEUED') return '任务排队中'
+  const errorStage = stageLabel(job.errorStage ?? job.stage)
+  const error = [job.errorCode, job.errorMessage].filter(Boolean).join(' · ')
+  if (job.status === 'FAILED') return `${errorStage}阶段终止失败${error ? ` · ${error}` : ''}`
+  if (job.status === 'RETRY_WAIT') return `${errorStage}阶段失败，等待自动重试${error ? ` · ${error}` : ''}`
+  if (job.status === 'RUNNING') return `${stageLabel(job.stage)}阶段处理中${job.progressPercent === null ? '' : `，${job.progressPercent}%`}`
+  if (job.status === 'QUEUED') return `${stageLabel(job.stage)}阶段排队中`
   if (job.status === 'CANCELLED') return '任务已取消'
   return '任务已完成'
+}
+
+function canRetryVersion(): boolean {
+  const version = documents.selectedVersion
+  const document = documents.selectedDocument
+  if (!props.canManage || !version?.task?.retryable || !document) return false
+  const pendingVersion = document.pendingVersion
+  const activeVersion = document.activeVersion
+  return (!pendingVersion || pendingVersion.versionId === version.versionId)
+    && (!activeVersion || activeVersion.versionNo <= version.versionNo)
+}
+
+function canCancelVersion(): boolean {
+  return props.canManage && Boolean(documents.selectedVersion?.task?.cancellable)
+}
+
+function retrySelectedTask() {
+  const version = documents.selectedVersion
+  if (version) void documents.retryTask(version)
+}
+
+function cancelSelectedTask() {
+  const version = documents.selectedVersion
+  if (version) void documents.cancelTask(version)
 }
 
 function chunkLocation(chunk: DocumentChunk): string {
@@ -200,6 +236,47 @@ onMounted(documents.loadDocuments)
                   <ElButton :type="activeTab === 'chunks' ? 'primary' : 'default'" @click="activeTab = 'chunks'">分块</ElButton>
                 </div>
               </div>
+
+              <div v-if="selectedTask" class="document-task-control" aria-live="polite">
+                <div>
+                  <strong>{{ jobSummary(selectedTask) }}</strong>
+                  <span>当前阶段已执行 {{ selectedTask.attempt }}/{{ selectedTask.maxAttempts }} 次</span>
+                </div>
+                <div v-if="canRetryVersion() || canCancelVersion()" class="document-task-actions">
+                  <ElButton
+                    v-if="canRetryVersion()"
+                    type="primary"
+                    plain
+                    :loading="documents.taskAction === 'retry' && documents.taskActionJobId === selectedTask.jobId"
+                    :disabled="documents.taskAction !== null"
+                    @click="retrySelectedTask"
+                  >重新处理</ElButton>
+                  <ElPopconfirm
+                    v-if="canCancelVersion()"
+                    title="确认取消当前文档处理任务？"
+                    confirm-button-text="确认取消"
+                    cancel-button-text="返回"
+                    @confirm="cancelSelectedTask"
+                  >
+                    <template #reference>
+                      <ElButton
+                        type="danger"
+                        plain
+                        :loading="documents.taskAction === 'cancel' && documents.taskActionJobId === selectedTask.jobId"
+                        :disabled="documents.taskAction !== null"
+                      >取消处理</ElButton>
+                    </template>
+                  </ElPopconfirm>
+                </div>
+              </div>
+              <ElAlert
+                v-if="documents.taskActionError"
+                class="document-alert"
+                type="error"
+                :closable="false"
+                :title="documents.taskActionError"
+                show-icon
+              />
 
               <ElAlert v-if="documents.contentError && activeTab === 'content'" class="document-alert" type="error" :closable="false" :title="documents.contentError" show-icon>
                 <template #default><ElButton text type="primary" @click="documents.loadContent()">重试</ElButton></template>

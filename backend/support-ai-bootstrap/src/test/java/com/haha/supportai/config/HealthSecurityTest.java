@@ -12,14 +12,17 @@ import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
+import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.data.knowledge.repository.KbMemberRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVersionRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
+import com.haha.supportai.data.knowledge.repository.DocumentVectorRepository;
 import com.haha.supportai.data.knowledge.repository.IngestionJobRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.ingestion.service.IngestionJobControlService;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -71,6 +74,9 @@ class HealthSecurityTest {
     DocumentChunkRepository documentChunkRepository;
 
     @MockBean
+    DocumentVectorRepository documentVectorRepository;
+
+    @MockBean
     IngestionJobRepository ingestionJobRepository;
 
     @MockBean
@@ -87,6 +93,9 @@ class HealthSecurityTest {
 
     @MockBean
     IngestionJobQueryService ingestionJobQueryService;
+
+    @MockBean
+    IngestionJobControlService ingestionJobControlService;
 
     @MockBean
     KnowledgeRetrievalService knowledgeRetrievalService;
@@ -111,6 +120,9 @@ class HealthSecurityTest {
 
     @MockBean
     AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
+
+    @MockBean
+    AuthorizedRetrievalRepository authorizedRetrievalRepository;
 
     @MockBean
     ChatSessionService chatSessionService;
@@ -144,6 +156,14 @@ class HealthSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
+        for (String path : new String[] {
+                "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000/retry",
+                "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000/cancel" }) {
+            mvc.perform(post(path))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
+                    .andExpect(jsonPath("$.traceId").isNotEmpty());
+        }
         mvc.perform(post("/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"query\":\"退款状态\",\"topK\":3}"))

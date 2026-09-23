@@ -35,6 +35,7 @@ function queuedJob() {
     cancellable: true,
     errorCode: null,
     errorMessage: null,
+    errorStage: null,
     nextRunAt: null,
     startedAt: null,
     finishedAt: null,

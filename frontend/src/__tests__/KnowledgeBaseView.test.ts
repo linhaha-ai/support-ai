@@ -90,6 +90,7 @@ function ingestionJob(
     cancellable: status === 'QUEUED' || status === 'RUNNING' || status === 'RETRY_WAIT',
     errorCode: status === 'FAILED' ? 'DOCUMENT_READ_FAILED' : null,
     errorMessage: status === 'FAILED' ? '原文件暂时无法读取' : null,
+    errorStage: status === 'FAILED' ? 'PARSE' : null,
     nextRunAt: null,
     startedAt: status === 'RUNNING' ? '2026-09-21T10:00:00+08:00' : null,
     finishedAt: status === 'FAILED' ? '2026-09-21T10:01:00+08:00' : null,

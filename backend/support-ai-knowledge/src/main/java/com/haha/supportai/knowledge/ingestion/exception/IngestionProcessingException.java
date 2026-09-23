@@ -9,15 +9,25 @@ public class IngestionProcessingException extends RuntimeException {
 
     private final String safeDetail; // 不包含路径、堆栈或供应商信息的错误摘要
 
+    private final boolean automaticRetryAllowed; // 是否允许工作者自动重试当前失败
+
     public IngestionProcessingException(String errorCode, String safeDetail) {
-        super(safeDetail);
-        this.errorCode = errorCode;
-        this.safeDetail = safeDetail;
+        this(errorCode, safeDetail, true, null);
+    }
+
+    public IngestionProcessingException(String errorCode, String safeDetail, boolean automaticRetryAllowed) {
+        this(errorCode, safeDetail, automaticRetryAllowed, null);
     }
 
     public IngestionProcessingException(String errorCode, String safeDetail, Throwable cause) {
+        this(errorCode, safeDetail, true, cause);
+    }
+
+    public IngestionProcessingException(String errorCode, String safeDetail, boolean automaticRetryAllowed,
+            Throwable cause) {
         super(safeDetail, cause);
         this.errorCode = errorCode;
         this.safeDetail = safeDetail;
+        this.automaticRetryAllowed = automaticRetryAllowed;
     }
 }

@@ -28,15 +28,20 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             WITH candidate AS (
                 SELECT job.id
                 FROM ingestion_job job
+                INNER JOIN document_version version ON version.id = job.version_id
+                INNER JOIN document document ON document.id = version.document_id
                 WHERE job.stage = #{stage,jdbcType=VARCHAR}
                   AND job.attempt < job.max_attempts
                   AND job.cancel_requested_at IS NULL
+                  AND version.status IN ('QUEUED', 'BUILDING')
+                  AND document.pending_version_id = version.id
+                  AND document.deleted_at IS NULL
                   AND (
                       (job.status IN ('QUEUED', 'RETRY_WAIT') AND job.next_run_at <= CURRENT_TIMESTAMP)
                       OR (job.status = 'RUNNING' AND (job.lease_until IS NULL OR job.lease_until <= CURRENT_TIMESTAMP))
                   )
                 ORDER BY job.next_run_at, job.created_at, job.id
-                FOR UPDATE SKIP LOCKED
+                FOR UPDATE OF job SKIP LOCKED
                 LIMIT 1
             )
             UPDATE ingestion_job job
@@ -126,6 +131,163 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             """)
     @ResultMap("ingestionJobResultMap")
     Optional<IngestionJob> selectAccessibleByIdAndUserId(@Param("jobId") UUID jobId, @Param("userId") UUID userId);
+
+    @Select("""
+            -- ingestion_job、document、knowledge_base、kb_member、app_user：复核当前用户是否仍有任务控制权限。
+            SELECT EXISTS (
+                SELECT 1
+                FROM ingestion_job job
+                INNER JOIN document_version version ON version.id = job.version_id
+                INNER JOIN document document ON document.id = version.document_id
+                INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+                INNER JOIN kb_member member ON member.kb_id = kb.id
+                INNER JOIN app_user account ON account.id = member.user_id
+                WHERE job.id = #{jobId,jdbcType=OTHER}
+                  AND member.user_id = #{userId,jdbcType=OTHER}
+                  AND member.permission = 'WRITE'
+                  AND kb.status = 'ACTIVE'
+                  AND account.enabled = TRUE
+                  AND document.deleted_at IS NULL
+            )
+            """)
+    boolean hasWriteAccess(@Param("jobId") UUID jobId, @Param("userId") UUID userId);
+
+    @Select("""
+            -- ingestion_job、document_version、document：取消任务、使租约失效并仅清理本版本待处理指针。
+            WITH candidate AS (
+                SELECT job.id, job.version_id
+                FROM ingestion_job job
+                INNER JOIN document_version version ON version.id = job.version_id
+                INNER JOIN document document ON document.id = version.document_id
+                INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+                INNER JOIN kb_member member ON member.kb_id = kb.id
+                INNER JOIN app_user account ON account.id = member.user_id
+                WHERE job.id = #{jobId,jdbcType=OTHER}
+                  AND member.user_id = #{userId,jdbcType=OTHER}
+                  AND member.permission = 'WRITE'
+                  AND kb.status = 'ACTIVE'
+                  AND account.enabled = TRUE
+                  AND document.deleted_at IS NULL
+                  AND job.status IN ('QUEUED', 'RUNNING', 'RETRY_WAIT')
+                  AND version.status IN ('QUEUED', 'BUILDING')
+                FOR UPDATE OF job, version, document
+            ), cancelled_job AS (
+                UPDATE ingestion_job job
+                SET status = 'CANCELLED',
+                    lease_owner = NULL,
+                    lease_token = NULL,
+                    lease_until = NULL,
+                    error_code = NULL,
+                    error_detail = NULL,
+                    cancel_requested_at = COALESCE(job.cancel_requested_at, CURRENT_TIMESTAMP),
+                    finished_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM candidate
+                WHERE job.id = candidate.id
+                RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                          job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                          job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            ), cancelled_version AS (
+                UPDATE document_version version
+                SET status = 'CANCELLED',
+                    updated_at = CURRENT_TIMESTAMP
+                FROM cancelled_job job
+                WHERE version.id = job.version_id
+                  AND version.status IN ('QUEUED', 'BUILDING')
+                RETURNING version.id, version.document_id
+            ), cleared_document AS (
+                UPDATE document document
+                SET pending_version_id = NULL,
+                    revision = document.revision + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM cancelled_version version
+                WHERE document.id = version.document_id
+                  AND document.pending_version_id = version.id
+                RETURNING document.id
+            )
+            SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                   job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                   job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            FROM cancelled_job job
+            """)
+    @ResultMap("ingestionJobResultMap")
+    Optional<IngestionJob> cancelByIdAndUserId(@Param("jobId") UUID jobId, @Param("userId") UUID userId);
+
+    @Select("""
+            -- ingestion_job、document_version、document：人工重试只恢复仍可执行的失败版本并重新取得待处理指针。
+            WITH candidate AS (
+                SELECT job.id, job.version_id, job.stage, version.document_id
+                FROM ingestion_job job
+                INNER JOIN document_version version ON version.id = job.version_id
+                INNER JOIN document document ON document.id = version.document_id
+                INNER JOIN knowledge_base kb ON kb.id = document.kb_id
+                INNER JOIN kb_member member ON member.kb_id = kb.id
+                INNER JOIN app_user account ON account.id = member.user_id
+                WHERE job.id = #{jobId,jdbcType=OTHER}
+                  AND member.user_id = #{userId,jdbcType=OTHER}
+                  AND member.permission = 'WRITE'
+                  AND kb.status = 'ACTIVE'
+                  AND account.enabled = TRUE
+                  AND document.deleted_at IS NULL
+                  AND job.status = 'FAILED'
+                  AND job.attempt < job.max_attempts
+                  AND job.cancel_requested_at IS NULL
+                  AND version.status = 'FAILED'
+                  AND (document.pending_version_id IS NULL OR document.pending_version_id = version.id)
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM document_version active_version
+                      WHERE active_version.id = document.active_version_id
+                        AND active_version.version_no > version.version_no
+                  )
+                FOR UPDATE OF job, version, document
+            ), restored_version AS (
+                UPDATE document_version version
+                SET status = CASE candidate.stage WHEN 'PARSE' THEN 'QUEUED' ELSE 'BUILDING' END,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM candidate
+                WHERE version.id = candidate.version_id
+                RETURNING version.id, version.document_id
+            ), claimed_document AS (
+                UPDATE document document
+                SET pending_version_id = candidate.version_id,
+                    revision = document.revision
+                        + CASE WHEN document.pending_version_id IS DISTINCT FROM candidate.version_id THEN 1 ELSE 0 END,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM candidate
+                INNER JOIN restored_version version ON version.id = candidate.version_id
+                WHERE document.id = candidate.document_id
+                  AND (document.pending_version_id IS NULL OR document.pending_version_id = candidate.version_id)
+                RETURNING document.id
+            ), retried_job AS (
+                UPDATE ingestion_job job
+                SET status = 'QUEUED',
+                    lease_owner = NULL,
+                    lease_token = NULL,
+                    lease_until = NULL,
+                    next_run_at = CURRENT_TIMESTAMP,
+                    error_code = NULL,
+                    error_detail = NULL,
+                    finished_at = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM candidate
+                INNER JOIN claimed_document document ON document.id = candidate.document_id
+                WHERE job.id = candidate.id
+                RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                          job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                          job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            )
+            SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                   job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                   job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            FROM retried_job job
+            """)
+    @ResultMap("ingestionJobResultMap")
+    Optional<IngestionJob> retryByIdAndUserId(@Param("jobId") UUID jobId, @Param("userId") UUID userId);
 
     @Select("""
             -- ingestion_job：分块落库前锁定并复核任务版本、阶段和未过期租约，拒绝失效工作者回写。
@@ -262,35 +424,75 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
               AND job.lease_token = #{leaseToken,jdbcType=OTHER}
               AND job.lease_until > CURRENT_TIMESTAMP
               AND job.attempt < job.max_attempts
+              AND job.cancel_requested_at IS NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM document_version version
+                  INNER JOIN document document ON document.id = version.document_id
+                  WHERE version.id = job.version_id
+                    AND version.status IN ('QUEUED', 'BUILDING')
+                    AND document.pending_version_id = version.id
+                    AND document.deleted_at IS NULL
+              )
             """)
     int markRetryWait(@Param("jobId") UUID jobId, @Param("leaseOwner") String leaseOwner,
                       @Param("leaseToken") UUID leaseToken,
                       @Param("nextRunAt") OffsetDateTime nextRunAt, @Param("errorCode") String errorCode,
                       @Param("errorDetail") String errorDetail);
 
-    @Update("""
-            -- ingestion_job：仅未过期租约可写入最终失败结果并释放租约
-            UPDATE ingestion_job job
-            SET status = 'FAILED',
-                lease_owner = NULL,
-                lease_token = NULL,
-                lease_until = NULL,
-                error_code = #{errorCode},
-                error_detail = #{errorDetail},
-                finished_at = CURRENT_TIMESTAMP,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE job.id = #{jobId,jdbcType=OTHER}
-              AND job.status = 'RUNNING'
-              AND job.lease_owner = #{leaseOwner}
-              AND job.lease_token = #{leaseToken,jdbcType=OTHER}
-              AND job.lease_until > CURRENT_TIMESTAMP
+    @Select("""
+            -- ingestion_job、document_version、document：终止失败时同步版本终态并仅释放本任务待处理指针。
+            WITH failed_job AS (
+                UPDATE ingestion_job job
+                SET status = 'FAILED',
+                    lease_owner = NULL,
+                    lease_token = NULL,
+                    lease_until = NULL,
+                    error_code = #{errorCode},
+                    error_detail = #{errorDetail},
+                    finished_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE job.id = #{jobId,jdbcType=OTHER}
+                  AND job.status = 'RUNNING'
+                  AND job.lease_owner = #{leaseOwner}
+                  AND job.lease_token = #{leaseToken,jdbcType=OTHER}
+                  AND job.lease_until > CURRENT_TIMESTAMP
+                RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                          job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                          job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            ), failed_version AS (
+                UPDATE document_version version
+                SET status = 'FAILED',
+                    updated_at = CURRENT_TIMESTAMP
+                FROM failed_job job
+                WHERE version.id = job.version_id
+                  AND version.status IN ('QUEUED', 'BUILDING')
+                RETURNING version.id, version.document_id
+            ), cleared_document AS (
+                UPDATE document document
+                SET pending_version_id = NULL,
+                    revision = document.revision + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM failed_version version
+                WHERE document.id = version.document_id
+                  AND document.pending_version_id = version.id
+                RETURNING document.id
+            )
+            SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
+                   job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
+                   job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+            FROM failed_job job
             """)
-    int markFailed(@Param("jobId") UUID jobId, @Param("leaseOwner") String leaseOwner,
-                   @Param("leaseToken") UUID leaseToken,
-                   @Param("errorCode") String errorCode, @Param("errorDetail") String errorDetail);
+    @ResultMap("ingestionJobResultMap")
+    Optional<IngestionJob> markFailed(@Param("jobId") UUID jobId, @Param("leaseOwner") String leaseOwner,
+                                      @Param("leaseToken") UUID leaseToken,
+                                      @Param("errorCode") String errorCode,
+                                      @Param("errorDetail") String errorDetail);
 
-    @Update("""
-            -- ingestion_job、document_version：租约耗尽时同步终止任务和仍在构建的版本，避免版本永久停留 BUILDING。
+    @Select("""
+            -- ingestion_job、document_version、document：租约耗尽时同步失败终态并释放本任务待处理指针。
             WITH failed_jobs AS (
                 UPDATE ingestion_job job
                 SET status = 'FAILED',
@@ -304,14 +506,27 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                 WHERE job.status = 'RUNNING'
                   AND job.attempt >= job.max_attempts
                   AND (job.lease_until IS NULL OR job.lease_until <= CURRENT_TIMESTAMP)
-                RETURNING job.version_id
+                RETURNING job.id, job.version_id
+            ), failed_versions AS (
+                UPDATE document_version version
+                SET status = 'FAILED',
+                    updated_at = CURRENT_TIMESTAMP
+                FROM failed_jobs job
+                WHERE version.id = job.version_id
+                  AND version.status IN ('QUEUED', 'BUILDING')
+                RETURNING version.id, version.document_id
+            ), cleared_documents AS (
+                UPDATE document document
+                SET pending_version_id = NULL,
+                    revision = document.revision + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                FROM failed_versions version
+                WHERE document.id = version.document_id
+                  AND document.pending_version_id = version.id
+                RETURNING document.id
             )
-            UPDATE document_version version
-            SET status = 'FAILED',
-                updated_at = CURRENT_TIMESTAMP
+            SELECT COUNT(*)::INTEGER
             FROM failed_jobs
-            WHERE version.id = failed_jobs.version_id
-              AND version.status IN ('QUEUED', 'BUILDING')
             """)
     int markExpiredExhaustedRunningAsFailed();
 }

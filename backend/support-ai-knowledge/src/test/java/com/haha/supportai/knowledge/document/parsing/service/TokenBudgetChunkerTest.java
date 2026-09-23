@@ -72,8 +72,11 @@ class TokenBudgetChunkerTest {
         ParsedDocument parsed = parser.parse("需要拆成多个分块的中文内容。".repeat(20), "text/plain");
 
         assertThatThrownBy(() -> chunker.chunk(parsed))
-                .isInstanceOf(DocumentChunkLimitExceededException.class)
-                .hasMessage("文档处理暂时失败");
+                .isInstanceOfSatisfying(DocumentChunkLimitExceededException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo("DOCUMENT_CHUNK_LIMIT_EXCEEDED");
+                    assertThat(exception.getMessage()).isEqualTo("文档分块数量超过处理上限");
+                    assertThat(exception.isAutomaticRetryAllowed()).isFalse();
+                });
     }
 
     @Test

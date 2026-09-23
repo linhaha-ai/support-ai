@@ -5,6 +5,6 @@ import com.haha.supportai.knowledge.ingestion.exception.IngestionProcessingExcep
 public class DocumentChunkLimitExceededException extends IngestionProcessingException {
 
     public DocumentChunkLimitExceededException() {
-        super("INGESTION_PROCESSING_FAILED", "文档处理暂时失败");
+        super("DOCUMENT_CHUNK_LIMIT_EXCEEDED", "文档分块数量超过处理上限", false);
     }
 }

@@ -19,7 +19,10 @@ public class IngestionJobStatusResponse {
     private static final Set<String> PUBLIC_ERROR_CODES = Set.of(
             "DOCUMENT_EMPTY",
             "DOCUMENT_READ_FAILED",
-            "EMBEDDING_FAILED",
+            "DOCUMENT_CONFIGURATION_INVALID",
+            "DOCUMENT_CHUNK_LIMIT_EXCEEDED",
+            "DOCUMENT_EMBEDDING_FAILED",
+            "DOCUMENT_INDEX_INCONSISTENT",
             "INGESTION_LEASE_EXPIRED",
             "INGESTION_PROCESSING_FAILED");
 
@@ -67,6 +70,9 @@ public class IngestionJobStatusResponse {
     @Schema(description = "面向用户的脱敏错误提示", nullable = true)
     private final String errorMessage; // 面向用户的脱敏错误提示
 
+    @Schema(description = "发生最近一次错误的处理阶段；无错误时为空", nullable = true)
+    private final IngestionStageEnum errorStage; // 最近一次错误所在处理阶段
+
     @Schema(description = "下次允许领取时间", format = "date-time", requiredMode = Schema.RequiredMode.REQUIRED)
     private final OffsetDateTime nextRunAt; // 下次允许领取时间
 
@@ -79,11 +85,12 @@ public class IngestionJobStatusResponse {
     @Schema(description = "任务最近更新时间", format = "date-time", requiredMode = Schema.RequiredMode.REQUIRED)
     private final OffsetDateTime updatedAt; // 任务最近更新时间
 
-    public static IngestionJobStatusResponse from(IngestionJob job) {
+    public static IngestionJobStatusResponse from(IngestionJob job, boolean canManage) {
         return new IngestionJobStatusResponse(job.getId(), job.getVersionId(), job.getStatus(), job.getStage(),
                 job.getAttempt(), job.getMaxAttempts(), job.getCompletedChunks(), job.getTotalChunks(),
-                progressPercent(job), isRetryable(job), CANCELLABLE_STATUSES.contains(job.getStatus()),
-                safeErrorCode(job), safeErrorMessage(job), job.getNextRunAt(), job.getStartedAt(),
+                progressPercent(job), canManage && isRetryable(job),
+                canManage && CANCELLABLE_STATUSES.contains(job.getStatus()), safeErrorCode(job),
+                safeErrorMessage(job), errorStage(job), job.getNextRunAt(), job.getStartedAt(),
                 job.getFinishedAt(), job.getUpdatedAt());
     }
 
@@ -118,9 +125,16 @@ public class IngestionJobStatusResponse {
         return switch (errorCode) {
             case "DOCUMENT_EMPTY" -> "文档没有可处理内容";
             case "DOCUMENT_READ_FAILED" -> "原文件暂时无法读取";
-            case "EMBEDDING_FAILED" -> "文档向量化暂时失败";
+            case "DOCUMENT_CONFIGURATION_INVALID" -> "文档处理配置已失效";
+            case "DOCUMENT_CHUNK_LIMIT_EXCEEDED" -> "文档分块数量超过处理上限";
+            case "DOCUMENT_EMBEDDING_FAILED" -> "文档向量生成暂时失败";
+            case "DOCUMENT_INDEX_INCONSISTENT" -> "文档索引数据不完整";
             case "INGESTION_LEASE_EXPIRED" -> "文档处理执行超时";
             default -> "文档处理暂时失败";
         };
+    }
+
+    private static IngestionStageEnum errorStage(IngestionJob job) {
+        return safeErrorCode(job) == null ? null : job.getStage();
     }
 }
