@@ -51,6 +51,22 @@ class SpringAiChatModelGatewayTest {
         });
     }
 
+    @Test
+    void generatesWithNonStreamingCall() {
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec responseSpec = mock(ChatClient.CallResponseSpec.class);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.system("系统提示")).thenReturn(requestSpec);
+        when(requestSpec.user("用户提示")).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(responseSpec);
+        when(responseSpec.content()).thenReturn("{\"query\":\"完整问题\"}");
+
+        String result = new SpringAiChatModelGateway(chatClient).generate("系统提示", "用户提示");
+
+        assertThat(result).isEqualTo("{\"query\":\"完整问题\"}");
+    }
+
     private ChatModelGateway gateway(Flux<ChatResponse> responses) {
         ChatClient chatClient = mock(ChatClient.class);
         ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);

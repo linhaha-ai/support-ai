@@ -38,4 +38,6 @@ public class AuthorizedDocumentSource {
     private String content; // 向量存储中的分块正文
 
     private boolean current; // 是否仍为文档当前活动版本
+
+    private boolean available; // 当前是否允许读取来源正文
 }

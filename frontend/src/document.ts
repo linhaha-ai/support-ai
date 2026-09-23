@@ -21,7 +21,6 @@ export interface DocumentIngestionJob {
   cancellable: boolean
   errorCode: string | null
   errorMessage: string | null
-  errorStage: IngestionJobStage | null
   nextRunAt: string | null
   startedAt: string | null
   finishedAt: string | null
@@ -95,6 +94,11 @@ interface ApiEnvelope<T> {
   data?: T
 }
 
+interface CsrfData {
+  token: string
+  headerName: string
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -125,11 +129,6 @@ function parseJobStage(value: unknown): IngestionJobStage | null {
   return value === 'PARSE' || value === 'CHUNK' || value === 'EMBED' || value === 'PUBLISH' ? value : null
 }
 
-function parseNullableJobStage(value: unknown): IngestionJobStage | null | undefined {
-  if (value === null) return null
-  return parseJobStage(value) ?? undefined
-}
-
 function parseJob(value: unknown): DocumentIngestionJob | null {
   const status = isRecord(value) ? parseJobStatus(value.status) : null
   const stage = isRecord(value) ? parseJobStage(value.stage) : null
@@ -138,7 +137,6 @@ function parseJob(value: unknown): DocumentIngestionJob | null {
   const progressPercent = isRecord(value) ? parseNullableNumber(value.progressPercent) : undefined
   const errorCode = isRecord(value) ? parseNullableString(value.errorCode) : undefined
   const errorMessage = isRecord(value) ? parseNullableString(value.errorMessage) : undefined
-  const errorStage = isRecord(value) ? parseNullableJobStage(value.errorStage) : undefined
   const nextRunAt = isRecord(value) ? parseNullableString(value.nextRunAt) : undefined
   const startedAt = isRecord(value) ? parseNullableString(value.startedAt) : undefined
   const finishedAt = isRecord(value) ? parseNullableString(value.finishedAt) : undefined
@@ -150,14 +148,14 @@ function parseJob(value: unknown): DocumentIngestionJob | null {
     || typeof value.maxAttempts !== 'number'
     || completedChunks === undefined || totalChunks === undefined || progressPercent === undefined
     || typeof value.retryable !== 'boolean' || typeof value.cancellable !== 'boolean'
-    || errorCode === undefined || errorMessage === undefined || errorStage === undefined || nextRunAt === undefined
+    || errorCode === undefined || errorMessage === undefined || nextRunAt === undefined
     || startedAt === undefined || finishedAt === undefined || typeof value.updatedAt !== 'string') return null
   return {
     jobId: value.jobId, versionId: value.versionId, status, stage,
     attempt: value.attempt, maxAttempts: value.maxAttempts,
     completedChunks, totalChunks, progressPercent,
     retryable: value.retryable, cancellable: value.cancellable,
-    errorCode, errorMessage, errorStage, nextRunAt, startedAt, finishedAt, updatedAt: value.updatedAt,
+    errorCode, errorMessage, nextRunAt, startedAt, finishedAt, updatedAt: value.updatedAt,
   }
 }
 
@@ -260,23 +258,33 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function errorFor(response: Response, control = false): DocumentApiError {
+function errorFor(response: Response): DocumentApiError {
   if (response.status === 401) return { kind: 'unauthorized', message: '登录状态已失效，请重新登录。' }
-  if (response.status === 403) return {
-    kind: 'forbidden',
-    message: control ? '当前账号没有管理此任务的权限。' : '当前账号没有查看此文档的权限。',
+  if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有查看此文档的权限。' }
+  if (response.status === 404) return { kind: 'not-found', message: '文档或版本不存在，可能已被更新。' }
+  return { kind: 'request', message: '文档信息暂时无法读取，请稍后重试。' }
+}
+
+function deleteErrorFor(response: Response): DocumentApiError {
+  if (response.status === 401) return { kind: 'unauthorized', message: '登录状态已失效，请重新登录。' }
+  if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有删除此文档的权限。' }
+  if (response.status === 404) return { kind: 'not-found', message: '文档不存在或已经删除。' }
+  if (response.status === 409) return { kind: 'request', message: '文档状态已变化，请刷新后重试。' }
+  return { kind: 'request', message: '文档暂时无法删除，请稍后重试。' }
+}
+
+async function requestCsrf(): Promise<CsrfData> {
+  const response = await fetch('/api/auth/csrf', {
+    method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store',
+  })
+  const envelope = parseEnvelope<unknown>(await readJson(response))
+  const value = envelope?.data
+  if (response.ok && envelope?.code === 'OK' && isRecord(value)
+    && typeof value.token === 'string' && typeof value.headerName === 'string') {
+    return { token: value.token, headerName: value.headerName }
   }
-  if (response.status === 404) return {
-    kind: 'not-found',
-    message: control ? '处理任务不存在或已不可访问。' : '文档或版本不存在，可能已被更新。',
-  }
-  if (control && response.status === 409) {
-    return { kind: 'request', message: '任务状态已变化，请刷新后重试。' }
-  }
-  return {
-    kind: 'request',
-    message: control ? '任务操作未完成，请稍后重试。' : '文档信息暂时无法读取，请稍后重试。',
-  }
+  if (!response.ok) throw errorFor(response)
+  throw { kind: 'invalid-response', message: '安全校验响应格式无效，请刷新后重试。' } satisfies DocumentApiError
 }
 
 async function get<T>(path: string, parser: (value: unknown) => T | null, invalidMessage: string): Promise<T> {
@@ -294,41 +302,6 @@ function withPage(path: string, limit: number, cursor?: string | null): string {
   const params = new URLSearchParams({ limit: String(limit) })
   if (cursor) params.set('cursor', cursor)
   return `${path}?${params.toString()}`
-}
-
-interface CsrfData {
-  token: string
-  headerName: string
-}
-
-function parseCsrf(value: unknown): CsrfData | null {
-  if (!isRecord(value) || typeof value.token !== 'string' || typeof value.headerName !== 'string') return null
-  return { token: value.token, headerName: value.headerName }
-}
-
-async function requestCsrf(): Promise<CsrfData> {
-  const response = await fetch('/api/auth/csrf', {
-    method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store',
-  })
-  const envelope = parseEnvelope<unknown>(await readJson(response))
-  const csrf = response.ok && envelope?.code === 'OK' ? parseCsrf(envelope.data) : null
-  if (csrf) return csrf
-  if (!response.ok) throw errorFor(response, true)
-  throw { kind: 'invalid-response', message: '安全令牌响应格式无效，请刷新后重试。' } satisfies DocumentApiError
-}
-
-async function postIngestionJobAction(jobId: string, action: 'retry' | 'cancel'): Promise<DocumentIngestionJob> {
-  const csrf = await requestCsrf()
-  const response = await fetch(`/api/ingestion-jobs/${encodeURIComponent(jobId)}/${action}`, {
-    method: 'POST',
-    headers: { Accept: 'application/json', [csrf.headerName]: csrf.token },
-    credentials: 'same-origin',
-  })
-  const envelope = parseEnvelope<unknown>(await readJson(response))
-  const job = response.ok && envelope?.code === 'OK' ? parseJob(envelope.data) : null
-  if (job) return job
-  if (!response.ok) throw errorFor(response, true)
-  throw { kind: 'invalid-response', message: '任务操作响应格式无效，请刷新后重试。' } satisfies DocumentApiError
 }
 
 export function fetchDocuments(knowledgeBaseId: string): Promise<DocumentSummary[]> {
@@ -355,10 +328,14 @@ export function fetchDocumentChunks(documentId: string, versionId: string, limit
   return get(withPage(`/api/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}/chunks`, limit, cursor), parseChunkPage, '文档分块响应格式无效，请刷新后重试。')
 }
 
-export function retryIngestionJob(jobId: string): Promise<DocumentIngestionJob> {
-  return postIngestionJobAction(jobId, 'retry')
-}
-
-export function cancelIngestionJob(jobId: string): Promise<DocumentIngestionJob> {
-  return postIngestionJobAction(jobId, 'cancel')
+export async function deleteKnowledgeDocument(documentId: string): Promise<void> {
+  const csrf = await requestCsrf()
+  const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', [csrf.headerName]: csrf.token },
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  if (response.status === 202) return
+  throw deleteErrorFor(response)
 }

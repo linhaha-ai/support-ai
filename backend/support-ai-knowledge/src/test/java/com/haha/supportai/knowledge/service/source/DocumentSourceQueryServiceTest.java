@@ -38,7 +38,7 @@ class DocumentSourceQueryServiceTest {
     @Test
     void returnsAuthorizedHistoricalReadySourceWithCurrentMarker() {
         when(accessPolicy.currentUser()).thenReturn(currentUser());
-        when(authorizedDocumentSourceRepository.findReadableByChunkId(USER_ID, CHUNK_ID))
+        when(authorizedDocumentSourceRepository.findAuthorizedByChunkId(USER_ID, CHUNK_ID))
                 .thenReturn(Optional.of(source(false)));
 
         var response = service().getReadableSource(CHUNK_ID);
@@ -48,13 +48,13 @@ class DocumentSourceQueryServiceTest {
         assertThat(response.getSection()).isEqualTo("退款/状态");
         assertThat(response.getContent()).isEqualTo("退款状态仍在处理中");
         assertThat(response.isCurrent()).isFalse();
-        verify(authorizedDocumentSourceRepository).findReadableByChunkId(USER_ID, CHUNK_ID);
+        verify(authorizedDocumentSourceRepository).findAuthorizedByChunkId(USER_ID, CHUNK_ID);
     }
 
     @Test
     void hidesMissingRevokedOrDeletedSource() {
         when(accessPolicy.currentUser()).thenReturn(currentUser());
-        when(authorizedDocumentSourceRepository.findReadableByChunkId(USER_ID, CHUNK_ID))
+        when(authorizedDocumentSourceRepository.findAuthorizedByChunkId(USER_ID, CHUNK_ID))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().getReadableSource(CHUNK_ID))
@@ -63,7 +63,7 @@ class DocumentSourceQueryServiceTest {
 
     @Test
     void backgroundLookupUsesTrustedUserWithoutReadingRequestContext() {
-        when(authorizedDocumentSourceRepository.findReadableByChunkId(USER_ID, CHUNK_ID))
+        when(authorizedDocumentSourceRepository.findAuthorizedByChunkId(USER_ID, CHUNK_ID))
                 .thenReturn(Optional.of(source(true)));
 
         var response = service().findReadableSource(USER_ID, CHUNK_ID);
@@ -71,6 +71,22 @@ class DocumentSourceQueryServiceTest {
         assertThat(response).isPresent();
         assertThat(response.orElseThrow().getChunkId()).isEqualTo(CHUNK_ID);
         verify(accessPolicy, never()).currentUser();
+    }
+
+    @Test
+    void keepsDeletedSourceMetadataForAuthorizedHistoryButHidesPreview() {
+        when(accessPolicy.currentUser()).thenReturn(currentUser());
+        when(authorizedDocumentSourceRepository.findAuthorizedByChunkId(USER_ID, CHUNK_ID))
+                .thenReturn(Optional.of(source(false, false)));
+
+        var historySource = service().findAuthorizedSource(USER_ID, CHUNK_ID);
+
+        assertThat(historySource).isPresent();
+        assertThat(historySource.orElseThrow().getDocumentName()).isEqualTo("退款排查手册");
+        assertThat(historySource.orElseThrow().isAvailable()).isFalse();
+        assertThat(historySource.orElseThrow().isCurrent()).isFalse();
+        assertThatThrownBy(() -> service().getReadableSource(CHUNK_ID))
+                .isInstanceOf(DocumentNotFoundException.class);
     }
 
     @Test
@@ -90,7 +106,11 @@ class DocumentSourceQueryServiceTest {
     }
 
     private AuthorizedDocumentSource source(boolean current) {
+        return source(current, true);
+    }
+
+    private AuthorizedDocumentSource source(boolean current, boolean available) {
         return new AuthorizedDocumentSource(KB_ID, DOCUMENT_ID, "退款排查手册", VERSION_ID, 2, CHUNK_ID, 0,
-                "退款/状态", null, 0, 10, "退款状态仍在处理中", current);
+                "退款/状态", null, 0, 10, "退款状态仍在处理中", current, available);
     }
 }

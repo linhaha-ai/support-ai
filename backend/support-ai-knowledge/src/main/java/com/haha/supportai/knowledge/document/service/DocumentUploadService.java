@@ -11,23 +11,29 @@ import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.enums.IngestionJobStatusEnum;
 import com.haha.supportai.knowledge.access.AccessPolicy;
 import com.haha.supportai.knowledge.document.config.DocumentUploadProperties;
+import com.haha.supportai.knowledge.document.entity.dto.DocumentVersionMatchCommand;
+import com.haha.supportai.knowledge.document.entity.dto.DocumentVersionUploadCommand;
 import com.haha.supportai.knowledge.document.entity.dto.NewDocumentVersionCommand;
 import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
 import com.haha.supportai.knowledge.document.entity.vo.DocumentUploadReceiptResponse;
+import com.haha.supportai.knowledge.document.entity.vo.DocumentVersionUploadResponse;
 import com.haha.supportai.knowledge.document.exception.DocumentFileEmptyException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileEncodingInvalidException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileRequiredException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileTooLargeException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileTypeUnsupportedException;
 import com.haha.supportai.knowledge.document.exception.DocumentNameInvalidException;
+import com.haha.supportai.knowledge.document.exception.DocumentNotFoundException;
 import com.haha.supportai.knowledge.document.exception.DocumentStorageUnavailableException;
 import com.haha.supportai.knowledge.document.exception.DocumentUploadFailedException;
+import com.haha.supportai.knowledge.document.exception.DocumentVersionConflictException;
 import com.haha.supportai.knowledge.document.support.DocumentProcessingSnapshotFactory;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseNotFoundException;
@@ -81,6 +87,52 @@ public class DocumentUploadService {
             throw new DocumentUploadFailedException(exception);
         }
         return new DocumentUploadReceiptResponse(documentId, versionId, jobId, IngestionJobStatusEnum.QUEUED);
+    }
+
+    public DocumentVersionUploadResponse uploadVersion(UUID documentId, MultipartFile file, long expectedRevision) {
+        documentUploadPersistenceService.requireVersionUploadAccess(documentId);
+        ValidatedUpload validatedUpload = validate(file, null);
+        ProcessingConfigurationSnapshot processing = documentProcessingSnapshotFactory.create();
+        String fileHash = sha256(validatedUpload.content());
+        DocumentVersionMatchCommand matchCommand = new DocumentVersionMatchCommand(documentId, expectedRevision,
+                fileHash, documentUploadProperties.getParserVersion(), documentUploadProperties.getChunkerVersion(),
+                processing.getEmbeddingModel(), processing.getDimensions(), processing.getConfigHash());
+        Optional<DocumentVersionUploadResponse> reusable = findReusableCurrentVersion(matchCommand);
+        if (reusable.isPresent()) {
+            return reusable.get();
+        }
+
+        UUID versionId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        String storageKey = store(validatedUpload);
+        OffsetDateTime createdAt = OffsetDateTime.now();
+        DocumentVersionUploadCommand command = new DocumentVersionUploadCommand(documentId, versionId, jobId,
+                expectedRevision, storageKey, fileHash, validatedUpload.content().length, validatedUpload.mediaType(),
+                validatedUpload.originalFilename(), documentUploadProperties.getParserVersion(),
+                documentUploadProperties.getChunkerVersion(), processing.getEmbeddingModel(),
+                processing.getDimensions(), processing.getConfigHash(), processing.getConfigSnapshot(),
+                documentUploadProperties.getMaxAttempts(), createdAt);
+        try {
+            return documentUploadPersistenceService.createNewVersion(command);
+        } catch (DocumentNotFoundException | DocumentVersionConflictException | KnowledgeBaseAccessDeniedException
+                | KnowledgeBaseNotFoundException exception) {
+            compensateStorage(storageKey, exception);
+            throw exception;
+        } catch (RuntimeException exception) {
+            compensateStorage(storageKey, exception);
+            throw new DocumentUploadFailedException(exception);
+        }
+    }
+
+    private Optional<DocumentVersionUploadResponse> findReusableCurrentVersion(DocumentVersionMatchCommand command) {
+        try {
+            return documentUploadPersistenceService.findReusableCurrentVersion(command);
+        } catch (DocumentNotFoundException | DocumentVersionConflictException | KnowledgeBaseAccessDeniedException
+                | KnowledgeBaseNotFoundException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new DocumentUploadFailedException(exception);
+        }
     }
 
     private ValidatedUpload validate(MultipartFile file, String displayName) {

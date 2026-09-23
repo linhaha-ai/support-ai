@@ -199,6 +199,10 @@ class AuthorizedRetrievalDatabaseIT {
 
             jdbcTemplate.update("DELETE FROM kb_member WHERE kb_id = ? AND user_id = ?",
                     fixture.activeKnowledgeBaseId(), fixture.readerId());
+            assertThat(authorizedRetrievalRepository.revalidateReadableWithinSession(
+                    fixture.readerId(), fixture.readerSessionId(),
+                    List.of(fixture.authorizedDocument().chunkId()), EMBEDDING_PROVIDER, EMBEDDING_MODEL,
+                    DIMENSIONS)).isEmpty();
             assertThat(authorizedDocumentSourceRepository.findReadableByChunkId(
                     fixture.readerId(), fixture.authorizedDocument().chunkId())).isEmpty();
         } finally {

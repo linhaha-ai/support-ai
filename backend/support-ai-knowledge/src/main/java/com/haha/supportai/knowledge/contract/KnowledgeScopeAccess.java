@@ -6,4 +6,6 @@ import java.util.UUID;
 public interface KnowledgeScopeAccess {
 
     boolean lockAllReadable(UUID userId, List<UUID> knowledgeBaseIds);
+
+    boolean allReadable(UUID userId, List<UUID> knowledgeBaseIds);
 }

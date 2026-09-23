@@ -86,6 +86,26 @@ public interface KnowledgeBaseMapper extends BaseMapper<KnowledgeBase> {
     List<KnowledgeBase> selectActiveByIdsAndUserIdForUpdate(@Param("kbIds") List<UUID> kbIds,
                                                             @Param("userId") UUID userId);
 
+    @Select({
+            "<script>",
+            "/* knowledge_base 与 kb_member：查询用户当前仍可读取的完整会话知识范围，不获取写锁。 */",
+            "SELECT kb.id, kb.name, kb.description, kb.owner_id, kb.status, kb.revision, kb.created_at, kb.updated_at",
+            "FROM knowledge_base kb",
+            "INNER JOIN kb_member member ON member.kb_id = kb.id",
+            "WHERE member.user_id = #{userId,jdbcType=OTHER}",
+            "  AND member.permission IN ('READ', 'WRITE')",
+            "  AND kb.status = 'ACTIVE'",
+            "  AND kb.id IN",
+            "<foreach collection='kbIds' item='kbId' open='(' separator=',' close=')'>",
+            "#{kbId,jdbcType=OTHER}",
+            "</foreach>",
+            "ORDER BY kb.id",
+            "</script>"
+    })
+    @ResultMap("knowledgeBaseResultMap")
+    List<KnowledgeBase> selectActiveByIdsAndUserId(@Param("kbIds") List<UUID> kbIds,
+                                                    @Param("userId") UUID userId);
+
     @Update("""
             UPDATE knowledge_base
             SET name = #{name},

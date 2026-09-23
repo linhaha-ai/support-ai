@@ -2,9 +2,13 @@ package com.haha.supportai.conversation.service.rag;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
+import com.haha.supportai.conversation.exception.ChatRunCancelledException;
+import com.haha.supportai.conversation.exception.RagGenerationException;
+import com.haha.supportai.data.conversation.entity.po.ChatRun;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
@@ -28,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -86,17 +91,6 @@ class RagRunPersistenceServiceTest {
     }
 
     @Test
-    void registersAllSourcesOnlyAfterRunEntersRunningState() {
-        MessageSource source = source();
-        given(chatRunRepository.markRunning(any(), any(), any(), any(), anyString(), any())).willReturn(true);
-        given(messageSourceRepository.insertAll(RUN_ID, List.of(source))).willReturn(1);
-
-        persistenceService.startWithEvidence(preparedRun(), List.of(source));
-
-        then(messageSourceRepository).should().insertAll(RUN_ID, List.of(source));
-    }
-
-    @Test
     void completesAssistantCitationsAndRunTogether() {
         given(chatMessageRepository.completeAssistant(any(), any(), any(), any())).willReturn(true);
         given(messageSourceRepository.markCited(MESSAGE_ID, List.of(1))).willReturn(1);
@@ -104,10 +98,12 @@ class RagRunPersistenceServiceTest {
 
         persistenceService.complete(RUN_ID, MESSAGE_ID, "回答[1]", List.of(1), "{}");
 
-        then(chatMessageRepository).should().completeAssistant(eq(RUN_ID), eq(MESSAGE_ID), eq("回答[1]"),
+        var orderedCalls = inOrder(chatRunRepository, chatMessageRepository, messageSourceRepository);
+        orderedCalls.verify(chatRunRepository).complete(eq(RUN_ID), isNull(), eq("{}"),
                 any(OffsetDateTime.class));
-        then(messageSourceRepository).should().markCited(MESSAGE_ID, List.of(1));
-        then(chatRunRepository).should().complete(eq(RUN_ID), isNull(), eq("{}"), any(OffsetDateTime.class));
+        orderedCalls.verify(chatMessageRepository).completeAssistant(eq(RUN_ID), eq(MESSAGE_ID), eq("回答[1]"),
+                any(OffsetDateTime.class));
+        orderedCalls.verify(messageSourceRepository).markCited(MESSAGE_ID, List.of(1));
     }
 
     @Test
@@ -124,6 +120,7 @@ class RagRunPersistenceServiceTest {
 
     @Test
     void abortsCompletionWhenCitationStateCannotBeSaved() {
+        given(chatRunRepository.complete(any(), any(), any(), any())).willReturn(true);
         given(chatMessageRepository.completeAssistant(any(), any(), any(), any())).willReturn(true);
         given(messageSourceRepository.markCited(MESSAGE_ID, List.of(1))).willReturn(0);
 
@@ -131,18 +128,20 @@ class RagRunPersistenceServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("回答引用状态保存失败");
 
-        then(chatRunRepository).should(never()).complete(any(), any(), any(), any());
+        then(chatRunRepository).should().complete(any(), any(), any(), any());
     }
 
     @Test
-    void rejectsPartiallyRegisteredEvidenceSoTransactionCanRollBack() {
+    void rejectsPartiallyRegisteredEvidenceAfterRunStartedSoTransactionCanRollBack() {
         MessageSource source = source();
-        given(chatRunRepository.markRunning(any(), any(), any(), any(), anyString(), any())).willReturn(true);
         given(messageSourceRepository.insertAll(RUN_ID, List.of(source))).willReturn(0);
 
-        assertThatThrownBy(() -> persistenceService.startWithEvidence(preparedRun(), List.of(source)))
+        assertThatThrownBy(() -> persistenceService.registerEvidence(preparedRun(), List.of(source)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("问答证据在登记前已失效");
+
+        then(chatRunRepository).should().findById(RUN_ID);
+        then(chatRunRepository).should(never()).markRunning(any(), any(), any(), any(), anyString(), any());
     }
 
     @Test
@@ -176,12 +175,55 @@ class RagRunPersistenceServiceTest {
     }
 
     @Test
+    void cancellationWonByAnotherRequestTurnsCompletionIntoCancellationSignal() {
+        ChatRun cancelledRun = new ChatRun();
+        cancelledRun.setStatus(ChatRunStatusEnum.CANCELLED);
+        given(chatRunRepository.complete(any(), any(), any(), any())).willReturn(false);
+        given(chatRunRepository.findById(RUN_ID)).willReturn(Optional.of(cancelledRun));
+
+        assertThatThrownBy(() -> persistenceService.complete(RUN_ID, MESSAGE_ID, "部分回答", List.of(), null, "{}"))
+                .isInstanceOf(ChatRunCancelledException.class);
+
+        then(chatMessageRepository).shouldHaveNoInteractions();
+        then(messageSourceRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void cancellationWonByAnotherRequestTurnsFailureIntoCancellationSignal() {
+        ChatRun cancelledRun = new ChatRun();
+        cancelledRun.setStatus(ChatRunStatusEnum.CANCELLED);
+        given(chatRunRepository.fail(any(), any(), any(), any(), any(), any())).willReturn(false);
+        given(chatRunRepository.findById(RUN_ID)).willReturn(Optional.of(cancelledRun));
+
+        assertThatThrownBy(() -> persistenceService.fail(RUN_ID, MESSAGE_ID, "MODEL_UNAVAILABLE", "模型不可用"))
+                .isInstanceOf(ChatRunCancelledException.class);
+
+        then(chatMessageRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void timeoutWonBySchedulerTurnsLaterFailureIntoTimeoutSignal() {
+        ChatRun timedOutRun = new ChatRun();
+        timedOutRun.setStatus(ChatRunStatusEnum.FAILED);
+        timedOutRun.setErrorCode("MODEL_TIMEOUT");
+        given(chatRunRepository.fail(any(), any(), any(), any(), any(), any())).willReturn(false);
+        given(chatRunRepository.findById(RUN_ID)).willReturn(Optional.of(timedOutRun));
+
+        assertThatThrownBy(() -> persistenceService.fail(RUN_ID, MESSAGE_ID,
+                "MODEL_UNAVAILABLE", "模型不可用"))
+                .isInstanceOfSatisfying(RagGenerationException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo("MODEL_TIMEOUT");
+                    assertThat(exception.getMessage()).isEqualTo("回答生成超时，请稍后重试");
+                });
+
+        then(chatMessageRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
     void persistenceBoundariesAlwaysUseIndependentTransactions() throws NoSuchMethodException {
         assertRequiresNew("start", PreparedChatRunResponse.class);
         assertRequiresNew("registerEvidence", PreparedChatRunResponse.class, List.class);
         assertRequiresNew("append", UUID.class, UUID.class, String.class);
-        assertRequiresNew("startWithEvidence", PreparedChatRunResponse.class, List.class);
-        assertRequiresNew("completeWithoutEvidence", PreparedChatRunResponse.class, String.class, String.class);
         assertRequiresNew("complete", UUID.class, UUID.class, String.class, List.class, String.class);
         assertRequiresNew("complete", UUID.class, UUID.class, String.class, List.class, String.class, String.class);
         assertRequiresNew("fail", UUID.class, UUID.class, String.class, String.class);

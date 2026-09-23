@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  deleteKnowledgeDocument,
   fetchDocument,
   fetchDocumentChunks,
   fetchDocumentContent,
   fetchDocuments,
   fetchDocumentVersions,
-  retryIngestionJob,
 } from '../document'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -13,16 +13,16 @@ const knowledgeBaseId = '4f8ac4b4-1c89-452c-a5be-f3a8cb0d1234'
 const documentId = '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a'
 const versionId = '43ec5c35-baf0-467f-b671-6ad6e9b8d4a8'
 
-function ok(data: unknown) {
+function ok(data: unknown, status = 200) {
   return new Response(JSON.stringify({ code: 'OK', data, traceId: 'trace-test' }), {
-    status: 200, headers: { 'Content-Type': 'application/json' },
+    status, headers: { 'Content-Type': 'application/json' },
   })
 }
 
 const task = {
   jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, status: 'RUNNING', stage: 'CHUNK',
   attempt: 1, maxAttempts: 3, completedChunks: 2, totalChunks: 5, progressPercent: 40,
-  retryable: false, cancellable: true, errorCode: null, errorMessage: null, errorStage: null, nextRunAt: null,
+  retryable: false, cancellable: true, errorCode: null, errorMessage: null, nextRunAt: null,
   startedAt: '2026-09-21T10:00:00+08:00', finishedAt: null, updatedAt: '2026-09-21T10:00:00+08:00',
 }
 const version = {
@@ -83,18 +83,25 @@ describe('文档查询接口', () => {
     await expect(fetchDocumentChunks(documentId, versionId)).rejects.toMatchObject({ kind: 'invalid-response' })
   })
 
-  it('携带最新 CSRF 令牌提交人工重试并校验任务响应', async () => {
-    const retriedTask = { ...task, status: 'QUEUED', cancellable: true }
+  it('携带 CSRF 令牌删除文档并严格接受异步受理状态', async () => {
     fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
-      .mockResolvedValueOnce(ok(retriedTask))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }))
 
-    const result = await retryIngestionJob(task.jobId)
+    await deleteKnowledgeDocument(documentId)
 
-    expect(result.status).toBe('QUEUED')
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/csrf', expect.objectContaining({ method: 'GET' }))
-    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/ingestion-jobs/${task.jobId}/retry`, expect.objectContaining({
-      method: 'POST',
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/documents/${documentId}`, expect.objectContaining({
+      method: 'DELETE',
       headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
     }))
+  })
+
+  it('删除文档失败时返回适合当前操作的权限提示', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+
+    await expect(deleteKnowledgeDocument(documentId)).rejects.toMatchObject({
+      kind: 'forbidden', message: '当前账号没有删除此文档的权限。',
+    })
   })
 })

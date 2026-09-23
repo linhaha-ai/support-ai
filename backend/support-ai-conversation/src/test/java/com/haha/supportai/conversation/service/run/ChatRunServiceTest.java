@@ -14,7 +14,7 @@ import com.haha.supportai.conversation.exception.ChatIdempotencyConflictExceptio
 import com.haha.supportai.conversation.exception.ChatRunInProgressException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionScopeRevokedException;
-import com.haha.supportai.conversation.support.RagConfigurationSnapshotFactory;
+import com.haha.supportai.conversation.support.ChatRunConfigurationSnapshotFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
 import com.haha.supportai.data.conversation.entity.po.ChatSession;
@@ -74,7 +74,7 @@ class ChatRunServiceTest {
     KnowledgeScopeAccess knowledgeScopeAccess;
 
     @Mock
-    RagConfigurationSnapshotFactory configurationSnapshotFactory;
+    ChatRunConfigurationSnapshotFactory configurationSnapshotFactory;
 
     @InjectMocks
     ChatRunService chatRunService;
@@ -86,7 +86,12 @@ class ChatRunServiceTest {
                 .willReturn(Optional.empty());
         given(chatRunRepository.findActiveBySessionId(SESSION_ID)).willReturn(Optional.empty());
         given(chatSessionRepository.advanceNextMessageSeq(SESSION_ID, 1)).willReturn(true);
-        given(configurationSnapshotFactory.create()).willReturn("{\"schemaVersion\":\"f21-v1\"}");
+        given(configurationSnapshotFactory.create()).willReturn("""
+                {"mode":"RAG","chat":{"provider":"ollama","model":"qwen2.5:3b"},
+                "prompt":{"version":"rag-cited-v1"},"retrieval":{"strategy":"vector-cosine-exact","topK":6},
+                "index":{"store":"pgvector","metric":"cosine",
+                "embedding":{"provider":"ollama","model":"bge-m3","dimensions":1024}}}
+                """.replaceAll("\\s+", ""));
 
         var response = chatRunService.prepare(SESSION_ID, new SubmitMessageCommand(CLIENT_REQUEST_ID, "  如何处理退款失败？  "));
 
@@ -102,8 +107,12 @@ class ChatRunServiceTest {
         assertThat(response.getUserId()).isEqualTo(USER_ID);
         assertThat(response.getQuestion()).isEqualTo("如何处理退款失败？");
         assertThat(run.getStatus()).isEqualTo(ChatRunStatusEnum.QUEUED);
-        assertThat(run.getConfigSnapshot()).isEqualTo("{\"schemaVersion\":\"f21-v1\"}");
         assertThat(run.getRequestHash()).hasSize(64);
+        assertThat(run.getConfigSnapshot())
+                .contains("\"chat\"")
+                .contains("\"prompt\"")
+                .contains("\"retrieval\"")
+                .contains("\"index\"");
         assertThat(messages).extracting(ChatMessage::getSequence).containsExactly(1L, 2L);
         assertThat(messages).extracting(ChatMessage::getRole)
                 .containsExactly(ChatMessageRoleEnum.USER, ChatMessageRoleEnum.ASSISTANT);

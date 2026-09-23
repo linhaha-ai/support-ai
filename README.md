@@ -4,27 +4,13 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F13 已实现待完整验收，F14—F19 尚未实现，F20 独立能力已实现待前置与场景验收，F21 评测资产已实现待真实基线，F22—F24 质量优化能力已实现待同集实测与配置冻结，F25—F26 工单与受控工具能力已实现待前置验收**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F19 已实现待后端与场景验收**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与流式问答页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F13 已形成知识库授权、文档上传与原子发布、授权检索、带来源问答和流式回答链路；聊天取消、run 状态查询与断线恢复仍属于尚未实现的 F14。
-
-F20 已新增导入任务 retry/cancel POST 接口、WRITE 权限与 CSRF 边界、自动重试和终止失败分类、原子 pending 清理与重新取得、租约失效隔离、错误阶段提示，以及前端重新处理和取消交互。定向后端单元测试、安全测试、Testcontainers 数据库测试、前端 55 项测试和生产构建已通过；隔离数据库已执行 Flyway V1—V11，开发数据卷仍只确认到 V10。F20 依赖的 F18、F19 尚未实现，真实模型失败、浏览器场景和完整前置链路未验收，认证后的 OpenAPI JSON 500 基线问题也仍存在，因此 F20 保持未勾选。
-
-F21 已建立 60 道开发题和 40 道固定测试题、7 份可上传版本语料、66 个稳定证据段、JSON Schema、固定测试集 SHA-256 校验及人工结果汇总工具。F12 的 20 道功能题与同事实改写均限制在开发集；问答运行新增无密钥模型/检索/提示词配置快照，并分别记录检索与生成耗时。Node 评测测试 2/2、后端定向测试 25/25 已通过；本机 Ollama 与后端不可连接，且 F18—F20 前置链路未完整验收，因此没有生成或伪造基础分数，F21 保持未勾选。
-
-F22 已在统一授权仓储中加入错误码、HTTP 方法与接口路径、业务标识符和显式术语的精确关键词召回，与向量候选按稳定 chunk ID 去重并使用 RRF 融合；两路共享成员、会话、当前发布版本、删除状态和嵌入空间过滤。问答默认策略仍为 `VECTOR`，WRITE 调试接口可显式选择 `FUSION`；运行快照记录策略及融合参数。定向单元测试 22/22、评测脚本 3/3、Testcontainers 数据库测试 4/4 通过；同一开发集真实双跑尚未执行，因此 F22 保持未勾选。
-
-F23 已增加独立 qwen3-rerank HTTPS 适配器，只对统一授权检索返回的候选按稳定下标重排，不生成新候选或改变来源标识；候选数、单项与总 Token、超时、响应下标和分数均受校验。没有候选时跳过调用，输入超限、模型不可用或异常响应时返回基础排序。开关默认关闭，配置与运行状态可追溯，评测脚本支持同一开发集关闭/开启对比；真实质量、用量和耗时双跑尚未执行，因此 F23 保持未勾选。
-
-F24 已增加证据正文 Token 预算和向量、融合、重排序三类最终分数阈值，筛选发生在二次授权后、来源登记和 Chat 调用前；运行指标记录筛选前后数量、预算用量及未知的 Embedding Token。`f24-v1` 快照明确 Chat/Embedding/Rerank 角色并携带完整索引配置哈希，五条授权检索 SQL 均拒绝混用不同分块或 Embedding 配置的索引。评测工具支持三策略统一报告和严格单因素比较；真实开发集尚未运行，默认继续使用 `VECTOR` 且关闭重排序，F24 保持未勾选。
-
-F25 已新增带完整中文注释与约束的 `ticket` 表、30 条幂等模拟工单种子、`data.assistant` 数据访问、复用知识库成员授权的 `TicketQueryService`、`GET /api/tickets/{ticketNo}` 和工单查询页面。查询直接读取业务表，不调用模型；不存在、停用范围和越权统一返回 404，无成员权管理员不能读取工单。隔离 PostgreSQL 已验证状态变更后的查询新鲜度，F24 前置尚未验收，因此 F25 保持未勾选。
-
-F26 已新增 V13 `tool_call`、DOCUMENT/TICKET 来源约束、可信运行上下文以及 `searchKnowledge(query)`、`getTicketStatus(ticketNo)` 两个只读适配器。工具只能使用服务端固定的用户、会话和白名单名称；成功结果及来源在进入后续模型编排前落库，失败调用保存稳定错误码。隔离 PostgreSQL 已验证 ASSISTANT 会话检索、工单状态新鲜度、会话外越权和伪造关联阻断；ReactAgent 注册、执行预算和 tool 事件留待 F27，因此 F26 保持未勾选。
-
-F09 前置依赖仍未验收，因此 F10—F13 均不能勾选；M1/M2 复核记录中的真实模型、开发数据和场景缺口也仍有效。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F10—F13、F20—F26 的实现和待验收项见对应记录；完成状态以开发计划中的勾选记录为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与流式问答页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F04 已交付知识库及成员授权；F05—F08 已形成上传、持久任务、解析分块、向量生成与原子发布链路；F09 新增授权文档查看；F10 新增固定 RAG 知识库范围、会话持久化、可追溯运行配置快照与 `POST /api/chat/sessions`；F11 新增 WRITE 检索调试接口和会话授权检索；F12 新增 V11 `message_source`、模型调用前证据复核与全量来源登记、引用编号校验、资料不足分支，以及受权限保护的来源预览。F13 开放消息提交和项目 SSE 协议；F14 增加运行查询、取消、总超时与启动恢复；F15 提供会话列表和历史管理；F16 加入有限历史与根证据继承；F17 使用授权历史补全含上下文指代的检索问题；F18 增加带修订控制的文档新版本上传、当前版本幂等复用和 WRITE 页面入口；F19 增加文档删除确认、即时逻辑失效、导入租约撤销、V12 持久清理任务和历史来源失效标记。前端可逐步阅读、停止生成，并在断流或幂等复用后查询持久化状态；文档新版完整发布前继续使用旧 active 版本，删除后新检索和原文预览立即失效。当前开发库只确认 Flyway V1—V10 成功，V11—V12 尚未同步；本轮按项目规则未运行 Maven、Testcontainers、真实模型、真实 API 或浏览器删除场景，前端 80 项测试和生产构建已通过。F09 前置依赖仍未验收，因此 F10—F14 与 M3 均不能勾选；F15—F19 也保持待验收。本轮 M1/M2 复核还发现 Ollama 未启动、当前验收会话未提供 DashScope 配置、认证后的 OpenAPI JSON 返回 500，且开发库没有文档、分块或向量，因此 F01—F09 不能勾选。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)和 [M3 阶段复核](doc/验收记录/M3阶段复核.md)，F10—F19 的实现与待验收项分别见对应验收记录；完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
+
+F15 已补齐本人会话的游标分页列表、标题修改、空闲逻辑删除和消息历史分页。F16 默认从最近历史中分页选择最多 3 个完整成功问答轮次，并受 6000 字符预算限制；任一来源失效会排除整轮历史。当前检索来源和历史继承来源在本轮统一编号，每个不同根来源都会传播，继承记录的 `origin_source_id` 始终指向根来源；来源登记提交后还会紧邻模型调用再次复核。F17 仅在问题含上下文指代或属于短追问，且未携带明确错误码、HTTP 状态、通用 API 路径或异常类时，使用 F16 已验证历史生成严格单字段 JSON 检索问题；模型异常、空白、非法或超长输出回退原问题。F18 在文档行锁内校验 `expectedRevision` 和单一 pending，按 `next_version_no` 分配新版；同内容配置命中当前 READY/SUCCEEDED 版本时返回 200 且不重复 Embedding，否则返回 202 并保留旧 active 到完整发布。F19 的 `DELETE /api/documents/{documentId}` 返回 202；删除事务清空 active/pending、递增 revision、取消非终态导入并撤销租约，V12 清理任务随后幂等删除全部版本原文件和目标向量正文。版本、分块和来源定位继续保留，已有回答把被删除来源标为 `available=false`，且不再提供预览路径或注入多轮上下文。详情见 [F16 验收记录](doc/验收记录/F16验收记录.md)、[F17 验收记录](doc/验收记录/F17验收记录.md)、[F18 验收记录](doc/验收记录/F18验收记录.md)和 [F19 验收记录](doc/验收记录/F19验收记录.md)。
 
 ## 业务场景
 
@@ -113,8 +99,6 @@ flowchart TD
     TOOLS --> RETRIEVAL
     TOOLS --> TICKET
     RETRIEVAL --> PG
-    RETRIEVAL --> RERANK["可选 qwen3-rerank"]
-    RERANK --> MODEL
     TICKET --> PG
     RUN --> PG
 
@@ -169,24 +153,23 @@ support-ai/
 │   ├── support-ai-data/        # MyBatis-Plus、类型映射、按业务分包的实体与数据访问
 │   ├── support-ai-storage/     # FileStore 与受控本地原文件存储
 │   ├── support-ai-identity/    # 账号认证、Sa-Token、CSRF 与身份 DTO/VO
-│   ├── support-ai-ai/          # Ollama / DashScope Chat、Embedding 与重排序模型接入
-│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量发布、授权查看、融合与重排序编排
+│   ├── support-ai-ai/          # Ollama / DashScope 模型接入
+│   ├── support-ai-knowledge/   # 知识库、文档上传、解析分块、向量发布、授权查看与授权检索
 │   ├── support-ai-conversation/ # 个人 RAG 会话、运行约束、来源登记与流式回答编排
-│   ├── support-ai-assistant/   # F25 工单查询与 F26 受控工具；ReactAgent 编排待 F27
+│   ├── support-ai-assistant/   # 工单、ReactAgent 边界，待 F25 起实现
 │   └── support-ai-bootstrap/  # 唯一启动入口、全部 Controller、应用装配与集成测试
 │       ├── src/main/java/com/haha/supportai/
 │       │   ├── SupportAiApplication.java
 │       │   ├── controller/identity/ # 认证与管理员账号目录接口
 │       │   ├── controller/knowledge/ # 知识库、成员、文档、任务与检索调试接口
 │       │   ├── controller/conversation/ # 个人 RAG 会话创建与流式消息接口
-│       │   ├── controller/assistant/ # 只读工单查询接口
 │       │   └── config/
 │       └── src/main/resources/
 │           ├── application*.yml
 │           └── db/migration/   # 按全局顺序管理的 Flyway 迁移
-├── frontend/                   # Vue 登录、运行状态、知识库、问答与工单查询页面
-├── evaluation/                 # 100 题评测集、契约、校验脚本与结果状态
-├── data/demo/knowledge/f21/    # F21 可上传的脱敏模拟知识语料
+├── frontend/                   # Vue 登录、运行状态与知识库页面
+├── evaluation/                 # 评测题集与结果，规划目录
+├── data/demo/                  # 模拟资料与工单，规划目录
 ├── deploy/                     # 开发数据库 Compose，完整部署在 F31
 ├── doc/
 │   ├── 技术设计大纲.md
@@ -197,32 +180,24 @@ support-ai/
 
 `data` 统一提供 MyBatis-Plus、数据库驱动、连接池与类型映射，并按业务分包承载实体 PO、持久化枚举、Repository 和 Mapper；当前 `AppUser`、`UserRoleEnum`、`AppUserRepository`、`AppUserMapper` 分别位于 `com.haha.supportai.data.identity` 下的 `entity.po`、`enums`、`repository`、`mapper` 包。业务服务通过 Repository 调用 Mapper，不直接使用 JdbcTemplate 或 RowMapper。业务授权、事务编排、认证流程与 DTO/VO 留在所属业务模块，跨业务调用仍通过业务服务，不能绕过服务直接访问其他域的 Repository/Mapper。data 不反向依赖 identity；连接参数、Flyway 生产迁移与应用配置集中在 bootstrap。全局 OpenAPI 元信息与 Knife4j 运行装配归 bootstrap，身份配置与异常处理归 identity。F06 的任务租约 SQL 同样由 data 的 Repository/Mapper 承载，业务层只通过服务编排，不绕过租约条件直接更新任务。详细结构见[后端模块结构](doc/后端模块结构.md)。
 
-data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge`、`data.conversation` 与 `data.assistant` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store`、会话、运行、消息、来源、工单及工具调用的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行。F11 的 `AuthorizedRetrievalRepository` 使用显式 Mapper SQL，在相似度排序前完成实时成员授权、发布状态、固定范围和向量空间过滤。F12 在模型调用前按候选 chunk 再次执行相同边界校验，并在 `REQUIRES_NEW` 独立短事务中核对 run、会话、成对消息、问题及 `chat_session_kb` 后写入所有 `message_source`；回答完成后只将已登记且实际出现的引用编号标为 `is_cited`。F20 使用数据修改 CTE 原子更新 `ingestion_job`、`document_version` 与 `document.pending_version_id`，并在领取、等待重试和写入前复核租约、版本与 pending 归属。F21 在创建 run 时把 Chat/Embedding 提供方和模型、向量维度、TopK、检索策略及提示词版本写入 `config_snapshot`，并在 `metrics` 中保存检索、生成、首增量与总耗时。F22 在同一 `AuthorizedRetrievalRepository` 中提供向量与精确关键词两路查询，复用授权过滤后按 chunk ID 去重并使用 RRF 融合，运行快照继续记录策略和融合参数。F24 进一步在五条向量、关键词和二次复核 SQL 上校验文档处理 `config_hash`，保证查询配置不会混用旧分块或旧 Embedding 索引。F25 的 `TicketRepository` 按外部唯一编号读取业务表，授权与响应映射留在 assistant 业务服务。F26 的 `ToolCallRepository` 在 ASSISTANT run 内串行登记调用，并在成功状态与全部来源同一事务中复核真实 chunk/ticket、会话范围和实时成员权。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；完整业务验收仍待前置任务和真实场景完成。
+data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge` 与 `data.conversation` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store`、`document_cleanup_job` 以及会话、运行、消息和来源的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行，并保存 Chat、Embedding、Prompt、检索与索引的非敏感配置快照。F11 的 `AuthorizedRetrievalRepository` 使用显式 Mapper SQL，在相似度排序前完成实时成员授权、发布状态、固定范围和向量空间过滤。F12 先在独立短事务将 run 置为 RUNNING，再按候选 chunk 执行边界复核，并在另一个 `REQUIRES_NEW` 短事务核对 run、会话、成对消息、问题及 `chat_session_kb` 后写入所有 `message_source`；回答完成后只将已登记且实际出现的引用编号标为 `is_cited`。F19 的删除事务立即阻断检索与 Worker，独立清理租约只回收目标文件和向量正文。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；版本组合、MyBatis 映射与事务回滚仍待运行验收。
 
-认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档、任务、检索调试与来源预览控制器位于 `controller.knowledge`；会话创建和流式消息控制器位于 `controller.conversation`；F25 只读工单入口位于 `controller.assistant`。当前开放 `POST /api/chat/sessions`、`POST /api/chat/sessions/{sessionId}/messages` 与 `GET /api/tickets/{ticketNo}`。任务控制器另开放 `POST /api/ingestion-jobs/{jobId}/retry` 与 `POST /api/ingestion-jobs/{jobId}/cancel`，业务层和原子 SQL 均再次校验 WRITE 权限及任务状态。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘、短数据库事务、授权检索和来源读取。`TicketQueryService` 复用 `AccessPolicy.requireRead`，将不存在、停用范围和无成员权统一收敛为不泄漏信息的 404。F11 调试请求只接受 `query/topK`，拒绝客户端附带的用户、范围、SQL 或自由过滤字段。F13 由 `ChatRunService` 同步完成身份、会话、幂等与 run 准备，再交给有界执行器异步调用 `RagAnswerService`；可信 userId 随准备结果传递，不依赖异步线程中的 Sa-Token 上下文。模型调用位于事务外，来源登记、每个回答增量、成功终态和失败部分文本分别使用短事务持久化；SSE 发送失败只停止推送，不取消后台运行。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。
-
-F23 由 knowledge 将已授权候选交给 ai 的独立 qwen3-rerank 适配器，只按响应下标更新候选顺序和分数；失败时保留基础排序，配置快照与运行指标记录无密钥参数、状态、用量和耗时。
-
-F24 由 conversation 在二次授权后执行分策略分数阈值和 CL100K 证据正文预算，配置快照固定回答参数与当前索引哈希；evaluation 校验三策略同提交运行及严格单因素变更，并将提供方未报告的 Embedding 用量保持为未知值。
-
-F25 由 assistant 提供网页与后续工具可复用的工单查询服务；当前只按工单编号读取 V12 `ticket` 表，实时检查所属 ACTIVE 知识库的成员权限并返回当前状态和查询时间，不经过模型，也不提供创建、修改或关闭工单的入口。
-
-F26 由 assistant 提供两个内部只读工具适配器：知识工具复用授权检索并只返回证据，工单工具将 V12 业务数据与当前 ASSISTANT 会话固定范围求交。两者使用服务端构造的 run/session/user/message 上下文，模型只能提供 query 或 ticketNo；V13 `tool_call` 和扩展后的 `message_source` 在返回结果前保存调用终态及服务端来源句柄。该阶段没有新增 HTTP 接口，ReactAgent 调用编排仍属于 F27。
+认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档、任务、检索调试与来源预览控制器位于 `controller.knowledge`；会话创建、流式消息与 run 控制器位于 `controller.conversation`，当前开放 `DELETE /api/documents/{documentId}`、`POST /api/chat/sessions`、`POST /api/chat/sessions/{sessionId}/messages`、`GET /api/chat/runs/{runId}` 与 `POST /api/chat/runs/{runId}/cancel`。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘、短数据库事务、授权检索和来源读取。F11 调试请求只接受 `query/topK`，拒绝客户端附带的用户、范围、SQL 或自由过滤字段。F13 由 `ChatRunService` 同步完成身份、会话、幂等与 run 准备，再交给有界执行器异步调用 `RagAnswerService`；可信 userId 随准备结果传递，不依赖异步线程中的 Sa-Token 上下文。模型调用位于事务外，来源登记、每个回答增量、成功终态和失败部分文本分别使用短事务持久化；SSE 发送失败只停止推送，不取消后台运行，发送 sources 前按当前授权立即复核。F14 以数据库 run 为最终事实来源：任务接受后启动独立的 180 秒总超时，超时、取消、完成和失败都先以条件更新争夺数据库唯一终态，再中断已登记任务；查询回答时复核完整会话知识范围及每条引用的当前权限，启动时遗留活跃运行只收口为 `RUN_INTERRUPTED` 而不重放。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。构建与运行回归仍待执行。
 
 ## 数据与接口设计
 
-V1.0.0 规划 **15 张业务/向量表、35 个 HTTP 方法与路径组合**。
+V1.0.0 规划 **16 张业务/向量表、35 个 HTTP 方法与路径组合**。
 
 | 数据域 | 主要表 |
 | --- | --- |
 | 身份与知识库 | `app_user`、`knowledge_base`、`kb_member` |
-| 文档与索引 | `document`、`document_version`、`ingestion_job`、`document_chunk`、`vector_store` |
+| 文档与索引 | `document`、`document_version`、`ingestion_job`、`document_chunk`、`vector_store`、`document_cleanup_job` |
 | 会话与问答 | `chat_session`、`chat_session_kb`、`chat_run`、`chat_message`、`message_source` |
 | 工单与工具 | `ticket`、`tool_call` |
 
 接口统一使用 `/api` 前缀，覆盖登录、成员管理、文档与版本、导入任务、检索调试、会话、运行控制和工单查询。普通接口使用 JSON，上传使用 multipart/form-data，问答使用 SSE。
 
-流式事件包括 `start`、`delta`、`tool`、`sources`、`done` 和 `error`。网络断开后通过运行查询接口确认持久状态；相同请求键不会自动再次生成。
+当前流式事件包括 `start`、`delta`、`sources`、`done` 和 `error`；`tool` 是 F27 只读工具助手的预留事件，当前解析器仅做向前兼容忽略。网络断开后通过运行查询接口确认持久状态；相同请求键不会自动再次生成。
 
 字段、约束、完整接口与请求示例见[技术设计大纲](doc/技术设计大纲.md)。
 
@@ -240,7 +215,7 @@ V1.0.0 按 **7 个累计阶段、32 个任务**逐步增加功能，不按日期
 
 每项任务都有前置依赖、实现内容、验收标准和完成复选框。通过验收后更新[开发计划](doc/开发计划.md)中的对应标识。
 
-## 本机启动（F01—F08）
+## 本机启动（F01—F19）
 
 在仓库根目录使用 PowerShell 7，准备 JDK 21、Maven 3.9.11、Node 24.13.1、npm 11.8.0，并启动 Docker Desktop 的 Linux 引擎。默认端口为后端 8080、前端 5173、数据库 5432。
 
@@ -252,11 +227,10 @@ mvn -f backend/pom.xml -DskipTests clean install
 mvn -f backend/support-ai-bootstrap/pom.xml spring-boot:run
 ```
 
-如需 `support1`、`support2` 两位普通演示用户和 F25 的 30 条模拟工单，等待后端启动完成后，在另一个 PowerShell 终端从仓库根目录按顺序执行以下可选命令：
+如需 `support1`、`support2` 两位普通演示用户，等待后端启动完成后，在另一个 PowerShell 终端从仓库根目录执行以下可选命令：
 
 ```powershell
 Get-Content -Raw -Encoding utf8 'backend/support-ai-data/src/main/resources/db/seed/identity/init_app_user.sql' | docker compose -f deploy/compose.dev.yml exec -T postgres psql -U supportai -d supportai -v ON_ERROR_STOP=1
-Get-Content -Raw -Encoding utf8 'backend/support-ai-data/src/main/resources/db/seed/assistant/init_ticket.sql' | docker compose -f deploy/compose.dev.yml exec -T postgres psql -U supportai -d supportai -v ON_ERROR_STOP=1
 ```
 
 默认账号如下，密码与用户名一致；管理员自动初始化，普通演示用户按需手动导入：
@@ -267,9 +241,9 @@ Get-Content -Raw -Encoding utf8 'backend/support-ai-data/src/main/resources/db/s
 | `support1` | `support1` | USER | 可选手动种子 SQL |
 | `support2` | `support2` | USER | 可选手动种子 SQL |
 
-管理员初始化脚本为 bootstrap 模块的 `db/migration/V4__initialize_default_admin.sql`，随 Flyway 升级执行；账号和工单手动脚本分别位于 data 模块的 `db/seed/identity/init_app_user.sql`、`db/seed/assistant/init_ticket.sql`，不会自动执行。账号脚本使用兼容 jBCrypt 的 cost 12 BCrypt 摘要；两个手动脚本均通过 `ON CONFLICT ... DO NOTHING` 幂等补齐数据，不覆盖已有账号、成员权限或工单状态。工单脚本依赖演示账号，必须在账号脚本之后执行；它创建独立演示知识库，授权 `support1` WRITE、`support2` READ，但不授予 `admin` 成员权。手动导入前须完成 Flyway 建表；接口响应和日志不包含密码或摘要。
+管理员初始化脚本为 bootstrap 模块的 `db/migration/V4__initialize_default_admin.sql`，随 Flyway 升级执行；手动脚本保留在 data 模块的 `db/seed/identity/init_app_user.sql`，用于补齐管理员和两位普通演示用户，不会自动执行。两份脚本均使用兼容 jBCrypt 的 cost 12 BCrypt 摘要及 `ON CONFLICT (username) DO NOTHING`，不覆盖已有密码、角色或启用状态，也不在日常启动时重置账号。手动导入前须完成 Flyway 建表；接口响应和日志不包含密码或摘要。
 
-账号表由 V2 创建，V3 补齐表及全部 8 个字段的中文数据库注释，V4 补齐默认管理员；V5 创建 `knowledge_base`、`kb_member` 及其约束、索引和中文注释。2026-09-21 已确认当前开发库 V1—V10 均由 Flyway 成功登记；`knowledge_base`、文档任务、分块、`vector_store` 及 V10 的四张会话表均存在，向量列为 `vector(1024)`。V11 随 F12 创建 `message_source`，V12 随 F25 创建带知识库归属、状态约束、查询索引和中文注释的 `ticket`，V13 随 F26 创建 `tool_call` 并扩展 DOCUMENT/TICKET 工具来源字段与约束；本轮 Testcontainers 已从空库执行 V1—V13，并验证工具调用状态、run 内序号、来源映射、会话范围授权、状态新鲜度与伪造关联回滚，当前开发数据卷仍只确认到 V10。此前 V4 幂等补齐的 `admin/admin` 已通过当前后端基础登录验证。F03 使用一次性 pgvector PostgreSQL 容器按顺序执行 V1—V5，已验证两张表、9 个关键约束、4 个非级联外键和 3 个索引；当前开发库核验与隔离数据库测试均不替代完整业务场景验收。完整状态见 [验收记录](doc/验收记录/)。
+账号表由 V2 创建，V3 补齐表及全部 8 个字段的中文数据库注释，V4 补齐默认管理员；V5 创建 `knowledge_base`、`kb_member` 及其约束、索引和中文注释。2026-09-21 已确认当前开发库 V1—V10 均由 Flyway 成功登记；`knowledge_base`、文档任务、分块、`vector_store` 及 V10 的四张会话表均存在，向量列为 `vector(1024)`。V11 已随 F12 加入代码，负责创建带来源编号、类型、知识库、chunk、定位和快照的 `message_source`；V12 已随 F19 加入代码，负责创建每文档唯一、带租约和自动重试状态的 `document_cleanup_job`。V11—V12 尚未在当前开发库或 Testcontainers 中执行。此前 V4 幂等补齐的 `admin/admin` 已通过当前后端基础登录验证。F03 使用一次性 pgvector PostgreSQL 容器按顺序执行 V1—V5，已验证两张表、9 个关键约束、4 个非级联外键和 3 个索引；当前开发库核验不替代空库 Testcontainers、MyBatis 和事务验收。完整状态见 [验收记录](doc/验收记录/)。
 
 多模块应用需要先安装同一版本的本地模块，再从 bootstrap 启动。本次 Controller 跨模块迁移后首次构建必须带 `clean`，清除旧包中的类、旧 Controller、旧 Repository 和已删除初始化器的编译产物，避免新旧组件重复扫描或旧初始化器继续自动创建用户；本轮没有执行 Maven 或删除这些产物。后续未移动类的日常构建可使用 `mvn -f backend/pom.xml -DskipTests install`。父工程只负责聚合构建，不直接执行 `spring-boot:run`；修改其他模块后需重新安装。也可以在仓库根目录打包后启动唯一的可执行 JAR：
 
@@ -293,7 +267,7 @@ npm --prefix frontend run dev
 
 ### 接口文档
 
-接口文档本身属于受保护资源。先在 <http://127.0.0.1:5173> 登录，再访问 Knife4j 页面 <http://127.0.0.1:8080/doc.html>；前后端必须使用相同主机名，不能混用 `localhost` 与 `127.0.0.1`。OpenAPI 3.0 JSON 位于 <http://127.0.0.1:8080/v3/api-docs>，Actuator 健康接口位于 `actuator` 文档分组。当前代码已为认证、知识库、文档、会话、问答、来源及 F25 工单查询入口提供 OpenAPI 3 注解；认证后的完整 JSON 仍存在既有 springdoc 500 基线，不能把注解编译通过等同于生成契约验收。
+接口文档本身属于受保护资源。先在 <http://127.0.0.1:5173> 登录，再访问 Knife4j 页面 <http://127.0.0.1:8080/doc.html>；前后端必须使用相同主机名，不能混用 `localhost` 与 `127.0.0.1`。OpenAPI 3.0 JSON 位于 <http://127.0.0.1:8080/v3/api-docs>，Actuator 健康接口位于 `actuator` 文档分组。当前生成内容包含已经实现的认证、知识库元数据、管理员账号目录、成员管理和文档上传接口；后续接口随对应开发任务落地后再进入契约。
 
 文档声明 Sa-Token HttpOnly Cookie 鉴权，并明确标注写请求所需的 `X-CSRF-TOKEN`。在 Knife4j 中调试写接口前，先调用 `GET /api/auth/csrf`，再将返回的令牌填入该请求头。Knife4j 4.5.0 自带的旧 springdoc 依赖已排除，工程显式固定 springdoc-openapi 2.9.1 以适配 Spring Boot 3.5.x。
 
@@ -337,17 +311,6 @@ mvn -f backend/support-ai-bootstrap/pom.xml spring-boot:run '-Dspring-boot.run.p
 
 云端 profile 直接配置 Chat 为 `qwen-plus`，Embedding 为 `text-embedding-v4 / 1024`。混合模式仍启用 `dashscope` profile，再通过 `SPRING_AI_MODEL_CHAT`、`SPRING_AI_MODEL_EMBEDDING` 临时覆盖其中一个角色。两个角色独立选择，均只接受 `ollama` 或 `dashscope`；全本地直接使用 `ollama` profile。
 
-qwen3-rerank 通过独立 HTTPS 适配器接入，可以与本机 Chat/Embedding 组合使用，不需要切换 `dashscope` profile。真实比较前默认关闭；启用时在启动终端注入密钥、工作空间完整地址和开关，地址格式以阿里云百炼控制台实际工作空间为准：
-
-```powershell
-$env:SPRING_AI_DASHSCOPE_API_KEY = Read-Host '北京地域 DashScope API Key' -MaskInput
-$env:SUPPORT_AI_RERANK_ENDPOINT = 'https://<workspaceId>.cn-beijing.maas.aliyuncs.com/compatible-api/v1/reranks'
-$env:SUPPORT_AI_RERANK_ENABLED = 'true'
-mvn -f backend/support-ai-bootstrap/pom.xml spring-boot:run
-```
-
-开启时应用会校验模型名、HTTPS 地址、密钥和正数超时。候选、Token 与超时参数可通过 `support.ai.rerank` 下的配置覆盖；密钥和地址不会写入运行快照或仓库文件。
-
 同为 1024 维不代表向量兼容。更换 Embedding 提供方或模型后必须重建独立索引，不能用新模型查询旧向量。F01 的向量表仅存在于隔离测试环境；正式业务向量表在 F08 创建。
 
 ### 自动化检查
@@ -360,8 +323,6 @@ mvn -f backend/pom.xml clean test
 mvn -f backend/pom.xml dependency:tree
 npm --prefix frontend run test -- --run
 npm --prefix frontend run build
-npm --prefix evaluation test
-npm --prefix evaluation run validate
 ```
 
 数据库与真实模型检查显式执行。Testcontainers 使用隔离数据库，不连接开发数据卷；数据库检查需要 Docker，真实模型检查还需要对应服务、模型或密钥。缺少条件时测试失败，不静默跳过：
@@ -375,18 +336,20 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 
 真实测试发送少量固定样本文本，分别检查 Chat、流式增量、实际向量长度和 PgVectorStore 相似查询。云端调用会产生相应模型费用；没有执行成功的测试不计入验收通过。
 
-以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。F20 已通过聚合编译、定向单元测试与 Testcontainers 数据库测试；F21 已通过题集结构校验、Node 汇总测试与配置快照/指标定向测试；F22 已通过关键词/RRF 定向单元测试、同集比较脚本测试与授权关键词 SQL 的 Testcontainers 测试；F23 已通过 45 项核心定向测试、11 项启动配置测试、1 项 OpenAPI 定向测试、4 项评测脚本测试及题集指纹校验；F24 已通过聚合测试编译、145 项相关后端普通单元测试、7 项评测脚本测试、题集指纹校验和 4 项授权检索数据库测试。F25 已通过服务与安全定向测试、3 项 Testcontainers 工单数据库测试和前端定向测试；完整前端回归与生产构建结果以 [F25 验收记录](doc/验收记录/F25验收记录.md) 为准。F26 已通过聚合测试编译、162 项 assistant 上游普通测试、21 项定向测试和 13 项 V1—V13 数据库测试，详细场景见 [F26 验收记录](doc/验收记录/F26验收记录.md)。这些结果不替代真实模型、开发数据卷和完整业务场景验收。
+以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。多模块迁移尚未执行 Maven 验证，迁移前的成功记录不代表当前结构已验收通过。
 
-MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证 V11、模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态；F13 还需验证真实流式模型、逐增量落库、事件顺序、部分回答、来源二次鉴权、线程池过载和模型用量未知场景。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构；隔离 Testcontainers 已核对 V1—V12，并通过 F20 的任务状态 SQL、F22 的授权关键词查询、F24 的完整处理配置隔离和 F25 的工单授权与数据新鲜度。F20 仍需等待 F18、F19，修复 OpenAPI 基线问题，并完成真实失败注入、浏览器和删除竞争验收。F21 的结构化题集和追溯字段已就绪，但仍需上传绑定演示语料、启动真实模型，分别运行开发集与冻结后的固定测试集，并由人工核对引用和依据后才能验收。F22 还需在同一 60 题开发集上完成纯向量与融合策略双跑，报告错误码、接口名和中文改写的收益、回退、延迟与用量后，才能决定是否将默认策略从 `VECTOR` 切换为 `FUSION`。F23 还需在基础策略确定后完成同一开发集的重排序关闭/开启双跑，核对质量、回退题、真实 Token、费用与耗时，再决定是否开启默认配置。F24 还需在 development 分割中逐项调整 TopK、证据预算、当前策略阈值、分块、Embedding 与提示词，完成三策略统一报告并列出退化题后才能冻结默认配置；固定测试集不得参与调参。F25 还需等待 F24、升级当前开发数据卷、修复 OpenAPI 基线并完成真实浏览器登录场景复核。
-
-F26 还需等待 F25 前置验收，并将当前开发数据卷升级到 V13。ReactAgent、工具次数/轮次/时长预算和 tool SSE 事件留待 F27，多轮来源继承与历史状态区分留待 F28。
+MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、完整配置快照、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证 V11、模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态；F13 还需验证真实流式模型、逐增量落库、事件顺序、部分回答、来源发送前即时复核、线程池过载和模型用量未知场景；F14 还需验证任务总超时、断线回查、撤权隐藏、完成/取消/超时竞争、任务中断和重启收口；F19 还需验证 V12、删除与发布并发、过期清理租约、目标隔离及历史来源失效。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构，但 Maven、V11—V12、Testcontainers、依赖树和真实模型检查仍未运行，F01—F19 继续待完整验收。
+F15 还需验证列表与消息游标边界、标题仅更新、活跃运行删除 409、同库不同用户隔离、固定范围撤权隐藏历史正文，以及来源逐条实时复核。F15 复用 V10/V11，不新增迁移；在后端、数据库、接口和浏览器场景完成前，F15 继续待完整验收。
+F16 还需验证默认最近 3 轮和 6000 字符预算、完整成功轮次筛选、任一来源失效整轮排除、当前/继承来源统一编号、根来源直指、单次 Prompt 注入，以及失败、取消和超预算轮次不进入模型。F16 同样复用 V10/V11 且不改变前端接口；在 Maven、数据库、真实模型、API 和浏览器三轮场景完成前继续待完整验收。
+F17 还需验证同一追问在不同会话生成各自独立检索问题、无历史和明确标识直查、完整问题不被误改写、非法模型输出回退、提示注入隔离、改写诊断持久化，以及撤权后状态查询与 SSE `done` 脱敏。F17 不新增迁移、接口或前端改动；在普通测试、真实模型、API 和浏览器连续追问场景完成前继续待完整验收。
+F18 还需验证同修订号并发更新只有一个成功、pending 互斥、旧 active 在构建或失败期间继续可检索、发布后只检索新版、相同内容配置不产生文件/版本/任务/Embedding，以及旧来源 `isCurrent=false` 和三轮继承排除。F18 复用 V6/V11；在 Maven、Testcontainers、真实 API、模型调用计数和浏览器版本切换场景完成前继续待完整验收。
 
 ## 验证与交付标准
 
 - **权限**：覆盖两位普通用户、无成员权管理员、READ/WRITE 变更、撤权与会话隔离。
 - **一致性**：验证半成品不可检索、版本原子切换、失效 Worker 隔离、删除与导入竞争。
 - **问答运行**：验证请求幂等、取消与完成的唯一终态、断流查询和重启后的中断处理。
-- **来源与历史**：验证未显式引用的证据也被记录，多轮转述仍能追溯根来源。
+- **来源与历史**：验证历史分页、撤权隐藏和来源逐条复核；未显式引用的证据也被记录，多轮转述仍能追溯根来源。
 - **工具**：验证正常查询、不存在、越权、会话外工单、工具失败与状态新鲜度。
 - **效果**：建立 100 题评测集，其中开发集 60 题、固定测试集 40 题，记录检索、引用、依据充分性和真实调用代价。
 - **部署**：验证空环境启动、SSE 经代理逐步输出、数据库与文件备份，以及隔离环境恢复。

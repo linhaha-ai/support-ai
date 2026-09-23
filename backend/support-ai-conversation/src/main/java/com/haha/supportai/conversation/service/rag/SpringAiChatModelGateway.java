@@ -19,6 +19,15 @@ public class SpringAiChatModelGateway implements ChatModelGateway {
     private final ChatClient chatClient;
 
     @Override
+    public String generate(String systemPrompt, String userPrompt) {
+        return chatClient.prompt()
+                .system(systemPrompt)
+                .user(userPrompt)
+                .call()
+                .content();
+    }
+
+    @Override
     public void stream(String systemPrompt, String userPrompt, Consumer<ChatModelChunk> chunkConsumer) {
         chatClient.prompt()
                 .system(systemPrompt)

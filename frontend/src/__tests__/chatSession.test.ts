@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  cancelChatRun,
   createChatSession,
+  deleteChatSession,
+  fetchChatRun,
+  fetchChatMessages,
+  fetchChatSessions,
   fetchDocumentSource,
+  renameChatSession,
   submitChatMessage,
   type ChatStreamEvent,
 } from '../chatSession'
@@ -12,6 +18,29 @@ const sessionId = '7f5cf7b1-1a5c-4e60-a22a-6e7736e19a2a'
 const runId = '8f5cf7b1-1a5c-4e60-a22a-6e7736e19a2b'
 const assistantMessageId = '9f5cf7b1-1a5c-4e60-a22a-6e7736e19a2c'
 const chunkId = 'af5cf7b1-1a5c-4e60-a22a-6e7736e19a2d'
+
+function runStatus(overrides: Record<string, unknown> = {}) {
+  return {
+    runId,
+    sessionId,
+    userMessageId: '7d5cf7b1-1a5c-4e60-a22a-6e7736e19a2a',
+    assistantMessageId,
+    status: 'RUNNING',
+    assistantStatus: 'STREAMING',
+    answer: '已经保存的部分回答。',
+    contentReadable: true,
+    sources: [],
+    usage: null,
+    metrics: null,
+    errorCode: null,
+    errorMessage: null,
+    cancellable: true,
+    cancelRequestedAt: null,
+    startedAt: '2026-09-21T10:00:00+08:00',
+    finishedAt: null,
+    ...overrides,
+  }
+}
 
 function ok(data: unknown, status = 200) {
   return new Response(JSON.stringify({ code: 'OK', data, traceId: 'trace-test' }), {
@@ -30,6 +59,19 @@ function streamResponse(chunks: Uint8Array[]) {
       controller.close()
     },
   }), { status: 200, headers: { 'Content-Type': 'text/event-stream;charset=UTF-8' } })
+}
+
+function sessionSummary(overrides: Record<string, unknown> = {}) {
+  return {
+    sessionId,
+    title: '支付支持',
+    mode: 'RAG',
+    knowledgeBaseIds: [knowledgeBaseId],
+    contentReadable: true,
+    createdAt: '2026-09-21T10:00:00+08:00',
+    updatedAt: '2026-09-21T10:00:00+08:00',
+    ...overrides,
+  }
 }
 
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
@@ -70,6 +112,64 @@ describe('会话创建接口', () => {
   })
 })
 
+describe('会话历史接口', () => {
+  it('读取带不透明游标的会话列表，并严格要求受限标记', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ items: [sessionSummary({ contentReadable: false })], nextCursor: 'cursor-next' }))
+
+    await expect(fetchChatSessions('cursor-before')).resolves.toMatchObject({
+      nextCursor: 'cursor-next', items: [{ sessionId, contentReadable: false }],
+    })
+    expect(fetchMock).toHaveBeenCalledWith('/api/chat/sessions?limit=20&cursor=cursor-before', expect.objectContaining({
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    }))
+
+    fetchMock.mockResolvedValueOnce(ok({ items: [sessionSummary({ contentReadable: undefined })], nextCursor: null }))
+    await expect(fetchChatSessions()).rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('按序号游标读取历史消息，并保留授权收回的空正文', async () => {
+    fetchMock.mockResolvedValueOnce(ok({
+      sessionId,
+      contentReadable: false,
+      items: [{
+        messageId: assistantMessageId,
+        runId,
+        sequence: 2,
+        role: 'ASSISTANT',
+        content: null,
+        status: 'COMPLETED',
+        sources: [],
+        createdAt: '2026-09-21T10:00:01+08:00',
+        updatedAt: '2026-09-21T10:00:01+08:00',
+      }],
+      nextCursor: null,
+    }))
+
+    await expect(fetchChatMessages(sessionId, 'message-cursor')).resolves.toMatchObject({
+      contentReadable: false, items: [{ sequence: 2, content: null }],
+    })
+    expect(fetchMock).toHaveBeenCalledWith(`/api/chat/sessions/${sessionId}/messages?limit=20&cursor=message-cursor`, expect.objectContaining({
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    }))
+  })
+
+  it('重命名与删除均携带 CSRF，删除冲突提示先停止生成', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(sessionSummary({ title: '新的会话标题' })))
+    await expect(renameChatSession(sessionId, '新的会话标题')).resolves.toMatchObject({ title: '新的会话标题' })
+    expect(fetchMock.mock.calls[1]).toEqual([
+      `/api/chat/sessions/${sessionId}`,
+      expect.objectContaining({ method: 'PATCH', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }) }),
+    ])
+
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(new Response(null, { status: 409 }))
+    await expect(deleteChatSession(sessionId)).rejects.toMatchObject({
+      kind: 'conflict', message: '会话正在生成回答，请先停止生成再删除。',
+    })
+  })
+})
+
 describe('流式问答接口', () => {
   it('按协议解析跨二进制分片、CRLF、同一分片多事件和中文内容', async () => {
     const text = [
@@ -83,6 +183,7 @@ describe('流式问答接口', () => {
         chunkId,
         title: '支付排查手册',
         section: '状态更新',
+        available: true,
         isCurrent: true,
         previewPath: `/api/chunks/${chunkId}/source`,
       }] }),
@@ -132,6 +233,34 @@ describe('流式问答接口', () => {
       terminal: { event: 'error', data: { code: 'MODEL_UNAVAILABLE', status: 'FAILED' } },
     })
     expect(events.some((event) => event.event === 'done')).toBe(false)
+  })
+
+  it('保留已失效来源元数据，但拒绝失效来源携带预览路径', async () => {
+    const encoder = new TextEncoder()
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(streamResponse([encoder.encode(
+        sseEvent('start', { runId, assistantMessageId })
+        + sseEvent('sources', { sources: [{
+          number: 1,
+          type: 'DOCUMENT',
+          documentId: 'bf5cf7b1-1a5c-4e60-a22a-6e7736e19a2e',
+          versionId: 'cf5cf7b1-1a5c-4e60-a22a-6e7736e19a2f',
+          chunkId,
+          title: '已删除排查手册',
+          section: '状态更新',
+          available: false,
+          isCurrent: false,
+          previewPath: null,
+        }] })
+        + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+      )]))
+    const events: ChatStreamEvent[] = []
+
+    await submitChatMessage(sessionId, 'request-invalid-source', '查看旧回答', (event) => events.push(event))
+
+    expect(events.find((event) => event.event === 'sources')).toMatchObject({
+      data: { sources: [{ available: false, isCurrent: false, previewPath: null }] },
+    })
   })
 
   it('复用请求按 JSON 响应返回，不尝试读取 SSE', async () => {
@@ -202,6 +331,37 @@ describe('来源预览接口', () => {
     })
     expect(fetchMock).toHaveBeenCalledWith(`/api/chunks/${chunkId}/source`, expect.objectContaining({
       method: 'GET', credentials: 'same-origin',
+    }))
+  })
+})
+
+describe('运行状态与停止接口', () => {
+  it('严格解析已持久化的运行状态，并只请求同源运行路径', async () => {
+    fetchMock.mockResolvedValueOnce(ok(runStatus()))
+
+    await expect(fetchChatRun(runId)).resolves.toMatchObject({
+      runId,
+      status: 'RUNNING',
+      answer: '已经保存的部分回答。',
+      cancellable: true,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(`/api/chat/runs/${runId}`, expect.objectContaining({
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    }))
+
+    fetchMock.mockResolvedValueOnce(ok(runStatus({ answer: 1 })))
+    await expect(fetchChatRun(runId)).rejects.toMatchObject({ kind: 'invalid-response' })
+  })
+
+  it('停止前获取 CSRF，接受异步取消响应', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok({ runId, status: 'CANCELLED', newlyCancelled: true }, 202))
+
+    await expect(cancelChatRun(runId)).resolves.toEqual({ runId, status: 'CANCELLED', newlyCancelled: true })
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/chat/runs/${runId}/cancel`, expect.objectContaining({
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
     }))
   })
 })

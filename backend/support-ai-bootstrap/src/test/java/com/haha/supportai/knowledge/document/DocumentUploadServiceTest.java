@@ -2,18 +2,23 @@ package com.haha.supportai.knowledge.document;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.haha.supportai.data.knowledge.enums.IngestionJobStatusEnum;
 import com.haha.supportai.knowledge.access.AccessPolicy;
 import com.haha.supportai.knowledge.document.config.DocumentUploadProperties;
+import com.haha.supportai.knowledge.document.entity.dto.DocumentVersionMatchCommand;
+import com.haha.supportai.knowledge.document.entity.dto.DocumentVersionUploadCommand;
 import com.haha.supportai.knowledge.document.entity.dto.NewDocumentVersionCommand;
 import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
 import com.haha.supportai.knowledge.document.entity.vo.DocumentUploadReceiptResponse;
+import com.haha.supportai.knowledge.document.entity.vo.DocumentVersionUploadResponse;
 import com.haha.supportai.knowledge.document.exception.DocumentFileEncodingInvalidException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileTooLargeException;
 import com.haha.supportai.knowledge.document.exception.DocumentFileTypeUnsupportedException;
 import com.haha.supportai.knowledge.document.exception.DocumentUploadFailedException;
+import com.haha.supportai.knowledge.document.exception.DocumentVersionConflictException;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import com.haha.supportai.knowledge.document.support.DocumentProcessingSnapshotFactory;
@@ -42,6 +47,7 @@ import static org.mockito.Mockito.when;
 class DocumentUploadServiceTest {
 
     private static final UUID KNOWLEDGE_BASE_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+    private static final UUID DOCUMENT_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     private static final String STORAGE_KEY = "2026/09/550e8400-e29b-41d4-a716-446655440001.md";
 
     @Mock
@@ -163,6 +169,93 @@ class DocumentUploadServiceTest {
 
         assertThatThrownBy(() -> documentUploadService.upload(KNOWLEDGE_BASE_ID,
                 file("guide.txt", "text/plain", "database failure compensation"), null))
+                .isInstanceOf(DocumentUploadFailedException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+
+        verify(fileStore).delete(STORAGE_KEY);
+    }
+
+    @Test
+    void reusesCurrentVersionWithoutWritingFileOrCreatingJob() {
+        UUID versionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440011");
+        UUID jobId = UUID.fromString("550e8400-e29b-41d4-a716-446655440012");
+        DocumentVersionUploadResponse expected = new DocumentVersionUploadResponse(DOCUMENT_ID, versionId, jobId,
+                IngestionJobStatusEnum.SUCCEEDED, 7, true);
+        when(documentUploadPersistenceService.findReusableCurrentVersion(any(DocumentVersionMatchCommand.class)))
+                .thenReturn(Optional.of(expected));
+        ArgumentCaptor<DocumentVersionMatchCommand> commandCaptor = ArgumentCaptor.forClass(
+                DocumentVersionMatchCommand.class);
+
+        DocumentVersionUploadResponse actual = documentUploadService.uploadVersion(DOCUMENT_ID,
+                file("guide.md", "text/markdown", "# 相同内容"), 7);
+
+        assertThat(actual).isSameAs(expected);
+        verify(documentUploadPersistenceService).requireVersionUploadAccess(DOCUMENT_ID);
+        verify(documentUploadPersistenceService).findReusableCurrentVersion(commandCaptor.capture());
+        verify(fileStore, never()).store(any(InputStream.class), any(String.class));
+        verify(documentUploadPersistenceService, never()).createNewVersion(any(DocumentVersionUploadCommand.class));
+        DocumentVersionMatchCommand command = commandCaptor.getValue();
+        assertThat(command.getDocumentId()).isEqualTo(DOCUMENT_ID);
+        assertThat(command.getExpectedRevision()).isEqualTo(7);
+        assertThat(command.getFileHash()).hasSize(64);
+        assertThat(command.getEmbeddingModel()).isEqualTo("bge-m3");
+        assertThat(command.getDimensions()).isEqualTo(1024);
+    }
+
+    @Test
+    void createsPendingVersionWhenCurrentVersionCannotBeReused() {
+        UUID versionId = UUID.fromString("550e8400-e29b-41d4-a716-446655440013");
+        UUID jobId = UUID.fromString("550e8400-e29b-41d4-a716-446655440014");
+        DocumentVersionUploadResponse expected = new DocumentVersionUploadResponse(DOCUMENT_ID, versionId, jobId,
+                IngestionJobStatusEnum.QUEUED, 8, false);
+        when(documentUploadPersistenceService.findReusableCurrentVersion(any(DocumentVersionMatchCommand.class)))
+                .thenReturn(Optional.empty());
+        when(fileStore.store(any(InputStream.class), eq("md"))).thenReturn(STORAGE_KEY);
+        when(documentUploadPersistenceService.createNewVersion(any(DocumentVersionUploadCommand.class)))
+                .thenReturn(expected);
+        ArgumentCaptor<DocumentVersionUploadCommand> commandCaptor = ArgumentCaptor.forClass(
+                DocumentVersionUploadCommand.class);
+
+        DocumentVersionUploadResponse actual = documentUploadService.uploadVersion(DOCUMENT_ID,
+                file("guide.md", "text/markdown", "# 新版本内容"), 7);
+
+        assertThat(actual).isSameAs(expected);
+        verify(documentUploadPersistenceService).requireVersionUploadAccess(DOCUMENT_ID);
+        verify(fileStore).store(any(InputStream.class), eq("md"));
+        verify(documentUploadPersistenceService).createNewVersion(commandCaptor.capture());
+        DocumentVersionUploadCommand command = commandCaptor.getValue();
+        assertThat(command.getDocumentId()).isEqualTo(DOCUMENT_ID);
+        assertThat(command.getExpectedRevision()).isEqualTo(7);
+        assertThat(command.getStorageKey()).isEqualTo(STORAGE_KEY);
+        assertThat(command.getOriginalFilename()).isEqualTo("guide.md");
+        assertThat(command.getDimensions()).isEqualTo(1024);
+        assertThat(command.getConfigSnapshot()).doesNotContain("api-key");
+    }
+
+    @Test
+    void rejectsVersionConflictBeforeWritingFile() {
+        when(documentUploadPersistenceService.findReusableCurrentVersion(any(DocumentVersionMatchCommand.class)))
+                .thenThrow(new DocumentVersionConflictException());
+
+        assertThatThrownBy(() -> documentUploadService.uploadVersion(DOCUMENT_ID,
+                file("guide.md", "text/markdown", "# 过期修订"), 7))
+                .isInstanceOf(DocumentVersionConflictException.class);
+
+        verify(documentUploadPersistenceService).requireVersionUploadAccess(DOCUMENT_ID);
+        verify(fileStore, never()).store(any(InputStream.class), any(String.class));
+        verify(documentUploadPersistenceService, never()).createNewVersion(any(DocumentVersionUploadCommand.class));
+    }
+
+    @Test
+    void removesNewVersionFileWhenRegistrationFails() {
+        when(documentUploadPersistenceService.findReusableCurrentVersion(any(DocumentVersionMatchCommand.class)))
+                .thenReturn(Optional.empty());
+        when(fileStore.store(any(InputStream.class), eq("txt"))).thenReturn(STORAGE_KEY);
+        doThrow(new IllegalStateException("模拟版本登记失败"))
+                .when(documentUploadPersistenceService).createNewVersion(any(DocumentVersionUploadCommand.class));
+
+        assertThatThrownBy(() -> documentUploadService.uploadVersion(DOCUMENT_ID,
+                file("guide.txt", "text/plain", "版本登记失败补偿"), 7))
                 .isInstanceOf(DocumentUploadFailedException.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
 

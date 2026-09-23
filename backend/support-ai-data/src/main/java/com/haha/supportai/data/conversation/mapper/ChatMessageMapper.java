@@ -6,12 +6,14 @@ import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
+import com.haha.supportai.data.conversation.entity.po.CompletedChatTurn;
 import com.haha.supportai.data.conversation.enums.ChatMessageRoleEnum;
 import com.haha.supportai.data.conversation.enums.ChatMessageStatusEnum;
 import com.haha.supportai.data.typehandler.UuidTypeHandler;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.ResultMap;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -45,6 +47,82 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
     })
     List<ChatMessage> selectByRunId(@Param("runId") UUID runId);
 
+    @Select("""
+            -- chat_message、chat_session：按序号读取本人未删除会话的消息，避免仅凭会话标识越权读取。
+            SELECT message.id, message.run_id, message.session_id, message.seq, message.role,
+                   message.content, message.status, message.created_at, message.updated_at
+            FROM chat_message message
+            INNER JOIN chat_session session ON session.id = message.session_id
+            WHERE message.session_id = #{sessionId,jdbcType=OTHER}
+              AND session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+              AND message.seq > #{afterSequence}
+            ORDER BY message.seq
+            LIMIT #{limit}
+            """)
+    @ResultMap("chatMessageResultMap")
+    List<ChatMessage> selectOwnedSessionPage(@Param("sessionId") UUID sessionId,
+                                             @Param("userId") UUID userId,
+                                             @Param("afterSequence") long afterSequence,
+                                             @Param("limit") int limit);
+
+    @Select("""
+            -- chat_run、chat_message：按当前用户消息序号倒序读取本人会话中此前完整成功的问答轮次。
+            SELECT previous_run.id AS run_id,
+                   user_message.id AS user_message_id,
+                   assistant_message.id AS assistant_message_id,
+                   user_message.seq AS user_sequence,
+                   user_message.content AS question,
+                   assistant_message.content AS answer
+            FROM chat_message current_message
+            INNER JOIN chat_session session
+                ON session.id = current_message.session_id
+            INNER JOIN chat_run previous_run
+                ON previous_run.session_id = session.id
+               AND previous_run.status = 'COMPLETED'
+            INNER JOIN chat_message user_message
+                ON user_message.run_id = previous_run.id
+               AND user_message.session_id = session.id
+               AND user_message.role = 'USER'
+               AND user_message.status = 'COMPLETED'
+            INNER JOIN chat_message assistant_message
+                ON assistant_message.run_id = previous_run.id
+               AND assistant_message.session_id = session.id
+               AND assistant_message.role = 'ASSISTANT'
+               AND assistant_message.status = 'COMPLETED'
+            WHERE current_message.id = #{currentUserMessageId,jdbcType=OTHER}
+              AND current_message.session_id = #{sessionId,jdbcType=OTHER}
+              AND current_message.role = 'USER'
+              AND current_message.status = 'COMPLETED'
+              AND session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+              AND user_message.seq < current_message.seq
+              AND (#{beforeUserSequence,jdbcType=BIGINT} IS NULL
+                   OR user_message.seq < #{beforeUserSequence,jdbcType=BIGINT})
+              AND assistant_message.seq < current_message.seq
+              AND user_message.seq < assistant_message.seq
+              AND LENGTH(BTRIM(user_message.content)) > 0
+              AND LENGTH(BTRIM(assistant_message.content)) > 0
+            ORDER BY user_message.seq DESC
+            LIMIT #{limit}
+            """)
+    @Results(id = "completedChatTurnResultMap", value = {
+            @Result(column = "run_id", property = "runId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class, id = true),
+            @Result(column = "user_message_id", property = "userMessageId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "assistant_message_id", property = "assistantMessageId", javaType = UUID.class,
+                    typeHandler = UuidTypeHandler.class),
+            @Result(column = "user_sequence", property = "userSequence"),
+            @Result(column = "question", property = "question"),
+            @Result(column = "answer", property = "answer")
+    })
+    List<CompletedChatTurn> selectCompletedTurnsBefore(@Param("sessionId") UUID sessionId,
+                                                       @Param("userId") UUID userId,
+                                                       @Param("currentUserMessageId") UUID currentUserMessageId,
+                                                       @Param("beforeUserSequence") Long beforeUserSequence,
+                                                       @Param("limit") int limit);
+
     @Update("""
             -- chat_message、chat_run：仅为执行中的运行原子追加非空助手增量，终态消息不得再写入。
             UPDATE chat_message message
@@ -70,14 +148,14 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 
     @Update("""
             -- chat_message：仅完成仍在生成中的助手消息，空白答案不得进入完成状态。
-            UPDATE chat_message
+            UPDATE chat_message message
             SET content = #{content},
                 status = 'COMPLETED',
                 updated_at = #{completedAt}
-            WHERE id = #{messageId,jdbcType=OTHER}
-              AND run_id = #{runId,jdbcType=OTHER}
-              AND role = 'ASSISTANT'
-              AND status = 'STREAMING'
+            WHERE message.id = #{messageId,jdbcType=OTHER}
+              AND message.run_id = #{runId,jdbcType=OTHER}
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
               AND LENGTH(BTRIM(#{content})) > 0
             """)
     int completeAssistant(@Param("runId") UUID runId,
@@ -86,7 +164,7 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
                           @Param("completedAt") OffsetDateTime completedAt);
 
     @Update("""
-            -- chat_message、chat_run：原子保存显式部分正文并失败仍在生成中的助手消息。
+            -- chat_message：运行已写入终态后，仍可按运行和消息标识保存部分正文并结束助手消息。
             UPDATE chat_message message
             SET content = COALESCE(#{partialContent,jdbcType=VARCHAR}, message.content),
                 status = 'FAILED',
@@ -95,15 +173,39 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
               AND message.run_id = #{runId,jdbcType=OTHER}
               AND message.role = 'ASSISTANT'
               AND message.status = 'STREAMING'
-              AND EXISTS (
-                  SELECT 1
-                  FROM chat_run run
-                  WHERE run.id = message.run_id
-                    AND run.status IN ('QUEUED', 'RUNNING')
-              )
             """)
     int failAssistant(@Param("runId") UUID runId,
                       @Param("messageId") UUID messageId,
                       @Param("partialContent") String partialContent,
                       @Param("failedAt") OffsetDateTime failedAt);
+
+    @Update("""
+            -- chat_message：仅取消指定运行中仍在生成的助手消息，保留已持久化的部分回答。
+            UPDATE chat_message message
+            SET status = 'CANCELLED',
+                updated_at = #{cancelledAt}
+            WHERE message.id = #{messageId,jdbcType=OTHER}
+              AND message.run_id = #{runId,jdbcType=OTHER}
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
+            """)
+    int cancelAssistant(@Param("runId") UUID runId,
+                        @Param("messageId") UUID messageId,
+                        @Param("cancelledAt") OffsetDateTime cancelledAt);
+
+    @Update("""
+            -- chat_message、chat_run：仅补偿本次启动恢复标记为 RUN_INTERRUPTED 的遗留助手流，避免覆盖普通失败记录。
+            UPDATE chat_message message
+            SET status = 'FAILED',
+                updated_at = #{recoveredAt}
+            FROM chat_run run
+            WHERE run.id = message.run_id
+              AND message.role = 'ASSISTANT'
+              AND message.status = 'STREAMING'
+              AND run.status = 'FAILED'
+              AND run.error_code = 'RUN_INTERRUPTED'
+              AND run.finished_at = #{recoveredAt}
+              AND run.updated_at = #{recoveredAt}
+            """)
+    int interruptAssistants(@Param("recoveredAt") OffsetDateTime recoveredAt);
 }

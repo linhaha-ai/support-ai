@@ -5,22 +5,29 @@ import java.util.UUID;
 import com.haha.supportai.common.entity.vo.ApiResult;
 import com.haha.supportai.common.filter.TraceIdFilter;
 import com.haha.supportai.identity.config.IdentityOpenApiConfiguration;
+import com.haha.supportai.identity.service.CsrfTokenService;
 import com.haha.supportai.knowledge.document.entity.vo.DocumentChunkPageResponse;
 import com.haha.supportai.knowledge.document.entity.vo.DocumentContentResponse;
 import com.haha.supportai.knowledge.document.entity.vo.DocumentDetailResponse;
 import com.haha.supportai.knowledge.document.entity.vo.DocumentVersionPageResponse;
 import com.haha.supportai.knowledge.document.service.DocumentQueryService;
+import com.haha.supportai.knowledge.service.document.DocumentDeletionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -31,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DocumentQueryController {
 
     private final DocumentQueryService documentQueryService;
+    private final DocumentDeletionService documentDeletionService;
 
     @Operation(
             operationId = "getKnowledgeDocument",
@@ -87,5 +95,22 @@ public class DocumentQueryController {
             @Parameter(hidden = true) HttpServletRequest request) {
         return ApiResult.ok(documentQueryService.getContent(documentId, versionId),
                 TraceIdFilter.getTraceId(request));
+    }
+
+    @Operation(
+            operationId = "deleteKnowledgeDocument",
+            summary = "删除文档",
+            description = "仅 WRITE 成员可删除；文档立即退出检索，原文件和正文由后台清理任务回收",
+            parameters = @Parameter(
+                    name = CsrfTokenService.HEADER_NAME,
+                    description = "从 /api/auth/csrf 获取的 CSRF 令牌",
+                    required = true,
+                    in = ParameterIn.HEADER))
+    @DeleteMapping("/{documentId}")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ResponseEntity<Void> delete(
+            @Parameter(description = "文档标识", required = true) @PathVariable UUID documentId) {
+        documentDeletionService.delete(documentId);
+        return ResponseEntity.accepted().build();
     }
 }

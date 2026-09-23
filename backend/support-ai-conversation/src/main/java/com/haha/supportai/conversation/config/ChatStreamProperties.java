@@ -30,8 +30,16 @@ public class ChatStreamProperties {
     @NotNull
     private Duration timeout = Duration.ofSeconds(200); // SSE 连接保留时间
 
+    @NotNull
+    private Duration executionTimeout = Duration.ofSeconds(180); // 单次问答任务总执行时间
+
     @AssertTrue(message = "流式连接超时时间必须大于零")
     public boolean isTimeoutValid() {
         return !timeout.isZero() && !timeout.isNegative();
+    }
+
+    @AssertTrue(message = "问答任务总执行时间必须大于零")
+    public boolean isExecutionTimeoutValid() {
+        return !executionTimeout.isZero() && !executionTimeout.isNegative();
     }
 }

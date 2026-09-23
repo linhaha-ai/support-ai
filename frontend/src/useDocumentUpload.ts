@@ -1,7 +1,9 @@
 import { onScopeDispose, reactive } from 'vue'
 import {
   fetchIngestionJob,
+  uploadDocumentVersion,
   uploadKnowledgeDocument,
+  type DocumentVersionUploadReceipt,
   type DocumentUploadReceipt,
   type IngestionJobDetail,
 } from './knowledgeBase'
@@ -15,7 +17,7 @@ export interface DocumentUploadState {
   file: File | null
   submitting: boolean
   error: string
-  receipt: DocumentUploadReceipt | null
+  receipt: DocumentUploadReceipt | DocumentVersionUploadReceipt | null
   job: IngestionJobDetail | null
   jobLoading: boolean
   jobError: string
@@ -129,7 +131,7 @@ export function useDocumentUpload() {
     }
   }
 
-  function startPolling(knowledgeBaseId: string, receipt: DocumentUploadReceipt) {
+  function startPolling(knowledgeBaseId: string, receipt: DocumentUploadReceipt | DocumentVersionUploadReceipt) {
     stopPolling(knowledgeBaseId)
     const version = pollVersions.get(knowledgeBaseId) ?? 0
     const state = stateFor(knowledgeBaseId)
@@ -138,26 +140,30 @@ export function useDocumentUpload() {
     void refreshJob(knowledgeBaseId, receipt.jobId, version)
   }
 
-  async function submit(knowledgeBaseId: string): Promise<DocumentUploadReceipt | null> {
-    const state = stateFor(knowledgeBaseId)
+  async function submitFile<T extends DocumentUploadReceipt | DocumentVersionUploadReceipt>(
+    scopeId: string,
+    request: (file: File, state: DocumentUploadState) => Promise<T>,
+  ): Promise<T | null> {
+    const state = stateFor(scopeId)
     if (state.submitting) return null
-    if (!state.file) {
+    const file = state.file
+    if (!file) {
       state.error = '请选择 Markdown 或 TXT 文件后再上传。'
       return null
     }
     state.submitting = true
     state.error = ''
     state.receipt = null
-    stopPolling(knowledgeBaseId)
+    stopPolling(scopeId)
     state.job = null
     state.jobError = ''
     try {
-      const receipt = await uploadKnowledgeDocument(knowledgeBaseId, state.file, state.displayName.trim())
+      const receipt = await request(file, state)
       if (!disposed) {
         state.receipt = receipt
         state.file = null
         state.displayName = ''
-        startPolling(knowledgeBaseId, receipt)
+        startPolling(scopeId, receipt)
       }
       return receipt
     } catch (error) {
@@ -166,6 +172,18 @@ export function useDocumentUpload() {
     } finally {
       if (!disposed) state.submitting = false
     }
+  }
+
+  function submit(knowledgeBaseId: string): Promise<DocumentUploadReceipt | null> {
+    return submitFile(knowledgeBaseId, (file, state) => uploadKnowledgeDocument(
+      knowledgeBaseId,
+      file,
+      state.displayName.trim(),
+    ))
+  }
+
+  function submitVersion(documentId: string, expectedRevision: number): Promise<DocumentVersionUploadReceipt | null> {
+    return submitFile(documentId, (file) => uploadDocumentVersion(documentId, file, expectedRevision))
   }
 
   onScopeDispose(() => {
@@ -180,6 +198,7 @@ export function useDocumentUpload() {
     stateFor,
     selectFile,
     submit,
+    submitVersion,
     refreshJob,
   }
 }

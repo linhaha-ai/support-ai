@@ -12,6 +12,7 @@ import com.haha.supportai.knowledge.document.exception.DocumentNotFoundException
 import com.haha.supportai.knowledge.document.exception.DocumentQueryInvalidException;
 import com.haha.supportai.knowledge.document.exception.DocumentStorageUnavailableException;
 import com.haha.supportai.knowledge.document.exception.DocumentUploadFailedException;
+import com.haha.supportai.knowledge.document.exception.DocumentVersionConflictException;
 import com.haha.supportai.knowledge.document.parsing.exception.DocumentReadFailedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -78,6 +79,13 @@ public class DocumentExceptionHandler {
     @ExceptionHandler(DocumentNotFoundException.class)
     ResponseEntity<ApiError> handleNotFound(DocumentNotFoundException exception, HttpServletRequest request) {
         return error(HttpStatus.NOT_FOUND, "DOCUMENT_NOT_FOUND", "文档或版本不存在", request);
+    }
+
+    @ExceptionHandler(DocumentVersionConflictException.class)
+    ResponseEntity<ApiError> handleVersionConflict(DocumentVersionConflictException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, "DOCUMENT_VERSION_CONFLICT",
+                "文档已发生变化或存在待处理版本，请刷新后重试", request);
     }
 
     @ExceptionHandler(DocumentReadFailedException.class)

@@ -4,7 +4,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import javax.sql.DataSource;
@@ -209,6 +217,281 @@ class DocumentUploadDatabaseIT {
     }
 
     @Test
+    void newVersionKeepsActiveVersionSearchableAndRejectsPendingOrStaleRequests() throws Exception {
+        AuthenticatedRequest admin = login("admin", "admin");
+        UUID knowledgeBaseId = null;
+        UploadedDocument original = null;
+        UUID newVersionId = null;
+        UUID newJobId = null;
+        String newStorageKey = null;
+        try {
+            knowledgeBaseId = createKnowledgeBase(admin, "文档版本发布验收", "验证 F18 新版本受理不会替换旧版本");
+            original = uploadInitialDocument(admin, knowledgeBaseId, "guide-v1.md", "# 支付故障\n旧版本内容");
+            activateDocumentVersion(original);
+
+            MvcResult result = mvc.perform(multipart("/api/documents/{documentId}/versions", original.documentId())
+                            .file(file("guide-v2.md", "text/markdown", "# 支付故障\n新版本内容"))
+                            .param("expectedRevision", "1")
+                            .session(admin.session()).cookie(admin.cookie())
+                            .header(admin.csrfHeader(), admin.csrfToken()))
+                    .andExpect(status().isAccepted())
+                    .andExpect(jsonPath("$.code").value("OK"))
+                    .andExpect(jsonPath("$.data.status").value("QUEUED"))
+                    .andExpect(jsonPath("$.data.reused").value(false))
+                    .andExpect(jsonPath("$.data.revision").value(2))
+                    .andReturn();
+            JsonNode receipt = responseData(result);
+            newVersionId = UUID.fromString(receipt.path("versionId").asText());
+            newJobId = UUID.fromString(receipt.path("jobId").asText());
+            newStorageKey = jdbcTemplate.queryForObject("SELECT storage_key FROM document_version WHERE id = ?",
+                    String.class, newVersionId);
+
+            assertThat(result.getResponse().getHeader("Location")).isEqualTo("/api/ingestion-jobs/" + newJobId);
+            assertThat(jdbcTemplate.queryForObject("SELECT active_version_id FROM document WHERE id = ?", UUID.class,
+                    original.documentId())).isEqualTo(original.versionId());
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id FROM document WHERE id = ?", UUID.class,
+                    original.documentId())).isEqualTo(newVersionId);
+            assertThat(jdbcTemplate.queryForObject("SELECT next_version_no FROM document WHERE id = ?", Integer.class,
+                    original.documentId())).isEqualTo(3);
+            assertThat(jdbcTemplate.queryForObject("SELECT revision FROM document WHERE id = ?", Long.class,
+                    original.documentId())).isEqualTo(2L);
+            assertThat(jdbcTemplate.queryForObject("SELECT version_no FROM document_version WHERE id = ?", Integer.class,
+                    newVersionId)).isEqualTo(2);
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM document_version WHERE id = ?", String.class,
+                    newVersionId)).isEqualTo("QUEUED");
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM ingestion_job WHERE id = ?", String.class,
+                    newJobId)).isEqualTo("QUEUED");
+            assertThat(Files.exists(STORAGE_ROOT.resolve(newStorageKey))).isTrue();
+
+            mvc.perform(multipart("/api/documents/{documentId}/versions", original.documentId())
+                            .file(file("guide-v3.md", "text/markdown", "# 支付故障\n第三版内容"))
+                            .param("expectedRevision", "2")
+                            .session(admin.session()).cookie(admin.cookie())
+                            .header(admin.csrfHeader(), admin.csrfToken()))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("DOCUMENT_VERSION_CONFLICT"));
+            mvc.perform(multipart("/api/documents/{documentId}/versions", original.documentId())
+                            .file(file("guide-stale.md", "text/markdown", "# 支付故障\n过期修订内容"))
+                            .param("expectedRevision", "1")
+                            .session(admin.session()).cookie(admin.cookie())
+                            .header(admin.csrfHeader(), admin.csrfToken()))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("DOCUMENT_VERSION_CONFLICT"));
+
+            assertThat(documentVersionCount(original.documentId())).isEqualTo(2);
+            assertThat(jdbcTemplate.queryForObject("SELECT active_version_id FROM document WHERE id = ?", UUID.class,
+                    original.documentId())).isEqualTo(original.versionId());
+        } finally {
+            if (original != null) {
+                deleteDocumentGraph(original.documentId(), values(original.versionId(), newVersionId),
+                        values(original.jobId(), newJobId), values(original.storageKey(), newStorageKey));
+            }
+            deleteKnowledgeBase(knowledgeBaseId);
+        }
+    }
+
+    @Test
+    void missingExpectedRevisionReturnsBadRequest() throws Exception {
+        AuthenticatedRequest admin = login("admin", "admin");
+        long filesBefore = storedFileCount();
+
+        mvc.perform(multipart("/api/documents/{documentId}/versions", UUID.randomUUID())
+                        .file(file("guide.md", "text/markdown", "# 缺少修订号"))
+                        .session(admin.session()).cookie(admin.cookie())
+                        .header(admin.csrfHeader(), admin.csrfToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("缺少必要请求参数"));
+
+        assertThat(storedFileCount()).isEqualTo(filesBefore);
+    }
+
+    @Test
+    void simultaneousUpdatesWithSameRevisionCreateOnlyOnePendingVersion() throws Exception {
+        AuthenticatedRequest firstAdmin = login("admin", "admin");
+        AuthenticatedRequest secondAdmin = login("admin", "admin");
+        UUID knowledgeBaseId = null;
+        UploadedDocument original = null;
+        ExecutorService executor = null;
+        try {
+            knowledgeBaseId = createKnowledgeBase(firstAdmin, "文档并发更新验收", "验证 F18 同修订号只接受一个新版本");
+            original = uploadInitialDocument(firstAdmin, knowledgeBaseId, "guide-v1.md", "# V1\n旧内容");
+            activateDocumentVersion(original);
+            long filesBefore = storedFileCount();
+            CountDownLatch ready = new CountDownLatch(2);
+            CountDownLatch start = new CountDownLatch(1);
+            executor = Executors.newFixedThreadPool(2);
+            UUID documentId = original.documentId();
+
+            Future<Integer> first = executor.submit(() -> uploadVersionStatus(firstAdmin, documentId,
+                    "guide-v2-a.md", "# V2-A\n并发内容A", ready, start));
+            Future<Integer> second = executor.submit(() -> uploadVersionStatus(secondAdmin, documentId,
+                    "guide-v2-b.md", "# V2-B\n并发内容B", ready, start));
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            assertThat(List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(202, 409);
+            assertThat(documentVersionCount(documentId)).isEqualTo(2);
+            assertThat(jdbcTemplate.queryForObject("""
+                    SELECT COUNT(*)
+                    FROM ingestion_job job
+                    INNER JOIN document_version version ON version.id = job.version_id
+                    WHERE version.document_id = ?
+                    """, Integer.class, documentId)).isEqualTo(2);
+            assertThat(jdbcTemplate.queryForList(
+                    "SELECT version_no FROM document_version WHERE document_id = ? ORDER BY version_no",
+                    Integer.class, documentId)).containsExactly(1, 2);
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id IS NOT NULL FROM document WHERE id = ?",
+                    Boolean.class, documentId)).isTrue();
+            assertThat(jdbcTemplate.queryForObject("SELECT next_version_no FROM document WHERE id = ?", Integer.class,
+                    documentId)).isEqualTo(3);
+            assertThat(jdbcTemplate.queryForObject("SELECT revision FROM document WHERE id = ?", Long.class,
+                    documentId)).isEqualTo(2L);
+            assertThat(storedFileCount()).isEqualTo(filesBefore + 1);
+        } finally {
+            if (executor != null) {
+                executor.shutdownNow();
+            }
+            if (original != null) {
+                UUID documentId = original.documentId();
+                List<UUID> versionIds = jdbcTemplate.queryForList(
+                        "SELECT id FROM document_version WHERE document_id = ?", UUID.class, documentId);
+                List<UUID> jobIds = jdbcTemplate.queryForList("""
+                        SELECT job.id
+                        FROM ingestion_job job
+                        INNER JOIN document_version version ON version.id = job.version_id
+                        WHERE version.document_id = ?
+                        """, UUID.class, documentId);
+                List<String> storageKeys = jdbcTemplate.queryForList(
+                        "SELECT storage_key FROM document_version WHERE document_id = ?", String.class, documentId);
+                deleteDocumentGraph(documentId, versionIds, jobIds, storageKeys);
+            }
+            deleteKnowledgeBase(knowledgeBaseId);
+        }
+    }
+
+    @Test
+    void sameContentAndConfigurationReuseActiveVersionWithoutCreatingFileVersionOrJob() throws Exception {
+        AuthenticatedRequest admin = login("admin", "admin");
+        UUID knowledgeBaseId = null;
+        UploadedDocument original = null;
+        try {
+            knowledgeBaseId = createKnowledgeBase(admin, "文档版本复用验收", "验证 F18 相同内容不重复构建");
+            original = uploadInitialDocument(admin, knowledgeBaseId, "guide.md", "# 支付故障\n可复用内容");
+            activateDocumentVersion(original);
+            long filesBefore = storedFileCount();
+
+            MvcResult result = mvc.perform(multipart("/api/documents/{documentId}/versions", original.documentId())
+                            .file(file("guide-copy.md", "text/markdown", "# 支付故障\n可复用内容"))
+                            .param("expectedRevision", "1")
+                            .session(admin.session()).cookie(admin.cookie())
+                            .header(admin.csrfHeader(), admin.csrfToken()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value("OK"))
+                    .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
+                    .andExpect(jsonPath("$.data.reused").value(true))
+                    .andExpect(jsonPath("$.data.revision").value(1))
+                    .andReturn();
+
+            JsonNode receipt = responseData(result);
+            assertThat(UUID.fromString(receipt.path("documentId").asText())).isEqualTo(original.documentId());
+            assertThat(UUID.fromString(receipt.path("versionId").asText())).isEqualTo(original.versionId());
+            assertThat(UUID.fromString(receipt.path("jobId").asText())).isEqualTo(original.jobId());
+            assertThat(documentVersionCount(original.documentId())).isOne();
+            assertThat(storedFileCount()).isEqualTo(filesBefore);
+            assertThat(jdbcTemplate.queryForObject("SELECT active_version_id FROM document WHERE id = ?", UUID.class,
+                    original.documentId())).isEqualTo(original.versionId());
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id IS NULL FROM document WHERE id = ?",
+                    Boolean.class, original.documentId())).isTrue();
+            assertThat(jdbcTemplate.queryForObject("SELECT next_version_no FROM document WHERE id = ?", Integer.class,
+                    original.documentId())).isEqualTo(2);
+            assertThat(jdbcTemplate.queryForObject("SELECT revision FROM document WHERE id = ?", Long.class,
+                    original.documentId())).isEqualTo(1L);
+        } finally {
+            if (original != null) {
+                deleteDocumentGraph(original.documentId(), List.of(original.versionId()), List.of(original.jobId()),
+                        List.of(original.storageKey()));
+            }
+            deleteKnowledgeBase(knowledgeBaseId);
+        }
+    }
+
+    @Test
+    void readMemberCannotUploadDocumentVersion() throws Exception {
+        AuthenticatedRequest admin = login("admin", "admin");
+        AuthenticatedRequest supportUser = login("support1", "support1");
+        UUID knowledgeBaseId = null;
+        UploadedDocument original = null;
+        try {
+            knowledgeBaseId = createKnowledgeBase(admin, "文档版本权限验收", "验证 F18 读取成员不能发布新版本");
+            original = uploadInitialDocument(admin, knowledgeBaseId, "guide.md", "# 支付故障\n原始内容");
+            activateDocumentVersion(original);
+            addReadMember(knowledgeBaseId, userId("support1"), userId("admin"));
+            long filesBefore = storedFileCount();
+
+            mvc.perform(multipart("/api/documents/{documentId}/versions", original.documentId())
+                            .file(file("guide-v2.md", "text/markdown", "# 支付故障\n未授权内容"))
+                            .param("expectedRevision", "1")
+                            .session(supportUser.session()).cookie(supportUser.cookie())
+                            .header(supportUser.csrfHeader(), supportUser.csrfToken()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+            assertThat(documentVersionCount(original.documentId())).isOne();
+            assertThat(storedFileCount()).isEqualTo(filesBefore);
+            assertThat(jdbcTemplate.queryForObject("SELECT active_version_id FROM document WHERE id = ?", UUID.class,
+                    original.documentId())).isEqualTo(original.versionId());
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id IS NULL FROM document WHERE id = ?",
+                    Boolean.class, original.documentId())).isTrue();
+        } finally {
+            if (original != null) {
+                deleteDocumentGraph(original.documentId(), List.of(original.versionId()), List.of(original.jobId()),
+                        List.of(original.storageKey()));
+            }
+            deleteKnowledgeBase(knowledgeBaseId);
+        }
+    }
+
+    @Test
+    void newVersionCommitFailureKeepsActiveVersionAndCompensatesStoredFile() throws Exception {
+        AuthenticatedRequest admin = login("admin", "admin");
+        UUID knowledgeBaseId = null;
+        UploadedDocument original = null;
+        try {
+            knowledgeBaseId = createKnowledgeBase(admin, "文档版本补偿验收", "验证 F18 新版本提交失败的存储补偿");
+            original = uploadInitialDocument(admin, knowledgeBaseId, "guide-v1.md", "# 支付故障\n旧版本内容");
+            activateDocumentVersion(original);
+            long filesBefore = storedFileCount();
+            createDeferredFailureTrigger();
+
+            mvc.perform(multipart("/api/documents/{documentId}/versions", original.documentId())
+                            .file(file("guide-v2.md", "text/markdown", "# 支付故障\n无法提交的新版本"))
+                            .param("expectedRevision", "1")
+                            .session(admin.session()).cookie(admin.cookie())
+                            .header(admin.csrfHeader(), admin.csrfToken()))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.code").value("DOCUMENT_UPLOAD_FAILED"));
+
+            assertThat(documentVersionCount(original.documentId())).isOne();
+            assertThat(storedFileCount()).isEqualTo(filesBefore);
+            assertThat(jdbcTemplate.queryForObject("SELECT active_version_id FROM document WHERE id = ?", UUID.class,
+                    original.documentId())).isEqualTo(original.versionId());
+            assertThat(jdbcTemplate.queryForObject("SELECT pending_version_id IS NULL FROM document WHERE id = ?",
+                    Boolean.class, original.documentId())).isTrue();
+            assertThat(jdbcTemplate.queryForObject("SELECT revision FROM document WHERE id = ?", Long.class,
+                    original.documentId())).isEqualTo(1L);
+        } finally {
+            dropDeferredFailureTrigger();
+            if (original != null) {
+                deleteDocumentGraph(original.documentId(), List.of(original.versionId()), List.of(original.jobId()),
+                        List.of(original.storageKey()));
+            }
+            deleteKnowledgeBase(knowledgeBaseId);
+        }
+    }
+
+    @Test
     void compositeForeignKeyRejectsVersionPointerFromAnotherDocument() {
         UUID userId = UUID.randomUUID();
         UUID knowledgeBaseId = UUID.randomUUID();
@@ -255,6 +538,49 @@ class DocumentUploadDatabaseIT {
     private int documentCount(UUID knowledgeBaseId) {
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM document WHERE kb_id = ?", Integer.class,
                 knowledgeBaseId);
+    }
+
+    private int documentVersionCount(UUID documentId) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM document_version WHERE document_id = ?", Integer.class,
+                documentId);
+    }
+
+    private UploadedDocument uploadInitialDocument(AuthenticatedRequest request, UUID knowledgeBaseId, String filename,
+                                                   String content) throws Exception {
+        MvcResult result = mvc.perform(multipart("/api/knowledge-bases/{kbId}/documents", knowledgeBaseId)
+                        .file(file(filename, "text/markdown", content))
+                        .session(request.session()).cookie(request.cookie())
+                        .header(request.csrfHeader(), request.csrfToken()))
+                .andExpect(status().isAccepted()).andReturn();
+        JsonNode receipt = responseData(result);
+        UUID documentId = UUID.fromString(receipt.path("documentId").asText());
+        UUID versionId = UUID.fromString(receipt.path("versionId").asText());
+        UUID jobId = UUID.fromString(receipt.path("jobId").asText());
+        String storageKey = jdbcTemplate.queryForObject("SELECT storage_key FROM document_version WHERE id = ?",
+                String.class, versionId);
+        return new UploadedDocument(documentId, versionId, jobId, storageKey);
+    }
+
+    private int uploadVersionStatus(AuthenticatedRequest request, UUID documentId, String filename, String content,
+                                    CountDownLatch ready, CountDownLatch start) throws Exception {
+        ready.countDown();
+        if (!start.await(5, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("并发版本更新未能同时开始");
+        }
+        return mvc.perform(multipart("/api/documents/{documentId}/versions", documentId)
+                        .file(file(filename, "text/markdown", content))
+                        .param("expectedRevision", "1")
+                        .session(request.session()).cookie(request.cookie())
+                        .header(request.csrfHeader(), request.csrfToken()))
+                .andReturn().getResponse().getStatus();
+    }
+
+    private void activateDocumentVersion(UploadedDocument uploadedDocument) {
+        jdbcTemplate.update("UPDATE document_version SET status = 'READY' WHERE id = ?", uploadedDocument.versionId());
+        jdbcTemplate.update("UPDATE ingestion_job SET status = 'SUCCEEDED', stage = 'PUBLISH', finished_at = CURRENT_TIMESTAMP "
+                + "WHERE id = ?", uploadedDocument.jobId());
+        jdbcTemplate.update("UPDATE document SET active_version_id = ?, pending_version_id = NULL, revision = revision + 1 "
+                + "WHERE id = ?", uploadedDocument.versionId(), uploadedDocument.documentId());
     }
 
     private void insertUser(UUID userId) {
@@ -322,26 +648,43 @@ class DocumentUploadDatabaseIT {
     }
 
     private void deleteDocumentGraph(UUID documentId, UUID versionId, UUID jobId, String storageKey) {
+        deleteDocumentGraph(documentId, values(versionId), values(jobId), values(storageKey));
+    }
+
+    private void deleteDocumentGraph(UUID documentId, List<UUID> versionIds, List<UUID> jobIds,
+                                     List<String> storageKeys) {
         if (documentId != null) {
             jdbcTemplate.update("UPDATE document SET active_version_id = NULL, pending_version_id = NULL WHERE id = ?",
                     documentId);
         }
-        if (jobId != null) {
-            jdbcTemplate.update("DELETE FROM ingestion_job WHERE id = ?", jobId);
+        for (UUID jobId : jobIds) {
+            if (jobId != null) {
+                jdbcTemplate.update("DELETE FROM ingestion_job WHERE id = ?", jobId);
+            }
         }
-        if (versionId != null) {
-            jdbcTemplate.update("DELETE FROM document_version WHERE id = ?", versionId);
+        for (UUID versionId : versionIds) {
+            if (versionId != null) {
+                jdbcTemplate.update("DELETE FROM document_version WHERE id = ?", versionId);
+            }
         }
         if (documentId != null) {
             jdbcTemplate.update("DELETE FROM document WHERE id = ?", documentId);
         }
-        if (storageKey != null) {
+        for (String storageKey : storageKeys) {
+            if (storageKey == null) {
+                continue;
+            }
             try {
                 Files.deleteIfExists(STORAGE_ROOT.resolve(storageKey));
             } catch (IOException exception) {
                 throw new AssertionError("未能清理测试原文件", exception);
             }
         }
+    }
+
+    @SafeVarargs
+    private static <T> List<T> values(T... values) {
+        return Arrays.stream(values).filter(Objects::nonNull).toList();
     }
 
     private void deleteKnowledgeBase(UUID knowledgeBaseId) {
@@ -399,5 +742,8 @@ class DocumentUploadDatabaseIT {
     }
 
     private record AuthenticatedRequest(MockHttpSession session, Cookie cookie, String csrfHeader, String csrfToken) {
+    }
+
+    private record UploadedDocument(UUID documentId, UUID versionId, UUID jobId, String storageKey) {
     }
 }

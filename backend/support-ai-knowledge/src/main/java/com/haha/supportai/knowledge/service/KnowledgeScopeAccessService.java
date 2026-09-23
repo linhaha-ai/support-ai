@@ -19,11 +19,25 @@ public class KnowledgeScopeAccessService implements KnowledgeScopeAccess {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean lockAllReadable(UUID userId, List<UUID> knowledgeBaseIds) {
-        if (userId == null || knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()
-                || knowledgeBaseIds.stream().anyMatch(id -> id == null)) {
+        if (!validScope(userId, knowledgeBaseIds)) {
             return false;
         }
         return knowledgeBaseRepository.findAllActiveByIdsAndUserForUpdate(knowledgeBaseIds, userId).size()
                 == knowledgeBaseIds.size();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean allReadable(UUID userId, List<UUID> knowledgeBaseIds) {
+        if (!validScope(userId, knowledgeBaseIds)) {
+            return false;
+        }
+        return knowledgeBaseRepository.findAllActiveByIdsAndUser(knowledgeBaseIds, userId).size()
+                == knowledgeBaseIds.size();
+    }
+
+    private boolean validScope(UUID userId, List<UUID> knowledgeBaseIds) {
+        return userId != null && knowledgeBaseIds != null && !knowledgeBaseIds.isEmpty()
+                && knowledgeBaseIds.stream().noneMatch(id -> id == null);
     }
 }

@@ -85,4 +85,8 @@ public class IngestionJobRepository {
     public int markExpiredExhaustedRunningAsFailed() {
         return ingestionJobMapper.markExpiredExhaustedRunningAsFailed();
     }
+
+    public int cancelNonTerminalByDocumentId(UUID documentId, OffsetDateTime cancelledAt) {
+        return ingestionJobMapper.cancelNonTerminalByDocumentId(documentId, cancelledAt);
+    }
 }

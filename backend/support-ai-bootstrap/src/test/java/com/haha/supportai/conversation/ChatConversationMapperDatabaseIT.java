@@ -3,9 +3,16 @@ package com.haha.supportai.conversation;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
+import com.haha.supportai.conversation.entity.dto.ChatRunCancellationResult;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
+import com.haha.supportai.conversation.exception.ChatRunCancelledException;
 import com.haha.supportai.conversation.service.rag.RagRunPersistenceService;
+import com.haha.supportai.conversation.service.run.ChatRunControlPersistenceService;
+import com.haha.supportai.conversation.support.ChatRunConfigurationSnapshotFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
 import com.haha.supportai.data.conversation.entity.po.ChatSession;
@@ -78,6 +85,12 @@ class ChatConversationMapperDatabaseIT {
     @Autowired
     RagRunPersistenceService ragRunPersistenceService;
 
+    @Autowired
+    ChatRunControlPersistenceService chatRunControlPersistenceService;
+
+    @Autowired
+    ChatRunConfigurationSnapshotFactory chatRunConfigurationSnapshotFactory;
+
     @Test
     @Transactional
     void roundTripsAuthorizedSessionRunAndMessagesThroughProductionMappers() {
@@ -109,14 +122,19 @@ class ChatConversationMapperDatabaseIT {
         assertThat(chatSessionRepository.advanceNextMessageSeq(session.getId(), 1)).isTrue();
 
         ChatRun run = new ChatRun(UUID.randomUUID(), session.getId(), UUID.randomUUID(), "a".repeat(64),
-                ChatRunStatusEnum.QUEUED, "{\"mode\":\"RAG\"}", null, "{}", null, null, null, null,
-                null, now, now);
+                ChatRunStatusEnum.QUEUED, chatRunConfigurationSnapshotFactory.create(), null, "{}", null, null,
+                null, null, null, now, now);
         chatRunRepository.insert(run);
         ChatRun storedRun = chatRunRepository.findBySessionIdAndClientRequestId(session.getId(),
                         run.getClientRequestId())
                 .orElseThrow();
         assertThat(storedRun.getStatus()).isEqualTo(ChatRunStatusEnum.QUEUED);
-        assertThat(storedRun.getConfigSnapshot()).contains("\"mode\"");
+        assertThat(storedRun.getConfigSnapshot())
+                .contains("\"mode\"")
+                .contains("\"chat\"")
+                .contains("\"prompt\"")
+                .contains("\"retrieval\"")
+                .contains("\"index\"");
         assertThat(chatRunRepository.findActiveBySessionId(session.getId()).orElseThrow().getId())
                 .isEqualTo(run.getId());
 
@@ -265,7 +283,7 @@ class ChatConversationMapperDatabaseIT {
     }
 
     @Test
-    void rollsBackRunClaimAndValidSourceWhenAnyBatchSourceIsOutsideSessionScope() {
+    void rejectsWholeEvidenceBatchAfterProductionRunClaimWhenAnySourceIsOutsideSessionScope() {
         UUID userId = UUID.randomUUID();
         UUID sessionKnowledgeBaseId = UUID.randomUUID();
         UUID outOfScopeKnowledgeBaseId = UUID.randomUUID();
@@ -295,17 +313,244 @@ class ChatConversationMapperDatabaseIT {
                 MessageSourceTypeEnum.DOCUMENT, sessionKnowledgeBaseId, validChunkId, "{}", "{}", now);
         MessageSource invalidSource = new MessageSource(UUID.randomUUID(), assistantMessage.getId(), null, 2, false,
                 MessageSourceTypeEnum.DOCUMENT, outOfScopeKnowledgeBaseId, invalidChunkId, "{}", "{}", now);
-        PreparedChatRunResponse preparedRun = new PreparedChatRunResponse(run.getId(), session.getId(),
+        PreparedChatRunResponse preparedRun = new PreparedChatRunResponse(run.getId(), session.getId(), userId,
                 userMessage.getId(), assistantMessage.getId(), userMessage.getContent(), ChatRunStatusEnum.QUEUED,
                 false);
 
-        assertThatThrownBy(() -> ragRunPersistenceService.startWithEvidence(preparedRun,
+        ragRunPersistenceService.start(preparedRun);
+        assertThatThrownBy(() -> ragRunPersistenceService.registerEvidence(preparedRun,
                 List.of(validSource, invalidSource)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("问答证据在登记前已失效");
         assertThat(messageSourceRepository.listByMessageId(assistantMessage.getId())).isEmpty();
+        jdbcTemplate.update("DELETE FROM kb_member WHERE kb_id = ? AND user_id = ?",
+                sessionKnowledgeBaseId, userId);
+        assertThatThrownBy(() -> ragRunPersistenceService.registerEvidence(preparedRun, List.of(validSource)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("问答证据在登记前已失效");
+        assertThat(messageSourceRepository.listByMessageId(assistantMessage.getId())).isEmpty();
         assertThat(chatRunRepository.findBySessionIdAndClientRequestId(session.getId(), run.getClientRequestId())
-                .orElseThrow().getStatus()).isEqualTo(ChatRunStatusEnum.QUEUED);
+                .orElseThrow().getStatus()).isEqualTo(ChatRunStatusEnum.RUNNING);
+        ragRunPersistenceService.fail(run.getId(), assistantMessage.getId(), "RAG_PERSISTENCE_FAILED",
+                "问答运行状态保存失败");
+        assertThat(chatRunRepository.findBySessionIdAndClientRequestId(session.getId(), run.getClientRequestId())
+                .orElseThrow().getStatus()).isEqualTo(ChatRunStatusEnum.FAILED);
+    }
+
+    @Test
+    @Transactional
+    void selectsCompletedHistoryAndOnlyAcceptsSameSessionDirectRootInheritance() {
+        UUID userId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        createAuthorizedKnowledgeBase(userId, knowledgeBaseId, "F16 根来源知识库", true);
+        UUID chunkId = createReadyDocumentChunk(userId, knowledgeBaseId);
+        OffsetDateTime now = OffsetDateTime.parse("2026-09-22T08:00:00Z");
+        RootSourceFixture firstRoot = createCompletedRootSource(userId, knowledgeBaseId, chunkId,
+                "F16 主会话", now);
+        RootSourceFixture otherSessionRoot = createCompletedRootSource(userId, knowledgeBaseId, chunkId,
+                "F16 其他会话", now.plusMinutes(1));
+
+        RunFixture secondRun = createQueuedRunInSession(firstRoot.session(), 3,
+                "继续追问历史结论", now.plusMinutes(2));
+        assertThat(chatMessageRepository.listCompletedTurnsBefore(firstRoot.session().getId(), userId,
+                secondRun.userMessage().getId(), null, 20))
+                .singleElement()
+                .satisfies(turn -> {
+                    assertThat(turn.getRunId()).isEqualTo(firstRoot.run().getId());
+                    assertThat(turn.getAnswer()).isEqualTo("首轮完整回答。[1]");
+                });
+        assertThat(messageSourceRepository.listHistoricalSources(firstRoot.assistantMessage().getId(),
+                firstRoot.session().getId(), userId))
+                .singleElement()
+                .satisfies(source -> {
+                    assertThat(source.isLineageValid()).isTrue();
+                    assertThat(source.getRootSourceId()).isEqualTo(firstRoot.source().getId());
+                });
+
+        assertThat(chatRunRepository.markRunning(secondRun.run().getId(), firstRoot.session().getId(),
+                secondRun.userMessage().getId(), secondRun.assistantMessage().getId(),
+                secondRun.userMessage().getContent(), now.plusMinutes(2).plusSeconds(1))).isTrue();
+        MessageSource inherited = new MessageSource(UUID.randomUUID(), secondRun.assistantMessage().getId(),
+                firstRoot.source().getId(), 1, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId, chunkId,
+                firstRoot.source().getLocator(), firstRoot.source().getSnapshot(), now.plusMinutes(2).plusSeconds(2));
+        assertThat(messageSourceRepository.insertAll(secondRun.run().getId(), List.of(inherited))).isEqualTo(1);
+        assertThat(chatRunRepository.complete(secondRun.run().getId(), null, "{}",
+                now.plusMinutes(2).plusSeconds(3))).isTrue();
+        assertThat(chatMessageRepository.completeAssistant(secondRun.run().getId(),
+                secondRun.assistantMessage().getId(), "继承后的完整回答。[1]",
+                now.plusMinutes(2).plusSeconds(3))).isTrue();
+        assertThat(messageSourceRepository.listHistoricalSources(secondRun.assistantMessage().getId(),
+                firstRoot.session().getId(), userId))
+                .singleElement()
+                .satisfies(source -> {
+                    assertThat(source.isLineageValid()).isTrue();
+                    assertThat(source.getRootSourceId()).isEqualTo(firstRoot.source().getId());
+                });
+
+        RunFixture thirdRun = createQueuedRunInSession(firstRoot.session(), 5,
+                "验证非法来源继承", now.plusMinutes(3));
+        assertThat(chatRunRepository.markRunning(thirdRun.run().getId(), firstRoot.session().getId(),
+                thirdRun.userMessage().getId(), thirdRun.assistantMessage().getId(),
+                thirdRun.userMessage().getContent(), now.plusMinutes(3).plusSeconds(1))).isTrue();
+        MessageSource chained = new MessageSource(UUID.randomUUID(), thirdRun.assistantMessage().getId(),
+                inherited.getId(), 1, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId, chunkId,
+                inherited.getLocator(), inherited.getSnapshot(), now.plusMinutes(3).plusSeconds(2));
+        MessageSource crossSession = new MessageSource(UUID.randomUUID(), thirdRun.assistantMessage().getId(),
+                otherSessionRoot.source().getId(), 2, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId,
+                chunkId, otherSessionRoot.source().getLocator(), otherSessionRoot.source().getSnapshot(),
+                now.plusMinutes(3).plusSeconds(2));
+        assertThat(messageSourceRepository.insertAll(thirdRun.run().getId(), List.of(chained, crossSession)))
+                .isZero();
+        assertThat(messageSourceRepository.listByMessageId(thirdRun.assistantMessage().getId())).isEmpty();
+    }
+
+    @Test
+    void completionAndCancellationCompeteForExactlyOneDatabaseTerminalState() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        createAuthorizedKnowledgeBase(userId, knowledgeBaseId, "终态竞争知识库", true);
+        OffsetDateTime now = OffsetDateTime.now().minusMinutes(1);
+        RunFixture fixture = createQueuedRun(userId, knowledgeBaseId, "终态竞争会话", now);
+        assertThat(chatRunRepository.markRunning(fixture.run().getId(), fixture.run().getSessionId(),
+                fixture.userMessage().getId(), fixture.assistantMessage().getId(),
+                fixture.userMessage().getContent(), now.plusSeconds(1))).isTrue();
+        assertThat(chatMessageRepository.appendAssistantContent(fixture.run().getId(),
+                fixture.assistantMessage().getId(), "部分回答", now.plusSeconds(2))).isTrue();
+
+        CountDownLatch start = new CountDownLatch(1);
+        CompletableFuture<RuntimeException> completion = CompletableFuture.supplyAsync(() -> {
+            await(start);
+            try {
+                ragRunPersistenceService.complete(fixture.run().getId(), fixture.assistantMessage().getId(),
+                        "完整回答", List.of(), null, "{\"totalMs\":10}");
+                return null;
+            } catch (RuntimeException exception) {
+                return exception;
+            }
+        });
+        CompletableFuture<ChatRunCancellationResult> cancellation = CompletableFuture.supplyAsync(() -> {
+            await(start);
+            return chatRunControlPersistenceService.cancelOwned(fixture.run().getId(), userId);
+        });
+        start.countDown();
+
+        RuntimeException completionFailure = completion.get(10, TimeUnit.SECONDS);
+        ChatRunCancellationResult cancellationResult = cancellation.get(10, TimeUnit.SECONDS);
+        ChatRun storedRun = chatRunRepository.findById(fixture.run().getId()).orElseThrow();
+        ChatMessage storedAssistant = assistantMessage(fixture.run().getId());
+
+        assertThat(storedRun.getStatus()).isIn(ChatRunStatusEnum.COMPLETED, ChatRunStatusEnum.CANCELLED);
+        if (storedRun.getStatus() == ChatRunStatusEnum.COMPLETED) {
+            assertThat(completionFailure).isNull();
+            assertThat(cancellationResult.isNewlyCancelled()).isFalse();
+            assertThat(cancellationResult.getStatus()).isEqualTo(ChatRunStatusEnum.COMPLETED);
+            assertThat(storedAssistant.getStatus()).isEqualTo(ChatMessageStatusEnum.COMPLETED);
+            assertThat(storedAssistant.getContent()).isEqualTo("完整回答");
+        } else {
+            assertThat(completionFailure).isInstanceOf(ChatRunCancelledException.class);
+            assertThat(cancellationResult.isNewlyCancelled()).isTrue();
+            assertThat(cancellationResult.getStatus()).isEqualTo(ChatRunStatusEnum.CANCELLED);
+            assertThat(storedAssistant.getStatus()).isEqualTo(ChatMessageStatusEnum.CANCELLED);
+            assertThat(storedAssistant.getContent()).isEqualTo("部分回答");
+        }
+    }
+
+    @Test
+    void startupRecoveryOnlyInterruptsRunsCreatedBeforeBoundary() {
+        UUID userId = UUID.randomUUID();
+        UUID knowledgeBaseId = UUID.randomUUID();
+        createAuthorizedKnowledgeBase(userId, knowledgeBaseId, "启动恢复知识库", true);
+        OffsetDateTime boundary = OffsetDateTime.parse("2000-01-02T00:00:00Z");
+        RunFixture interrupted = createQueuedRun(userId, knowledgeBaseId, "启动前会话",
+                boundary.minusDays(1));
+        RunFixture retained = createQueuedRun(userId, knowledgeBaseId, "启动后会话",
+                boundary.plusDays(1));
+
+        assertThat(chatRunControlPersistenceService.recoverInterrupted(boundary)).isEqualTo(1);
+
+        ChatRun interruptedRun = chatRunRepository.findById(interrupted.run().getId()).orElseThrow();
+        assertThat(interruptedRun.getStatus()).isEqualTo(ChatRunStatusEnum.FAILED);
+        assertThat(interruptedRun.getErrorCode()).isEqualTo("RUN_INTERRUPTED");
+        assertThat(assistantMessage(interrupted.run().getId()).getStatus())
+                .isEqualTo(ChatMessageStatusEnum.FAILED);
+        assertThat(chatRunRepository.findById(retained.run().getId()).orElseThrow().getStatus())
+                .isEqualTo(ChatRunStatusEnum.QUEUED);
+        assertThat(assistantMessage(retained.run().getId()).getStatus())
+                .isEqualTo(ChatMessageStatusEnum.STREAMING);
+    }
+
+    private RunFixture createQueuedRun(UUID userId, UUID knowledgeBaseId, String title, OffsetDateTime createdAt) {
+        ChatSession session = new ChatSession(UUID.randomUUID(), userId, title, ChatSessionModeEnum.RAG,
+                3, null, createdAt, createdAt);
+        chatSessionRepository.insert(session);
+        chatSessionKnowledgeBaseRepository.insert(session.getId(), List.of(knowledgeBaseId), createdAt);
+        ChatRun run = new ChatRun(UUID.randomUUID(), session.getId(), UUID.randomUUID(), "e".repeat(64),
+                ChatRunStatusEnum.QUEUED, "{\"mode\":\"RAG\"}", null, "{}", null, null, null,
+                null, null, createdAt, createdAt);
+        chatRunRepository.insert(run);
+        ChatMessage userMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(), 1,
+                ChatMessageRoleEnum.USER, "验证运行终态", ChatMessageStatusEnum.COMPLETED, createdAt, createdAt);
+        ChatMessage assistantMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(), 2,
+                ChatMessageRoleEnum.ASSISTANT, "", ChatMessageStatusEnum.STREAMING, createdAt, createdAt);
+        chatMessageRepository.insert(userMessage);
+        chatMessageRepository.insert(assistantMessage);
+        return new RunFixture(run, userMessage, assistantMessage);
+    }
+
+    private RootSourceFixture createCompletedRootSource(UUID userId, UUID knowledgeBaseId, UUID chunkId,
+            String title, OffsetDateTime createdAt) {
+        ChatSession session = new ChatSession(UUID.randomUUID(), userId, title, ChatSessionModeEnum.RAG,
+                3, null, createdAt, createdAt);
+        chatSessionRepository.insert(session);
+        chatSessionKnowledgeBaseRepository.insert(session.getId(), List.of(knowledgeBaseId), createdAt);
+        RunFixture runFixture = createQueuedRunInSession(session, 1, "首轮问题", createdAt);
+        assertThat(chatRunRepository.markRunning(runFixture.run().getId(), session.getId(),
+                runFixture.userMessage().getId(), runFixture.assistantMessage().getId(),
+                runFixture.userMessage().getContent(), createdAt.plusSeconds(1))).isTrue();
+        MessageSource source = new MessageSource(UUID.randomUUID(), runFixture.assistantMessage().getId(), null,
+                1, false, MessageSourceTypeEnum.DOCUMENT, knowledgeBaseId, chunkId,
+                "{\"section\":\"F16 根来源\"}", "{\"documentName\":\"F16 测试文档\"}",
+                createdAt.plusSeconds(2));
+        assertThat(messageSourceRepository.insertAll(runFixture.run().getId(), List.of(source))).isEqualTo(1);
+        assertThat(chatRunRepository.complete(runFixture.run().getId(), null, "{}",
+                createdAt.plusSeconds(3))).isTrue();
+        assertThat(chatMessageRepository.completeAssistant(runFixture.run().getId(),
+                runFixture.assistantMessage().getId(), "首轮完整回答。[1]", createdAt.plusSeconds(3))).isTrue();
+        return new RootSourceFixture(session, runFixture.run(), runFixture.assistantMessage(), source);
+    }
+
+    private RunFixture createQueuedRunInSession(ChatSession session, long userSequence, String question,
+            OffsetDateTime createdAt) {
+        ChatRun run = new ChatRun(UUID.randomUUID(), session.getId(), UUID.randomUUID(), "f".repeat(64),
+                ChatRunStatusEnum.QUEUED, "{\"mode\":\"RAG\"}", null, "{}", null, null,
+                null, null, null, createdAt, createdAt);
+        chatRunRepository.insert(run);
+        ChatMessage userMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(), userSequence,
+                ChatMessageRoleEnum.USER, question, ChatMessageStatusEnum.COMPLETED, createdAt, createdAt);
+        ChatMessage assistantMessage = new ChatMessage(UUID.randomUUID(), run.getId(), session.getId(),
+                userSequence + 1, ChatMessageRoleEnum.ASSISTANT, "", ChatMessageStatusEnum.STREAMING,
+                createdAt, createdAt);
+        chatMessageRepository.insert(userMessage);
+        chatMessageRepository.insert(assistantMessage);
+        return new RunFixture(run, userMessage, assistantMessage);
+    }
+
+    private ChatMessage assistantMessage(UUID runId) {
+        return chatMessageRepository.listByRunId(runId).stream()
+                .filter(message -> message.getRole() == ChatMessageRoleEnum.ASSISTANT)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("等待并发测试开始超时");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("并发测试等待被中断", exception);
+        }
     }
 
     private UUID createReadyDocumentChunk(UUID userId, UUID knowledgeBaseId) {
@@ -363,5 +608,12 @@ class ChatConversationMapperDatabaseIT {
                 INSERT INTO kb_member (kb_id, user_id, permission, granted_by)
                 VALUES (?, ?, 'READ', ?)
                 """, knowledgeBaseId, userId, userId);
+    }
+
+    private record RunFixture(ChatRun run, ChatMessage userMessage, ChatMessage assistantMessage) {
+    }
+
+    private record RootSourceFixture(ChatSession session, ChatRun run, ChatMessage assistantMessage,
+                                     MessageSource source) {
     }
 }

@@ -128,6 +128,11 @@ support:
         parser-version: plain-text-v1
         chunker-version: token-budget-v1
         max-attempts: 3
+      cleanup:
+        enabled: true
+        poll-interval: 10s
+        lease-duration: 5m
+        retry-delay: 30s
       parsing:
         max-tokens: 512
         max-chunks: 20000
@@ -135,33 +140,16 @@ support:
         batch-size: 10
     rag:
       top-k: 6
-      # F24 真实开发集调参前使用无损阈值；预算覆盖当前 TopK 与单块上限。
-      max-evidence-tokens: 4096
-      minimum-vector-score: -1.0
-      minimum-fusion-score: 0.0
-      minimum-rerank-score: 0.0
-    retrieval:
-      # 未完成同一开发集真实对比前保持纯向量，融合策略需显式启用。
-      strategy: VECTOR
-      candidate-multiplier: 3
-      rrf-k: 60
-      max-keywords: 8
-    rerank:
-      # 未完成同一开发集真实对比前保持关闭；地址必须指向 qwen3-rerank 的兼容接口。
-      enabled: ${SUPPORT_AI_RERANK_ENABLED:false}
-      model: qwen3-rerank
-      endpoint: ${SUPPORT_AI_RERANK_ENDPOINT:}
-      candidate-multiplier: 3
-      max-candidates: 50
-      max-estimated-item-tokens: 3500
-      max-estimated-request-tokens: 100000
-      timeout: 5s
-      instruction: Given a web search query, retrieve relevant passages that answer the query.
+      history-max-rounds: 3
+      history-max-characters: 6000
+      query-rewrite-enabled: true
+      query-rewrite-max-characters: 500
     chat:
       stream:
         pool-size: 4
         queue-capacity: 32
         timeout: 200s
+        execution-timeout: 180s
     ingestion:
       worker:
         enabled: true

@@ -11,6 +11,6 @@ import lombok.RequiredArgsConstructor;
 @Schema(name = "ChatStreamSourcesResponse", description = "sources 事件数据")
 public class ChatStreamSourcesResponse {
 
-    @Schema(description = "已引用且发送前仍有读取权限的来源", requiredMode = Schema.RequiredMode.REQUIRED)
-    private final List<RagSourceResponse> sources; // 已引用且发送前仍有读取权限的来源
+    @Schema(description = "发送前按当前权限复核的已引用来源；已删除资料保留不可用标记", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final List<RagSourceResponse> sources; // 发送前复核后的引用来源状态
 }

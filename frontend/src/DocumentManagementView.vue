@@ -1,27 +1,35 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElAlert, ElButton, ElEmpty, ElPopconfirm, ElSkeleton, ElTag } from 'element-plus'
+import { ElAlert, ElButton, ElEmpty, ElIcon, ElPopconfirm, ElSkeleton, ElTag } from 'element-plus'
+import { Delete } from '@element-plus/icons-vue'
 import 'element-plus/es/components/alert/style/css'
 import 'element-plus/es/components/button/style/css'
 import 'element-plus/es/components/empty/style/css'
+import 'element-plus/es/components/icon/style/css'
 import 'element-plus/es/components/popconfirm/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/tag/style/css'
 import type { DocumentChunk, DocumentIngestionJob, DocumentVersionStatus } from './document'
+import { useDocumentUpload } from './useDocumentUpload'
 import { useDocuments } from './useDocuments'
 
 const props = defineProps<{
   knowledgeBaseId: string
   knowledgeBaseName: string
-  canManage: boolean
+  writable: boolean
 }>()
 
 const emit = defineEmits<{ close: [] }>()
 const documents = reactive(useDocuments(() => props.knowledgeBaseId))
+const documentUpload = useDocumentUpload()
 const activeTab = ref<'content' | 'chunks'>('content')
+const versionUploadVisible = ref(false)
 
 const detailTitle = computed(() => documents.selectedDocument?.name ?? '文档详情')
-const selectedTask = computed(() => documents.selectedVersion?.task ?? null)
+const versionUploadState = computed(() => {
+  const documentId = documents.selectedDocument?.documentId
+  return documentId ? documentUpload.stateFor(documentId) : null
+})
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -52,47 +60,14 @@ function versionStatusType(status: DocumentVersionStatus): 'info' | 'warning' | 
   return 'info'
 }
 
-function stageLabel(stage: DocumentIngestionJob['stage']): string {
-  if (stage === 'PARSE') return '解析'
-  if (stage === 'CHUNK') return '分块'
-  if (stage === 'EMBED') return '向量生成'
-  return '发布'
-}
-
 function jobSummary(job: DocumentIngestionJob | null): string {
   if (!job) return ''
-  const errorStage = stageLabel(job.errorStage ?? job.stage)
-  const error = [job.errorCode, job.errorMessage].filter(Boolean).join(' · ')
-  if (job.status === 'FAILED') return `${errorStage}阶段终止失败${error ? ` · ${error}` : ''}`
-  if (job.status === 'RETRY_WAIT') return `${errorStage}阶段失败，等待自动重试${error ? ` · ${error}` : ''}`
-  if (job.status === 'RUNNING') return `${stageLabel(job.stage)}阶段处理中${job.progressPercent === null ? '' : `，${job.progressPercent}%`}`
-  if (job.status === 'QUEUED') return `${stageLabel(job.stage)}阶段排队中`
+  if (job.status === 'FAILED') return [job.errorCode, job.errorMessage || '任务处理失败'].filter(Boolean).join(' · ')
+  if (job.status === 'RETRY_WAIT') return '任务等待重试'
+  if (job.status === 'RUNNING') return `${job.stage} · 任务处理中${job.progressPercent === null ? '' : `，${job.progressPercent}%`}`
+  if (job.status === 'QUEUED') return '任务排队中'
   if (job.status === 'CANCELLED') return '任务已取消'
   return '任务已完成'
-}
-
-function canRetryVersion(): boolean {
-  const version = documents.selectedVersion
-  const document = documents.selectedDocument
-  if (!props.canManage || !version?.task?.retryable || !document) return false
-  const pendingVersion = document.pendingVersion
-  const activeVersion = document.activeVersion
-  return (!pendingVersion || pendingVersion.versionId === version.versionId)
-    && (!activeVersion || activeVersion.versionNo <= version.versionNo)
-}
-
-function canCancelVersion(): boolean {
-  return props.canManage && Boolean(documents.selectedVersion?.task?.cancellable)
-}
-
-function retrySelectedTask() {
-  const version = documents.selectedVersion
-  if (version) void documents.retryTask(version)
-}
-
-function cancelSelectedTask() {
-  const version = documents.selectedVersion
-  if (version) void documents.cancelTask(version)
 }
 
 function chunkLocation(chunk: DocumentChunk): string {
@@ -118,8 +93,39 @@ function retryDetail() {
   if (documentId) void documents.selectDocument(documentId)
 }
 
+function selectVersionFile(event: Event) {
+  const input = event.target
+  const documentId = documents.selectedDocument?.documentId
+  if (!(input instanceof HTMLInputElement) || !documentId) return
+  const selected = documentUpload.selectFile(documentId, input.files?.[0] ?? null)
+  if (!selected) input.value = ''
+}
+
+async function submitVersion(event: Event) {
+  const document = documents.selectedDocument
+  if (!document || document.pendingVersion) return
+  const form = event.currentTarget instanceof HTMLFormElement ? event.currentTarget : null
+  const receipt = await documentUpload.submitVersion(document.documentId, document.revision)
+  if (!receipt) return
+  form?.reset()
+  versionUploadVisible.value = false
+  await documents.selectDocument(document.documentId)
+}
+
+function versionUploadSummary(): string {
+  const state = versionUploadState.value
+  if (!state?.receipt) return ''
+  if ('reused' in state.receipt && state.receipt.reused) return '文件内容与当前版本一致，已复用当前可用版本。'
+  if (!state.job) return '新版本已受理，正在读取任务状态。'
+  return jobSummary(state.job) || '新版本已受理。'
+}
+
 function closeDetail() {
   documents.resetSelection()
+}
+
+async function deleteSelectedDocument() {
+  if (await documents.deleteSelectedDocument()) versionUploadVisible.value = false
 }
 
 onMounted(documents.loadDocuments)
@@ -161,6 +167,24 @@ onMounted(documents.loadDocuments)
       <template #default><ElButton text type="primary" @click="retryDetail">重试</ElButton></template>
     </ElAlert>
 
+    <ElAlert
+      v-if="documents.deleteError"
+      class="document-alert"
+      type="error"
+      :closable="false"
+      :title="documents.deleteError"
+      show-icon
+    />
+
+    <ElAlert
+      v-if="documents.deleteNotice"
+      class="document-alert"
+      type="success"
+      :closable="false"
+      :title="documents.deleteNotice"
+      show-icon
+    />
+
     <section v-if="!documents.selectedDocument" class="document-list-panel" aria-label="文档列表">
       <ElSkeleton v-if="documents.documentsLoading || documents.detailLoading" :rows="4" animated />
       <ElEmpty v-else-if="documents.documents.length === 0 && !documents.documentsError" description="当前知识库尚无文档" />
@@ -190,7 +214,90 @@ onMounted(documents.loadDocuments)
           <span>修订 {{ documents.selectedDocument.revision }}</span>
           <span>创建于 {{ formatDate(documents.selectedDocument.createdAt) }}</span>
           <span>更新于 {{ formatDate(documents.selectedDocument.updatedAt) }}</span>
+          <div v-if="writable" class="document-detail-actions">
+            <ElButton
+              class="document-version-upload-trigger"
+              type="primary"
+              :disabled="Boolean(documents.selectedDocument.pendingVersion) || documents.deleting"
+              @click="versionUploadVisible = !versionUploadVisible"
+            >上传新版本</ElButton>
+            <ElPopconfirm
+              title="删除后资料会立即退出检索，历史来源仅保留失效标记，确认删除吗？"
+              confirm-button-text="删除文档"
+              cancel-button-text="取消"
+              width="320"
+              @confirm="deleteSelectedDocument"
+            >
+              <template #reference>
+                <ElButton
+                  class="document-delete-trigger"
+                  circle
+                  plain
+                  type="danger"
+                  title="删除文档"
+                  aria-label="删除文档"
+                  :loading="documents.deleting"
+                  :disabled="documents.deleting"
+                >
+                  <ElIcon><Delete /></ElIcon>
+                </ElButton>
+              </template>
+            </ElPopconfirm>
+          </div>
         </div>
+
+        <section v-if="writable && versionUploadVisible" class="document-version-upload" aria-label="上传文档新版本">
+          <div class="document-upload-heading">
+            <div>
+              <h3>上传新版本</h3>
+              <p>仅支持 UTF-8 Markdown 或 TXT，单个文件不超过 5 MB。发布前将保留当前可用版本。</p>
+            </div>
+            <ElTag v-if="versionUploadState?.receipt" size="small" :type="versionUploadState.job?.status === 'SUCCEEDED' ? 'success' : 'warning'">
+              {{ versionUploadState.job?.status ?? versionUploadState.receipt.status }}
+            </ElTag>
+          </div>
+          <form class="document-version-upload-form" @submit.prevent="submitVersion">
+            <label :for="`document-version-file-${documents.selectedDocument.documentId}`">文档文件</label>
+            <input
+              :id="`document-version-file-${documents.selectedDocument.documentId}`"
+              class="document-version-file-input"
+              type="file"
+              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              :disabled="versionUploadState?.submitting"
+              @change="selectVersionFile"
+            >
+            <span class="document-version-file-name">{{ versionUploadState?.file?.name ?? '尚未选择文件' }}</span>
+            <div class="document-version-upload-actions">
+              <ElButton
+                type="primary"
+                native-type="submit"
+                :loading="versionUploadState?.submitting"
+                :disabled="!versionUploadState?.file || versionUploadState.submitting"
+              >{{ versionUploadState?.error ? '重新提交' : '提交新版本' }}</ElButton>
+              <ElButton :disabled="versionUploadState?.submitting" @click="versionUploadVisible = false">取消</ElButton>
+            </div>
+          </form>
+          <p v-if="versionUploadState?.error" class="document-upload-error" role="alert">{{ versionUploadState.error }}</p>
+          <p v-if="versionUploadState?.jobError" class="document-upload-error" role="alert">
+            {{ versionUploadState.jobError }}
+            <ElButton text type="primary" :loading="versionUploadState.jobLoading" @click="documentUpload.refreshJob(documents.selectedDocument.documentId)">重新查询</ElButton>
+          </p>
+        </section>
+
+        <div v-if="writable && versionUploadState?.receipt" class="document-upload-receipt document-version-upload-receipt" role="status">
+          <strong>{{ versionUploadSummary() }}</strong>
+          <span>版本 {{ versionUploadState.receipt.versionId }}</span>
+          <span>任务 {{ versionUploadState.receipt.jobId }}</span>
+        </div>
+
+        <ElAlert
+          v-else-if="writable && documents.selectedDocument.pendingVersion"
+          class="document-alert"
+          type="warning"
+          :closable="false"
+          title="当前已有待处理版本，请等待发布完成；失败版本需通过后续重试或取消流程处理。"
+          show-icon
+        />
 
         <div class="document-inspection-grid">
           <aside class="document-version-list" aria-label="文档版本">
@@ -236,47 +343,6 @@ onMounted(documents.loadDocuments)
                   <ElButton :type="activeTab === 'chunks' ? 'primary' : 'default'" @click="activeTab = 'chunks'">分块</ElButton>
                 </div>
               </div>
-
-              <div v-if="selectedTask" class="document-task-control" aria-live="polite">
-                <div>
-                  <strong>{{ jobSummary(selectedTask) }}</strong>
-                  <span>当前阶段已执行 {{ selectedTask.attempt }}/{{ selectedTask.maxAttempts }} 次</span>
-                </div>
-                <div v-if="canRetryVersion() || canCancelVersion()" class="document-task-actions">
-                  <ElButton
-                    v-if="canRetryVersion()"
-                    type="primary"
-                    plain
-                    :loading="documents.taskAction === 'retry' && documents.taskActionJobId === selectedTask.jobId"
-                    :disabled="documents.taskAction !== null"
-                    @click="retrySelectedTask"
-                  >重新处理</ElButton>
-                  <ElPopconfirm
-                    v-if="canCancelVersion()"
-                    title="确认取消当前文档处理任务？"
-                    confirm-button-text="确认取消"
-                    cancel-button-text="返回"
-                    @confirm="cancelSelectedTask"
-                  >
-                    <template #reference>
-                      <ElButton
-                        type="danger"
-                        plain
-                        :loading="documents.taskAction === 'cancel' && documents.taskActionJobId === selectedTask.jobId"
-                        :disabled="documents.taskAction !== null"
-                      >取消处理</ElButton>
-                    </template>
-                  </ElPopconfirm>
-                </div>
-              </div>
-              <ElAlert
-                v-if="documents.taskActionError"
-                class="document-alert"
-                type="error"
-                :closable="false"
-                :title="documents.taskActionError"
-                show-icon
-              />
 
               <ElAlert v-if="documents.contentError && activeTab === 'content'" class="document-alert" type="error" :closable="false" :title="documents.contentError" show-icon>
                 <template #default><ElButton text type="primary" @click="documents.loadContent()">重试</ElButton></template>

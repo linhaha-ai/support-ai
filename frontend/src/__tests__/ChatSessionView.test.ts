@@ -54,6 +54,7 @@ afterEach(() => {
 describe('会话创建页面', () => {
   it('选择可访问知识库后创建固定 RAG 会话并展示摘要', async () => {
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -70,12 +71,13 @@ describe('会话创建页面', () => {
     expect(view.text()).toContain('产品支持')
     expect(view.text()).toContain('RAG')
     expect(view.text()).toContain('发送')
-    expect(fetchMock.mock.calls[2]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
+    expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
   })
 
   it('逐步追加回答，完成后展示可打开的授权来源', async () => {
     const stream = pendingStream()
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -101,6 +103,9 @@ describe('会话创建页面', () => {
 
     expect(view.text()).toContain('先检查回调日志，')
     expect(view.text()).toContain('生成中')
+    expect(view.text()).toContain('停止')
+    const newSessionButton = view.findAll('button').find((button) => button.text().includes('新建会话'))
+    expect(newSessionButton?.attributes('disabled')).toBeDefined()
 
     stream.controller().enqueue(encoder.encode(
       sseEvent('delta', { text: '再核对订单状态。[1]' })
@@ -112,6 +117,7 @@ describe('会话创建页面', () => {
         chunkId,
         title: '支付排查手册',
         section: '状态更新',
+        available: true,
         isCurrent: true,
         previewPath: `/api/chunks/${chunkId}/source`,
       }] })
@@ -122,6 +128,7 @@ describe('会话创建页面', () => {
 
     expect(view.text()).toContain('先检查回调日志，再核对订单状态。[1]')
     expect(view.text()).toContain('已完成')
+    expect(newSessionButton?.attributes('disabled')).toBeUndefined()
     expect(view.get('.chat-source-button').text()).toContain('[1] 支付排查手册')
 
     fetchMock.mockResolvedValueOnce(ok({
@@ -163,6 +170,7 @@ describe('会话创建页面', () => {
       },
     }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
     fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
       .mockResolvedValueOnce(ok({
         sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
@@ -185,8 +193,52 @@ describe('会话创建页面', () => {
     expect(view.text()).not.toContain('已完成')
   })
 
+  it('重复提交返回 JSON 时立即查询已持久化运行结果，不重新读取模型流', async () => {
+    fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+      .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok({
+        sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
+        createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
+      }, 201))
+      .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok({ runId, status: 'COMPLETED', reused: true }))
+      .mockResolvedValueOnce(ok({
+        runId,
+        sessionId,
+        userMessageId: '1f5cf7b1-1a5c-4e60-a22a-6e7736e19a2c',
+        assistantMessageId,
+        status: 'COMPLETED',
+        assistantStatus: 'COMPLETED',
+        answer: '来自已持久化运行的回答。',
+        contentReadable: true,
+        sources: [],
+        usage: null,
+        metrics: null,
+        errorCode: null,
+        errorMessage: null,
+        cancellable: false,
+        cancelRequestedAt: null,
+        startedAt: '2026-09-21T10:00:00+08:00',
+        finishedAt: '2026-09-21T10:01:00+08:00',
+      }))
+    const view = mountView()
+    await flushPromises()
+    await view.get('input[type="checkbox"]').setValue(true)
+    await view.get('.chat-session-form').trigger('submit')
+    await flushPromises()
+    await view.get('textarea').setValue('重复问题')
+    await view.get('.chat-composer').trigger('submit')
+    await flushPromises()
+
+    expect(view.text()).toContain('来自已持久化运行的回答。')
+    expect(view.text()).toContain('已完成')
+    expect(fetchMock).toHaveBeenLastCalledWith(`/api/chat/runs/${runId}`, expect.objectContaining({ method: 'GET' }))
+  })
+
   it('没有可访问知识库时不显示会话创建表单', async () => {
     fetchMock.mockResolvedValueOnce(ok([]))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
     const view = mountView()
     await flushPromises()
 
@@ -196,6 +248,7 @@ describe('会话创建页面', () => {
 
   it('知识库加载失败时仅显示错误和重试入口', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
       .mockResolvedValueOnce(ok(knowledgeBases()))
     const view = mountView()
     await flushPromises()
