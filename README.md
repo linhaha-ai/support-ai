@@ -4,7 +4,7 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F13 已实现待完整验收，F14—F19 尚未实现，F20 独立能力已实现待前置与场景验收，F21 评测资产已实现待真实基线，F22 融合检索与 F23 重排序已实现待同集实测**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F13 已实现待完整验收，F14—F19 尚未实现，F20 独立能力已实现待前置与场景验收，F21 评测资产已实现待真实基线，F22—F24 质量优化能力已实现待同集实测与配置冻结**
 
 当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 登录、运行状态、知识库、文档检查与流式问答页面以及 PostgreSQL 开发配置，已实现 Sa-Token Cookie 登录态与 CSRF 防护、springdoc-openapi + Knife4j 接口文档、MyBatis-Plus 数据访问，以及 Ollama / DashScope 的 Chat 与 Embedding 配置。F03—F13 已形成知识库授权、文档上传与原子发布、授权检索、带来源问答和流式回答链路；聊天取消、run 状态查询与断线恢复仍属于尚未实现的 F14。
 
@@ -16,7 +16,9 @@ F22 已在统一授权仓储中加入错误码、HTTP 方法与接口路径、�
 
 F23 已增加独立 qwen3-rerank HTTPS 适配器，只对统一授权检索返回的候选按稳定下标重排，不生成新候选或改变来源标识；候选数、单项与总 Token、超时、响应下标和分数均受校验。没有候选时跳过调用，输入超限、模型不可用或异常响应时返回基础排序。开关默认关闭，配置与运行状态可追溯，评测脚本支持同一开发集关闭/开启对比；真实质量、用量和耗时双跑尚未执行，因此 F23 保持未勾选。
 
-F09 前置依赖仍未验收，因此 F10—F13 均不能勾选；M1/M2 复核记录中的真实模型、开发数据和场景缺口也仍有效。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F10—F13、F20—F23 的实现和待验收项见对应记录；完成状态以开发计划中的勾选记录为准。
+F24 已增加证据正文 Token 预算和向量、融合、重排序三类最终分数阈值，筛选发生在二次授权后、来源登记和 Chat 调用前；运行指标记录筛选前后数量、预算用量及未知的 Embedding Token。`f24-v1` 快照明确 Chat/Embedding/Rerank 角色并携带完整索引配置哈希，五条授权检索 SQL 均拒绝混用不同分块或 Embedding 配置的索引。评测工具支持三策略统一报告和严格单因素比较；真实开发集尚未运行，默认继续使用 `VECTOR` 且关闭重排序，F24 保持未勾选。
+
+F09 前置依赖仍未验收，因此 F10—F13 均不能勾选；M1/M2 复核记录中的真实模型、开发数据和场景缺口也仍有效。阶段产出统一存放于 [验收记录](doc/验收记录/)，综合结论见 [M1-M2 阶段验收复核](doc/验收记录/M1-M2阶段复核.md)，F10—F13、F20—F24 的实现和待验收项见对应记录；完成状态以开发计划中的勾选记录为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -190,11 +192,13 @@ support-ai/
 
 `data` 统一提供 MyBatis-Plus、数据库驱动、连接池与类型映射，并按业务分包承载实体 PO、持久化枚举、Repository 和 Mapper；当前 `AppUser`、`UserRoleEnum`、`AppUserRepository`、`AppUserMapper` 分别位于 `com.haha.supportai.data.identity` 下的 `entity.po`、`enums`、`repository`、`mapper` 包。业务服务通过 Repository 调用 Mapper，不直接使用 JdbcTemplate 或 RowMapper。业务授权、事务编排、认证流程与 DTO/VO 留在所属业务模块，跨业务调用仍通过业务服务，不能绕过服务直接访问其他域的 Repository/Mapper。data 不反向依赖 identity；连接参数、Flyway 生产迁移与应用配置集中在 bootstrap。全局 OpenAPI 元信息与 Knife4j 运行装配归 bootstrap，身份配置与异常处理归 identity。F06 的任务租约 SQL 同样由 data 的 Repository/Mapper 承载，业务层只通过服务编排，不绕过租约条件直接更新任务。详细结构见[后端模块结构](doc/后端模块结构.md)。
 
-data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge` 与 `data.conversation` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store` 以及会话、运行、消息和来源的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行。F11 的 `AuthorizedRetrievalRepository` 使用显式 Mapper SQL，在相似度排序前完成实时成员授权、发布状态、固定范围和向量空间过滤。F12 在模型调用前按候选 chunk 再次执行相同边界校验，并在 `REQUIRES_NEW` 独立短事务中核对 run、会话、成对消息、问题及 `chat_session_kb` 后写入所有 `message_source`；回答完成后只将已登记且实际出现的引用编号标为 `is_cited`。F20 使用数据修改 CTE 原子更新 `ingestion_job`、`document_version` 与 `document.pending_version_id`，并在领取、等待重试和写入前复核租约、版本与 pending 归属。F21 在创建 run 时把 Chat/Embedding 提供方和模型、向量维度、TopK、检索策略及提示词版本写入 `config_snapshot`，并在 `metrics` 中保存检索、生成、首增量与总耗时。F22 在同一 `AuthorizedRetrievalRepository` 中提供向量与精确关键词两路查询，复用授权过滤后按 chunk ID 去重并使用 RRF 融合，运行快照继续记录策略和融合参数。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；完整业务验收仍待前置任务和真实场景完成。
+data 使用 `com.baomidou:mybatis-plus-spring-boot3-starter:3.5.17`，父工程保留 Spring Boot 3.5.8，不重复引入普通 MyBatis Starter。当前 `data.identity`、`data.knowledge` 与 `data.conversation` 已包含账号、知识库、成员、文档、版本、入库任务、`document_chunk`、`vector_store` 以及会话、运行、消息和来源的 PO、Repository 与 Mapper。F05 的 JSONB 配置快照使用显式 SQL 转换；事务内通过 `SELECT ... FOR UPDATE` 锁定启用知识库和成员关系，使上传登记与撤权/改权具有明确顺序。F07 的分块 Mapper 按 `(version_id, chunk_index)` 幂等写入并保留稳定分块 ID；F08 使用向量 TypeHandler 与显式批量 SQL 写入 1024 维向量，业务层在短事务内复核租约并原子发布完整版本。F10 在同一事务中按固定排序锁定全部可读知识库和成员关系，再写入会话及其范围；内部 run 使用显式条件更新和数据库唯一约束维护幂等与单活跃运行。F11 的 `AuthorizedRetrievalRepository` 使用显式 Mapper SQL，在相似度排序前完成实时成员授权、发布状态、固定范围和向量空间过滤。F12 在模型调用前按候选 chunk 再次执行相同边界校验，并在 `REQUIRES_NEW` 独立短事务中核对 run、会话、成对消息、问题及 `chat_session_kb` 后写入所有 `message_source`；回答完成后只将已登记且实际出现的引用编号标为 `is_cited`。F20 使用数据修改 CTE 原子更新 `ingestion_job`、`document_version` 与 `document.pending_version_id`，并在领取、等待重试和写入前复核租约、版本与 pending 归属。F21 在创建 run 时把 Chat/Embedding 提供方和模型、向量维度、TopK、检索策略及提示词版本写入 `config_snapshot`，并在 `metrics` 中保存检索、生成、首增量与总耗时。F22 在同一 `AuthorizedRetrievalRepository` 中提供向量与精确关键词两路查询，复用授权过滤后按 chunk ID 去重并使用 RRF 融合，运行快照继续记录策略和融合参数。F24 进一步在五条向量、关键词和二次复核 SQL 上校验文档处理 `config_hash`，保证查询配置不会混用旧分块或旧 Embedding 索引。UUID、枚举、JSON、向量和时间类型显式映射，数据库结构由 Flyway 管理。PgVectorStore 仅用于隔离接入验证，不参与正式业务写入；完整业务验收仍待前置任务和真实场景完成。
 
 认证控制器和管理员账号目录控制器位于 bootstrap 的 `controller.identity`；知识库元数据、成员、文档、任务、检索调试与来源预览控制器位于 `controller.knowledge`；会话创建和流式消息控制器位于 `controller.conversation`，当前开放 `POST /api/chat/sessions` 与 `POST /api/chat/sessions/{sessionId}/messages`。任务控制器另开放 `POST /api/ingestion-jobs/{jobId}/retry` 与 `POST /api/ingestion-jobs/{jobId}/cancel`，业务层和原子 SQL 均再次校验 WRITE 权限及任务状态。identity 负责账号目录和管理员身份校验，knowledge 由 `AccessPolicy` 统一处理 ADMIN、KB-R、KB-W，并编排原文件落盘、短数据库事务、授权检索和来源读取。F11 调试请求只接受 `query/topK`，拒绝客户端附带的用户、范围、SQL 或自由过滤字段。F13 由 `ChatRunService` 同步完成身份、会话、幂等与 run 准备，再交给有界执行器异步调用 `RagAnswerService`；可信 userId 随准备结果传递，不依赖异步线程中的 Sa-Token 上下文。模型调用位于事务外，来源登记、每个回答增量、成功终态和失败部分文本分别使用短事务持久化；SSE 发送失败只停止推送，不取消后台运行。`AuthenticatedUser` 是内部认证快照，归 `entity.dto`，不作为数据库 PO。业务模块不反向依赖 bootstrap。纯单元测试跟随被测类的包结构，控制器与跨模块集成测试在 bootstrap 内维护。
 
 F23 由 knowledge 将已授权候选交给 ai 的独立 qwen3-rerank 适配器，只按响应下标更新候选顺序和分数；失败时保留基础排序，配置快照与运行指标记录无密钥参数、状态、用量和耗时。
+
+F24 由 conversation 在二次授权后执行分策略分数阈值和 CL100K 证据正文预算，配置快照固定回答参数与当前索引哈希；evaluation 校验三策略同提交运行及严格单因素变更，并将提供方未报告的 Embedding 用量保持为未知值。
 
 ## 数据与接口设计
 
@@ -361,9 +365,9 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 
 真实测试发送少量固定样本文本，分别检查 Chat、流式增量、实际向量长度和 PgVectorStore 相似查询。云端调用会产生相应模型费用；没有执行成功的测试不计入验收通过。
 
-以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。F20 已通过聚合编译、定向单元测试与 Testcontainers 数据库测试；F21 已通过题集结构校验、Node 汇总测试与配置快照/指标定向测试；F22 已通过关键词/RRF 定向单元测试、同集比较脚本测试与授权关键词 SQL 的 Testcontainers 测试；F23 已通过 45 项核心定向测试、11 项启动配置测试、1 项 OpenAPI 定向测试、4 项评测脚本测试及题集指纹校验。这些结果不替代真实模型、开发数据卷和完整业务场景验收。
+以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。F20 已通过聚合编译、定向单元测试与 Testcontainers 数据库测试；F21 已通过题集结构校验、Node 汇总测试与配置快照/指标定向测试；F22 已通过关键词/RRF 定向单元测试、同集比较脚本测试与授权关键词 SQL 的 Testcontainers 测试；F23 已通过 45 项核心定向测试、11 项启动配置测试、1 项 OpenAPI 定向测试、4 项评测脚本测试及题集指纹校验；F24 已通过聚合测试编译、145 项相关后端普通单元测试、7 项评测脚本测试、题集指纹校验和 4 项授权检索数据库测试。这些结果不替代真实模型、开发数据卷和完整业务场景验收。
 
-MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证 V11、模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态；F13 还需验证真实流式模型、逐增量落库、事件顺序、部分回答、来源二次鉴权、线程池过载和模型用量未知场景。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构；隔离 Testcontainers 已核对 V1—V11 并通过 F20 的任务状态 SQL 与 F22 的授权关键词查询。F20 仍需等待 F18、F19，修复 OpenAPI 基线问题，并完成真实失败注入、浏览器和删除竞争验收。F21 的结构化题集和追溯字段已就绪，但仍需上传绑定演示语料、启动真实模型，分别运行开发集与冻结后的固定测试集，并由人工核对引用和依据后才能验收。F22 还需在同一 60 题开发集上完成纯向量与融合策略双跑，报告错误码、接口名和中文改写的收益、回退、延迟与用量后，才能决定是否将默认策略从 `VECTOR` 切换为 `FUSION`。F23 还需在基础策略确定后完成同一开发集的重排序关闭/开启双跑，核对质量、回退题、真实 Token、费用与耗时，再决定是否开启默认配置。
+MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证 V11、模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态；F13 还需验证真实流式模型、逐增量落库、事件顺序、部分回答、来源二次鉴权、线程池过载和模型用量未知场景。当前开发库已核对 V1—V10、pgvector 0.8.6、`vector(1024)` 及 V10 会话结构；隔离 Testcontainers 已核对 V1—V11，并通过 F20 的任务状态 SQL、F22 的授权关键词查询和 F24 的完整处理配置隔离。F20 仍需等待 F18、F19，修复 OpenAPI 基线问题，并完成真实失败注入、浏览器和删除竞争验收。F21 的结构化题集和追溯字段已就绪，但仍需上传绑定演示语料、启动真实模型，分别运行开发集与冻结后的固定测试集，并由人工核对引用和依据后才能验收。F22 还需在同一 60 题开发集上完成纯向量与融合策略双跑，报告错误码、接口名和中文改写的收益、回退、延迟与用量后，才能决定是否将默认策略从 `VECTOR` 切换为 `FUSION`。F23 还需在基础策略确定后完成同一开发集的重排序关闭/开启双跑，核对质量、回退题、真实 Token、费用与耗时，再决定是否开启默认配置。F24 还需在 development 分割中逐项调整 TopK、证据预算、当前策略阈值、分块、Embedding 与提示词，完成三策略统一报告并列出退化题后才能冻结默认配置；固定测试集不得参与调参。
 
 ## 验证与交付标准
 

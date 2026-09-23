@@ -76,10 +76,10 @@ public class KnowledgeRetrievalService {
         RetrievalResult result = retrieve(query, topK, strategy,
                 candidateTopK -> authorizedRetrievalRepository.searchWritable(userId, knowledgeBaseId,
                         queryEmbedding, candidateTopK, embeddingProvider, snapshot.getEmbeddingModel(),
-                        snapshot.getDimensions()),
+                        snapshot.getDimensions(), snapshot.getConfigHash()),
                 (keywordPatterns, candidateTopK) -> authorizedRetrievalRepository.searchWritableByKeywords(
                         userId, knowledgeBaseId, keywordPatterns, candidateTopK, embeddingProvider,
-                        snapshot.getEmbeddingModel(), snapshot.getDimensions()));
+                        snapshot.getEmbeddingModel(), snapshot.getDimensions(), snapshot.getConfigHash()));
         return new KnowledgeRetrievalTestResponse(knowledgeBaseId, query, topK, strategy,
                 result.vectorCandidateCount(), result.keywordCandidateCount(), result.rerankStatus(),
                 result.rerankCandidateCount(), result.rerankDurationMs(), result.rerankTotalTokens(),
@@ -119,10 +119,11 @@ public class KnowledgeRetrievalService {
         RetrievalResult result = retrieve(normalizedQuery, validatedTopK, retrievalProperties.getStrategy(),
                 candidateTopK -> authorizedRetrievalRepository.searchReadableWithinSession(userId, sessionId,
                         queryEmbedding, candidateTopK, embeddingProvider, snapshot.getEmbeddingModel(),
-                        snapshot.getDimensions()),
+                        snapshot.getDimensions(), snapshot.getConfigHash()),
                 (keywordPatterns, candidateTopK) -> authorizedRetrievalRepository
                         .searchReadableWithinSessionByKeywords(userId, sessionId, keywordPatterns, candidateTopK,
-                                embeddingProvider, snapshot.getEmbeddingModel(), snapshot.getDimensions()));
+                                embeddingProvider, snapshot.getEmbeddingModel(), snapshot.getDimensions(),
+                                snapshot.getConfigHash()));
         return new KnowledgeRetrievalResult(result.hits().stream().map(this::toEvidence).toList(),
                 retrievalProperties.getStrategy(), result.vectorCandidateCount(), result.keywordCandidateCount(),
                 result.rerankStatus(), result.rerankCandidateCount(), result.rerankDurationMs(),
@@ -159,7 +160,7 @@ public class KnowledgeRetrievalService {
         ProcessingConfigurationSnapshot snapshot = currentSnapshot();
         List<AuthorizedRetrievalHit> readableHits = authorizedRetrievalRepository.revalidateReadableWithinSession(
                 userId, sessionId, orderedChunkIds, embeddingProvider(snapshot), snapshot.getEmbeddingModel(),
-                snapshot.getDimensions());
+                snapshot.getDimensions(), snapshot.getConfigHash());
 
         Map<UUID, AuthorizedRetrievalHit> hitByChunkId = new HashMap<>();
         readableHits.forEach(hit -> hitByChunkId.putIfAbsent(hit.getChunkId(), hit));

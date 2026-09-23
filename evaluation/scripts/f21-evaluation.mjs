@@ -6,12 +6,23 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const EVALUATION_ROOT = resolve(SCRIPT_DIR, "..");
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const GIT_COMMIT_PATTERN = /^[0-9a-f]{7,64}$/;
 const CASE_ID_PATTERNS = {
   development: /^DEV-\d{3}$/,
   test: /^TEST-\d{3}$/,
 };
 const OUTCOMES = new Set(["ANSWER", "INSUFFICIENT", "DENIED", "CONTRACT"]);
 const EXECUTION_MODES = new Set(["RAG", "CONTRACT_TEST"]);
+const RERANK_STATUSES = new Set([
+  "NOT_REACHED",
+  "DISABLED",
+  "SKIPPED_NO_CANDIDATES",
+  "SKIPPED_INSUFFICIENT_CANDIDATES",
+  "SKIPPED_INPUT_LIMIT",
+  "APPLIED",
+  "FALLBACK_UNAVAILABLE",
+  "FALLBACK_INVALID_RESPONSE",
+]);
 const CATEGORIES = new Set([
   "ERROR_CODE",
   "API_NAME",
@@ -293,6 +304,7 @@ function numericValues(results, selector) {
 
 export function summarizeResults(cases, results) {
   const resultByCaseId = new Map(results.map((result) => [result.caseId, result]));
+  const caseById = new Map(cases.map((testCase) => [testCase.id, testCase]));
   const ragCases = cases.filter((testCase) => testCase.executionMode === "RAG");
   const answerCases = ragCases.filter((testCase) => testCase.expectedOutcome === "ANSWER");
   const refusalCases = ragCases.filter((testCase) => testCase.expectedOutcome !== "ANSWER");
@@ -312,8 +324,17 @@ export function summarizeResults(cases, results) {
     }
     return result?.status === "COMPLETED" && result.noEvidence === true;
   });
-  const knownUsage = results.filter((result) => Number.isFinite(result.usage?.totalTokens));
+  const attemptedChatRuns = results.filter((result) =>
+    caseById.get(result.caseId)?.executionMode === "RAG"
+      && Number.isFinite(result.metrics?.generationMs));
+  const knownUsage = attemptedChatRuns.filter((result) => Number.isFinite(result.usage?.totalTokens));
   const totalTokens = knownUsage.reduce((sum, result) => sum + result.usage.totalTokens, 0);
+  const completedRagRuns = results.filter((result) =>
+    caseById.get(result.caseId)?.executionMode === "RAG" && result.status === "COMPLETED");
+  const knownEmbeddingUsage = completedRagRuns.filter((result) =>
+    Number.isFinite(result.metrics?.embeddingTotalTokens));
+  const embeddingTotalTokens = knownEmbeddingUsage.reduce(
+    (sum, result) => sum + result.metrics.embeddingTotalTokens, 0);
   const retrievalMs = numericValues(results, (result) => result.metrics?.retrievalMs);
   const rerankMs = numericValues(results, (result) => result.metrics?.rerankMs);
   const generationMs = numericValues(results, (result) => result.metrics?.generationMs);
@@ -358,9 +379,21 @@ export function summarizeResults(cases, results) {
       refusalCorrect: { passed: correctRefusals.length, total: refusalCases.length },
     },
     usage: {
+      attemptedRuns: attemptedChatRuns.length,
+      noCallRuns: results.length - attemptedChatRuns.length,
       knownRuns: knownUsage.length,
-      unknownRuns: results.length - knownUsage.length,
-      totalTokens: knownUsage.length === 0 ? null : totalTokens,
+      unknownRuns: attemptedChatRuns.length - knownUsage.length,
+      totalTokens: attemptedChatRuns.length === 0
+        ? 0
+        : (knownUsage.length === attemptedChatRuns.length ? totalTokens : null),
+    },
+    embedding: {
+      attemptedRuns: completedRagRuns.length,
+      usageKnownRuns: knownEmbeddingUsage.length,
+      usageUnknownRuns: completedRagRuns.length - knownEmbeddingUsage.length,
+      totalTokens: completedRagRuns.length === 0
+        ? 0
+        : (knownEmbeddingUsage.length === completedRagRuns.length ? embeddingTotalTokens : null),
     },
     rerank: {
       statuses: rerankStatuses,
@@ -392,6 +425,162 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
+const TUNING_FACTOR_PATHS = Object.freeze({
+  "top-k": [["retrieval", "topK"]],
+  "evidence-budget": [["answer", "maxEvidenceTokens"]],
+  "minimum-vector-score": [["answer", "minimumScores", "vector"]],
+  "minimum-fusion-score": [["answer", "minimumScores", "fusion"]],
+  "minimum-rerank-score": [["answer", "minimumScores", "rerank"]],
+  chunking: [["index", "configHash"], ["index", "chunker"]],
+  embedding: [["embedding"], ["index", "configHash"], ["index", "embedding"]],
+  prompt: [["prompt", "version"]],
+});
+
+function valueAtPath(value, path) {
+  return path.reduce((current, key) => current?.[key], value);
+}
+
+function withoutPaths(value, paths) {
+  const comparable = JSON.parse(JSON.stringify(value));
+  for (const path of paths) {
+    const parent = path.slice(0, -1).reduce((current, key) => current?.[key], comparable);
+    if (parent && typeof parent === "object") {
+      delete parent[path.at(-1)];
+    }
+  }
+  return comparable;
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateObjectFields(value, fields, name) {
+  ensure(value && typeof value === "object" && !Array.isArray(value),
+    `运行记录的 ${name} 必须为对象`);
+  const allowedFields = new Set(fields);
+  ensure(fields.every((field) => Object.hasOwn(value, field)),
+    `运行记录的 ${name} 缺少必需字段`);
+  ensure(Object.keys(value).every((field) => allowedFields.has(field)),
+    `运行记录的 ${name} 包含未允许字段`);
+}
+
+function validatePositiveInteger(value, name) {
+  ensure(Number.isInteger(value) && value > 0, `运行记录的 ${name} 无效`);
+}
+
+function validateScore(value, minimum, name) {
+  ensure(Number.isFinite(value) && value >= minimum && value <= 1,
+    `运行记录的 ${name} 无效`);
+}
+
+function validateF24Configuration(config) {
+  validateObjectFields(config,
+    ["schemaVersion", "mode", "retrieval", "rerank", "answer", "chat", "embedding", "index", "prompt"],
+    "配置快照");
+  ensure(config.schemaVersion === "f24-v1", "运行记录必须使用 f24-v1 配置快照");
+  ensure(config.mode === "RAG", "运行记录的配置快照模式必须为 RAG");
+  validateObjectFields(config.chat, ["role", "provider", "model", "temperature"], "Chat 配置");
+  ensure(config.chat?.role === "CHAT" && nonEmptyString(config.chat?.provider)
+      && nonEmptyString(config.chat?.model),
+    "运行记录缺少 Chat 角色、提供方或模型");
+  ensure(config.chat.temperature == null || Number.isFinite(config.chat.temperature),
+    "运行记录的 Chat temperature 无效");
+  validateObjectFields(config.embedding, ["role", "provider", "model", "dimensions"], "Embedding 配置");
+  ensure(config.embedding?.role === "EMBEDDING" && nonEmptyString(config.embedding?.provider)
+      && nonEmptyString(config.embedding?.model) && Number.isInteger(config.embedding?.dimensions)
+      && config.embedding.dimensions > 0,
+    "运行记录缺少 Embedding 角色、提供方、模型或维度");
+  validateObjectFields(config.retrieval,
+    ["strategy", "topK", "candidateMultiplier", "rrfK", "maxKeywords"], "检索配置");
+  ensure(["VECTOR", "FUSION"].includes(config.retrieval?.strategy)
+      && Number.isInteger(config.retrieval?.topK) && config.retrieval.topK > 0,
+    "运行记录缺少有效的检索策略或 TopK");
+  validatePositiveInteger(config.retrieval.candidateMultiplier, "检索候选倍数");
+  validatePositiveInteger(config.retrieval.rrfK, "RRF 常量");
+  validatePositiveInteger(config.retrieval.maxKeywords, "最大关键词数");
+  validateObjectFields(config.rerank,
+    ["role", "enabled", "provider", "model", "candidateMultiplier", "maxCandidates",
+      "maxEstimatedItemTokens", "maxEstimatedRequestTokens", "timeoutMs", "instruction"],
+    "Rerank 配置");
+  ensure(config.rerank?.role === "RERANK" && typeof config.rerank?.enabled === "boolean"
+      && nonEmptyString(config.rerank?.provider) && nonEmptyString(config.rerank?.model),
+    "运行记录缺少 Rerank 角色、开关、提供方或模型");
+  validatePositiveInteger(config.rerank.candidateMultiplier, "重排序候选倍数");
+  validatePositiveInteger(config.rerank.maxCandidates, "重排序最大候选数");
+  validatePositiveInteger(config.rerank.maxEstimatedItemTokens, "重排序单项 Token 上限");
+  validatePositiveInteger(config.rerank.maxEstimatedRequestTokens, "重排序请求 Token 上限");
+  validatePositiveInteger(config.rerank.timeoutMs, "重排序超时");
+  ensure(nonEmptyString(config.rerank.instruction), "运行记录缺少重排序指令");
+  validateObjectFields(config.answer, ["maxEvidenceTokens", "minimumScores"], "回答配置");
+  validatePositiveInteger(config.answer.maxEvidenceTokens, "证据 Token 预算");
+  validateObjectFields(config.answer.minimumScores, ["vector", "fusion", "rerank"], "回答阈值");
+  validateScore(config.answer?.minimumScores?.vector, -1, "向量拒答阈值");
+  validateScore(config.answer?.minimumScores?.fusion, 0, "融合拒答阈值");
+  validateScore(config.answer?.minimumScores?.rerank, 0, "重排序拒答阈值");
+  validateObjectFields(config.index, ["configHash", "parser", "chunker", "embedding"], "索引配置");
+  ensure(SHA256_PATTERN.test(config.index?.configHash), "运行记录缺少可追溯的索引配置哈希");
+  validateObjectFields(config.index.parser, ["version"], "索引解析配置");
+  ensure(nonEmptyString(config.index.parser.version), "运行记录缺少索引解析器版本");
+  validateObjectFields(config.index.chunker,
+    ["version", "tokenizer", "maxTokens", "maxChunks"], "索引分块配置");
+  ensure(nonEmptyString(config.index.chunker.version) && nonEmptyString(config.index.chunker.tokenizer),
+    "运行记录缺少索引分块器或 Tokenizer 版本");
+  validatePositiveInteger(config.index.chunker.maxTokens, "索引分块 Token 上限");
+  validatePositiveInteger(config.index.chunker.maxChunks, "索引最大分块数");
+  validateObjectFields(config.index.embedding, ["provider", "model", "dimensions"], "索引 Embedding 配置");
+  ensure(canonicalJson(config.index.embedding) === canonicalJson({
+    provider: config.embedding.provider,
+    model: config.embedding.model,
+    dimensions: config.embedding.dimensions,
+  }), "运行记录的查询 Embedding 与索引 Embedding 不一致");
+  validateObjectFields(config.prompt, ["version"], "提示词配置");
+  ensure(nonEmptyString(config.prompt?.version), "运行记录缺少提示词版本");
+}
+
+export function compareTuningConfigurations(factor, baselineConfig, candidateConfig) {
+  const paths = TUNING_FACTOR_PATHS[factor];
+  ensure(paths, `不支持的调参因素 ${factor}；可选值：${Object.keys(TUNING_FACTOR_PATHS).join(", ")}`);
+  validateF24Configuration(baselineConfig);
+  validateF24Configuration(candidateConfig);
+  const baselineValues = paths.map((path) => valueAtPath(baselineConfig, path));
+  const candidateValues = paths.map((path) => valueAtPath(candidateConfig, path));
+  ensure(canonicalJson(baselineValues) !== canonicalJson(candidateValues),
+    `两次运行的 ${factor} 配置没有变化`);
+  ensure(canonicalJson(withoutPaths(baselineConfig, paths))
+      === canonicalJson(withoutPaths(candidateConfig, paths)),
+  `两次运行除 ${factor} 外还存在其他配置差异`);
+  if (factor === "chunking" || factor === "embedding") {
+    ensure(baselineConfig.index.configHash !== candidateConfig.index.configHash,
+      `${factor} 变化后必须使用新的索引配置哈希`);
+  }
+  if (factor === "chunking") {
+    ensure(canonicalJson(baselineConfig.index.chunker) !== canonicalJson(candidateConfig.index.chunker),
+      "分块因素比较必须实际改变分块配置");
+  }
+  if (factor === "embedding") {
+    ensure(canonicalJson(baselineConfig.embedding) !== canonicalJson(candidateConfig.embedding),
+      "Embedding 因素比较必须实际改变查询与索引模型配置");
+  }
+  if (factor === "minimum-vector-score") {
+    ensure(baselineConfig.retrieval.strategy === "VECTOR" && baselineConfig.rerank.enabled === false,
+      "向量阈值只能在 VECTOR 且关闭重排序时比较");
+  }
+  if (factor === "minimum-fusion-score") {
+    ensure(baselineConfig.retrieval.strategy === "FUSION" && baselineConfig.rerank.enabled === false,
+      "融合阈值只能在 FUSION 且关闭重排序时比较");
+  }
+  if (factor === "minimum-rerank-score") {
+    ensure(baselineConfig.rerank.enabled === true,
+      "重排序阈值只能在开启重排序时比较");
+  }
+  return {
+    factor,
+    baseline: Object.fromEntries(paths.map((path, index) => [path.join("."), baselineValues[index]])),
+    candidate: Object.fromEntries(paths.map((path, index) => [path.join("."), candidateValues[index]])),
+  };
+}
+
 function withoutRetrievalStrategy(configSnapshot) {
   const comparable = JSON.parse(JSON.stringify(configSnapshot));
   delete comparable.retrieval.strategy;
@@ -406,22 +595,12 @@ function withoutRerankEnabled(configSnapshot) {
 
 function validateRerankMetrics(run, expectedStatus) {
   const caseById = new Map(run.cases.map((testCase) => [testCase.id, testCase]));
-  const validStatuses = new Set([
-    "NOT_REACHED",
-    "DISABLED",
-    "SKIPPED_NO_CANDIDATES",
-    "SKIPPED_INSUFFICIENT_CANDIDATES",
-    "SKIPPED_INPUT_LIMIT",
-    "APPLIED",
-    "FALLBACK_UNAVAILABLE",
-    "FALLBACK_INVALID_RESPONSE",
-  ]);
   for (const result of run.results) {
     const testCase = caseById.get(result.caseId);
     if (testCase?.executionMode !== "RAG" || result.status !== "COMPLETED") {
       continue;
     }
-    ensure(validStatuses.has(result.metrics?.rerankStatus),
+    ensure(RERANK_STATUSES.has(result.metrics?.rerankStatus),
       `${result.caseId} 缺少有效的重排序状态`);
     ensure(Number.isInteger(result.metrics?.rerankCandidateCount)
         && result.metrics.rerankCandidateCount >= 0,
@@ -438,6 +617,85 @@ function validateRerankMetrics(run, expectedStatus) {
       ensure(!["NOT_REACHED", "DISABLED"].includes(result.metrics.rerankStatus),
         `${result.caseId} 的开启组未进入重排序阶段`);
     }
+  }
+}
+
+export function validateF24Metrics(result, maximumEvidenceTokens) {
+  validateObjectFields(result.metrics,
+    ["evidenceCount", "retrievedEvidenceCount", "scoreFilteredEvidenceCount",
+      "budgetFilteredEvidenceCount", "evidenceTokenCount", "citedCount", "noEvidence", "retrievalMs",
+      "embeddingTotalTokens", "rerankStatus", "rerankCandidateCount", "rerankMs", "rerankTotalTokens",
+      "generationMs", "totalMs", "firstDeltaMs"],
+    `${result.caseId} 的 RAG 指标`);
+  const countFields = [
+    "evidenceCount",
+    "retrievedEvidenceCount",
+    "scoreFilteredEvidenceCount",
+    "budgetFilteredEvidenceCount",
+    "evidenceTokenCount",
+  ];
+  for (const field of countFields) {
+    ensure(Number.isInteger(result.metrics?.[field]) && result.metrics[field] >= 0,
+      `${result.caseId} 缺少有效的 ${field}`);
+  }
+  ensure(result.metrics.retrievedEvidenceCount === result.metrics.evidenceCount
+      + result.metrics.scoreFilteredEvidenceCount + result.metrics.budgetFilteredEvidenceCount,
+  `${result.caseId} 的证据筛选数量无法守恒`);
+  ensure(result.metrics.evidenceTokenCount <= maximumEvidenceTokens,
+    `${result.caseId} 的证据 Token 数超过配置预算`);
+  ensure(result.metrics.evidenceCount === result.retrievedEvidenceIds.length,
+    `${result.caseId} 的入模证据数量与证据列表不一致`);
+  ensure(result.metrics.citedCount === result.citedEvidenceIds.length,
+    `${result.caseId} 的引用数量与引用列表不一致`);
+  ensure(result.noEvidence === (result.metrics.evidenceCount === 0),
+    `${result.caseId} 的 noEvidence 与实际入模证据数量不一致`);
+  ensure(result.metrics.evidenceCount > 0 || result.metrics.evidenceTokenCount === 0,
+    `${result.caseId} 没有入模证据时 Token 数必须为 0`);
+  ensure(Number.isInteger(result.metrics.citedCount) && result.metrics.citedCount >= 0,
+    `${result.caseId} 缺少有效的 citedCount`);
+  ensure(Number.isInteger(result.metrics.retrievalMs) && result.metrics.retrievalMs >= 0,
+    `${result.caseId} 缺少有效的 retrievalMs`);
+  ensure(result.metrics.embeddingTotalTokens == null
+      || (Number.isInteger(result.metrics.embeddingTotalTokens)
+        && result.metrics.embeddingTotalTokens >= 0),
+    `${result.caseId} 的 Embedding Token 用量无效`);
+  ensure(RERANK_STATUSES.has(result.metrics.rerankStatus),
+    `${result.caseId} 缺少有效的重排序状态`);
+  ensure(Number.isInteger(result.metrics.rerankCandidateCount)
+      && result.metrics.rerankCandidateCount >= 0,
+    `${result.caseId} 缺少有效的重排序候选数`);
+  ensure(Number.isInteger(result.metrics.rerankMs) && result.metrics.rerankMs >= 0,
+    `${result.caseId} 缺少有效的重排序耗时`);
+  ensure(result.metrics.rerankTotalTokens == null
+      || (Number.isInteger(result.metrics.rerankTotalTokens) && result.metrics.rerankTotalTokens >= 0),
+    `${result.caseId} 的重排序 Token 用量无效`);
+  ensure(result.metrics.generationMs == null
+      || (Number.isInteger(result.metrics.generationMs) && result.metrics.generationMs >= 0),
+    `${result.caseId} 的生成耗时无效`);
+  ensure((result.metrics.evidenceCount === 0) === (result.metrics.generationMs == null),
+    `${result.caseId} 的生成耗时与入模证据数量不一致`);
+  ensure(Number.isInteger(result.metrics.totalMs) && result.metrics.totalMs >= 0,
+    `${result.caseId} 缺少有效的 totalMs`);
+  ensure(result.metrics.firstDeltaMs == null
+      || (Number.isInteger(result.metrics.firstDeltaMs) && result.metrics.firstDeltaMs >= 0),
+    `${result.caseId} 的首增量耗时无效`);
+}
+
+function validateChatUsage(result) {
+  if (result.usage == null) {
+    return;
+  }
+  validateObjectFields(result.usage, ["promptTokens", "completionTokens", "totalTokens"],
+    `${result.caseId} 的 Chat Token 用量`);
+  for (const field of ["promptTokens", "completionTokens", "totalTokens"]) {
+    ensure(result.usage[field] == null
+        || (Number.isInteger(result.usage[field]) && result.usage[field] >= 0),
+      `${result.caseId} 的 ${field} 无效`);
+  }
+  if (result.usage.promptTokens != null && result.usage.completionTokens != null
+      && result.usage.totalTokens != null) {
+    ensure(result.usage.totalTokens === result.usage.promptTokens + result.usage.completionTokens,
+      `${result.caseId} 的 Chat Token 总量无法守恒`);
   }
 }
 
@@ -531,6 +789,12 @@ export function compareResults(cases, vectorResults, fusionResults) {
       fusion: fusionSummary.usage,
       totalTokensDelta: nullableDelta(vectorSummary.usage.totalTokens, fusionSummary.usage.totalTokens),
     },
+    embeddingUsage: {
+      vector: vectorSummary.embedding,
+      fusion: fusionSummary.embedding,
+      totalTokensDelta: nullableDelta(vectorSummary.embedding.totalTokens,
+        fusionSummary.embedding.totalTokens),
+    },
     latencyMs: {
       retrieval: latencyComparison(vectorSummary.latencyMs.retrieval, fusionSummary.latencyMs.retrieval),
       generation: latencyComparison(vectorSummary.latencyMs.generation, fusionSummary.latencyMs.generation),
@@ -579,6 +843,12 @@ export function compareRerankResults(cases, disabledResults, enabledResults) {
         totalTokensDelta: nullableDelta(disabledSummary.rerank.totalTokens,
           enabledSummary.rerank.totalTokens),
       },
+      embedding: {
+        disabled: disabledSummary.embedding,
+        enabled: enabledSummary.embedding,
+        totalTokensDelta: nullableDelta(disabledSummary.embedding.totalTokens,
+          enabledSummary.embedding.totalTokens),
+      },
     },
     latencyMs: {
       retrieval: rerankLatencyComparison(baseComparison.latencyMs.retrieval),
@@ -596,6 +866,21 @@ export function compareRerankResults(cases, disabledResults, enabledResults) {
   };
 }
 
+export function compareStrategyResults(cases, vectorResults, fusionResults, fusionRerankResults) {
+  return {
+    summaries: {
+      vector: summarizeResults(cases, vectorResults),
+      fusion: summarizeResults(cases, fusionResults),
+      fusionRerank: summarizeResults(cases, fusionRerankResults),
+    },
+    comparisons: {
+      vectorToFusion: compareResults(cases, vectorResults, fusionResults),
+      fusionToFusionRerank: compareRerankResults(cases, fusionResults, fusionRerankResults),
+      vectorToFusionRerank: compareResults(cases, vectorResults, fusionRerankResults),
+    },
+  };
+}
+
 async function loadValidatedRun(runFile) {
   const dataset = await validateDataset();
   const run = await readJson(resolve(process.cwd(), runFile));
@@ -607,7 +892,7 @@ async function loadValidatedRun(runFile) {
     ? dataset.developmentSha256
     : dataset.testSha256;
   ensure(metadata.datasetSha256 === expectedDatasetSha256, "运行记录的数据集 SHA-256 不匹配");
-  ensure(SHA256_PATTERN.test(metadata.gitCommit), "运行记录缺少可追溯的 Git 提交");
+  ensure(GIT_COMMIT_PATTERN.test(metadata.gitCommit), "运行记录缺少可追溯的 Git 提交");
   ensure(Number.isFinite(Date.parse(metadata.startedAt)) && Number.isFinite(Date.parse(metadata.completedAt)),
     "运行记录缺少有效的开始或结束时间");
   ensure(Date.parse(metadata.startedAt) <= Date.parse(metadata.completedAt), "运行记录结束时间早于开始时间");
@@ -615,18 +900,7 @@ async function loadValidatedRun(runFile) {
     "运行记录缺少环境说明");
   ensure(metadata.configSnapshot && typeof metadata.configSnapshot === "object",
     "运行记录缺少模型与检索配置快照");
-  ensure(typeof metadata.configSnapshot.chat?.provider === "string"
-      && typeof metadata.configSnapshot.chat?.model === "string",
-    "运行记录缺少 Chat 提供方或模型");
-  ensure(typeof metadata.configSnapshot.embedding?.provider === "string"
-      && typeof metadata.configSnapshot.embedding?.model === "string"
-      && Number.isInteger(metadata.configSnapshot.embedding?.dimensions),
-    "运行记录缺少 Embedding 提供方、模型或维度");
-  ensure(typeof metadata.configSnapshot.retrieval?.strategy === "string"
-      && Number.isInteger(metadata.configSnapshot.retrieval?.topK),
-    "运行记录缺少检索策略或 TopK");
-  ensure(typeof metadata.configSnapshot.prompt?.version === "string",
-    "运行记录缺少提示词版本");
+  validateF24Configuration(metadata.configSnapshot);
   ensure(typeof metadata.reviewer === "string" && metadata.reviewer.length > 0,
     "运行记录缺少人工复核人");
   ensure(Array.isArray(run.results), "运行记录缺少 results");
@@ -652,6 +926,7 @@ async function loadValidatedRun(runFile) {
     ensure(result.humanReview && typeof result.humanReview === "object",
       `${result.caseId} 缺少人工复核记录`);
     ensure(typeof result.humanReview.notes === "string", `${result.caseId} 缺少人工复核说明`);
+    validateChatUsage(result);
     const testCase = caseById.get(result.caseId);
     if (testCase.executionMode === "CONTRACT_TEST") {
       ensure(result.status === "CONTRACT_PASSED" || result.status === "CONTRACT_FAILED",
@@ -660,6 +935,9 @@ async function loadValidatedRun(runFile) {
       ensure(typeof result.noEvidence === "boolean", `${result.caseId} 缺少 noEvidence`);
       ensure(result.metrics && Number.isFinite(result.metrics.retrievalMs)
           && Number.isFinite(result.metrics.totalMs), `${result.caseId} 缺少检索或总耗时`);
+      validateF24Metrics(result, metadata.configSnapshot.answer.maxEvidenceTokens);
+      ensure(result.metrics.generationMs != null || result.usage == null,
+        `${result.caseId} 未调用 Chat 模型却记录了用量`);
       if (testCase.expectedOutcome === "ANSWER") {
         ensure(Number.isFinite(result.metrics.generationMs), `${result.caseId} 缺少生成耗时`);
         ensure(typeof result.humanReview.citationCorrect === "boolean"
@@ -675,6 +953,21 @@ async function loadValidatedRun(runFile) {
 export async function summarizeRun(runFile) {
   const { metadata, summary } = await loadValidatedRun(runFile);
   return { metadata, summary };
+}
+
+function validateComparableDevelopmentRuns(runs, taskName, requireSameGitCommit = true) {
+  ensure(runs.every((run) => run.metadata.split === "development"),
+    `${taskName} 只能使用 development 分割`);
+  const [first, ...remaining] = runs;
+  ensure(remaining.every((run) => run.metadata.datasetVersion === first.metadata.datasetVersion
+      && run.metadata.datasetSha256 === first.metadata.datasetSha256),
+  `${taskName} 必须使用同一开发集版本和 SHA-256`);
+  if (requireSameGitCommit) {
+    ensure(remaining.every((run) => run.metadata.gitCommit === first.metadata.gitCommit),
+      `${taskName} 必须使用同一 Git 提交`);
+  }
+  ensure(remaining.every((run) => run.metadata.environment === first.metadata.environment),
+    `${taskName} 必须使用同一环境说明`);
 }
 
 export async function compareRuns(vectorRunFile, fusionRunFile) {
@@ -741,6 +1034,69 @@ export async function compareRerankRuns(disabledRunFile, enabledRunFile) {
   };
 }
 
+export async function compareStrategyRuns(vectorRunFile, fusionRunFile, fusionRerankRunFile) {
+  const vector = await loadValidatedRun(vectorRunFile);
+  const fusion = await loadValidatedRun(fusionRunFile);
+  const fusionRerank = await loadValidatedRun(fusionRerankRunFile);
+  validateComparableDevelopmentRuns([vector, fusion, fusionRerank], "F24 三策略比较");
+  ensure(vector.metadata.configSnapshot.retrieval.strategy === "VECTOR"
+      && vector.metadata.configSnapshot.rerank.enabled === false,
+  "第一份运行记录必须使用 VECTOR 且关闭重排序");
+  ensure(fusion.metadata.configSnapshot.retrieval.strategy === "FUSION"
+      && fusion.metadata.configSnapshot.rerank.enabled === false,
+  "第二份运行记录必须使用 FUSION 且关闭重排序");
+  ensure(fusionRerank.metadata.configSnapshot.retrieval.strategy === "FUSION"
+      && fusionRerank.metadata.configSnapshot.rerank.enabled === true,
+  "第三份运行记录必须使用 FUSION 且开启重排序");
+  validateRerankMetrics(vector, "DISABLED");
+  validateRerankMetrics(fusion, "DISABLED");
+  validateRerankMetrics(fusionRerank, "ENABLED");
+  const ignoredPaths = [["retrieval", "strategy"], ["rerank", "enabled"]];
+  const comparableVector = withoutPaths(vector.metadata.configSnapshot, ignoredPaths);
+  const comparableFusion = withoutPaths(fusion.metadata.configSnapshot, ignoredPaths);
+  const comparableFusionRerank = withoutPaths(fusionRerank.metadata.configSnapshot, ignoredPaths);
+  ensure(canonicalJson(comparableVector) === canonicalJson(comparableFusion)
+      && canonicalJson(comparableVector) === canonicalJson(comparableFusionRerank),
+  "三次运行除检索策略和重排序开关外的模型、索引、回答与提示词配置必须一致");
+  return {
+    datasetVersion: vector.metadata.datasetVersion,
+    datasetSha256: vector.metadata.datasetSha256,
+    gitCommit: vector.metadata.gitCommit,
+    environment: vector.metadata.environment,
+    runs: {
+      vector: vectorRunFile,
+      fusion: fusionRunFile,
+      fusionRerank: fusionRerankRunFile,
+    },
+    report: compareStrategyResults(vector.cases, vector.results, fusion.results, fusionRerank.results),
+  };
+}
+
+export async function compareTuningRuns(factor, baselineRunFile, candidateRunFile) {
+  const baseline = await loadValidatedRun(baselineRunFile);
+  const candidate = await loadValidatedRun(candidateRunFile);
+  validateComparableDevelopmentRuns([baseline, candidate], "F24 单因素比较", factor !== "prompt");
+  const configuration = compareTuningConfigurations(factor,
+    baseline.metadata.configSnapshot, candidate.metadata.configSnapshot);
+  validateRerankMetrics(baseline,
+    baseline.metadata.configSnapshot.rerank.enabled ? "ENABLED" : "DISABLED");
+  validateRerankMetrics(candidate,
+    candidate.metadata.configSnapshot.rerank.enabled ? "ENABLED" : "DISABLED");
+  return {
+    datasetVersion: baseline.metadata.datasetVersion,
+    datasetSha256: baseline.metadata.datasetSha256,
+    gitCommits: {
+      baseline: baseline.metadata.gitCommit,
+      candidate: candidate.metadata.gitCommit,
+    },
+    environment: baseline.metadata.environment,
+    baselineRun: baselineRunFile,
+    candidateRun: candidateRunFile,
+    configuration,
+    comparison: compareResults(baseline.cases, baseline.results, candidate.results),
+  };
+}
+
 async function main() {
   const [command, ...argumentsList] = process.argv.slice(2);
   if (command === "validate") {
@@ -769,9 +1125,21 @@ async function main() {
     console.log(JSON.stringify(await compareRerankRuns(argumentsList[0], argumentsList[1]), null, 2));
     return;
   }
+  if (command === "compare-strategies" && argumentsList.length === 3) {
+    console.log(JSON.stringify(await compareStrategyRuns(
+      argumentsList[0], argumentsList[1], argumentsList[2]), null, 2));
+    return;
+  }
+  if (command === "compare-factor" && argumentsList.length === 3) {
+    console.log(JSON.stringify(await compareTuningRuns(
+      argumentsList[0], argumentsList[1], argumentsList[2]), null, 2));
+    return;
+  }
   throw new Error("用法：node evaluation/scripts/f21-evaluation.mjs validate | summarize <run.json>"
     + " | compare <vector-run.json> <fusion-run.json>"
-    + " | compare-rerank <disabled-run.json> <enabled-run.json>");
+    + " | compare-rerank <disabled-run.json> <enabled-run.json>"
+    + " | compare-strategies <vector-run.json> <fusion-run.json> <fusion-rerank-run.json>"
+    + " | compare-factor <factor> <baseline-run.json> <candidate-run.json>");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

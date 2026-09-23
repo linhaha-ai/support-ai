@@ -51,6 +51,7 @@ class KnowledgeRetrievalServiceTest {
 
     private static final UUID USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
     private static final UUID KNOWLEDGE_BASE_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
+    private static final String PROCESSING_CONFIG_HASH = "config-hash";
 
     @Mock
     EmbeddingModel embeddingModel;
@@ -74,7 +75,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("退款状态")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 3,
-                "ollama", "bge-m3", 1024)).thenReturn(List.of(hit()));
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(hit()));
 
         var response = service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request("  退款状态  ", 3));
 
@@ -90,7 +91,7 @@ class KnowledgeRetrievalServiceTest {
         verify(accessPolicy).requireWrite(KNOWLEDGE_BASE_ID);
         verify(embeddingModel).embed("退款状态");
         verify(authorizedRetrievalRepository).searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 3,
-                "ollama", "bge-m3", 1024);
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH);
     }
 
     @Test
@@ -102,7 +103,7 @@ class KnowledgeRetrievalServiceTest {
 
         verify(embeddingModel, never()).embed(any(String.class));
         verify(authorizedRetrievalRepository, never()).searchWritable(any(), any(), any(float[].class), anyInt(),
-                anyString(), anyString(), anyInt());
+                anyString(), anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -112,7 +113,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("退款状态")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 3,
-                "ollama", "bge-m3", 1024)).thenReturn(List.of());
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of());
 
         var response = service().testWritableKnowledgeBase(KNOWLEDGE_BASE_ID, request("退款状态", 3));
 
@@ -134,9 +135,9 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("PAY-CB-1001 是什么错误？")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 6,
-                "ollama", "bge-m3", 1024)).thenReturn(List.of(vectorOnly, shared));
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(vectorOnly, shared));
         when(authorizedRetrievalRepository.searchWritableByKeywords(
-                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt()))
+                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt(), anyString()))
                 .thenReturn(List.of(shared, keywordOnly));
 
         KnowledgeRetrievalTestRequest request = request("PAY-CB-1001 是什么错误？", 2);
@@ -150,7 +151,7 @@ class KnowledgeRetrievalServiceTest {
                 .containsExactly("精确错误码候选", "向量候选");
         assertThat(response.getMatches().get(0).getScore()).isGreaterThan(response.getMatches().get(1).getScore());
         verify(authorizedRetrievalRepository).searchWritableByKeywords(any(), any(), anyList(),
-                anyInt(), anyString(), anyString(), anyInt());
+                anyInt(), anyString(), anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -163,7 +164,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("退款状态为什么没有更新")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 3,
-                "ollama", "bge-m3", 1024)).thenReturn(List.of(first, second));
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(first, second));
 
         KnowledgeRetrievalTestRequest request = request("退款状态为什么没有更新", 1);
         request.setStrategy(RetrievalStrategyEnum.FUSION);
@@ -173,7 +174,7 @@ class KnowledgeRetrievalServiceTest {
                 .containsExactly(first.getChunkId());
         assertThat(response.getKeywordCandidateCount()).isZero();
         verify(authorizedRetrievalRepository, never()).searchWritableByKeywords(
-                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt());
+                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -192,7 +193,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("如何处理复杂退款？")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 6,
-                "ollama", "bge-m3", 1024)).thenReturn(List.of(first, second, third));
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(first, second, third));
         when(rerankModelAdapter.rerank("如何处理复杂退款？",
                 List.of(first.getContent(), second.getContent(), third.getContent()), 2))
                 .thenReturn(new RerankModelResult(List.of(
@@ -218,7 +219,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("没有候选的问题")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 6,
-                "ollama", "bge-m3", 1024)).thenReturn(List.of());
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of());
 
         var response = service(enabledRerank()).testWritableKnowledgeBase(
                 KNOWLEDGE_BASE_ID, request("没有候选的问题", 2));
@@ -267,9 +268,9 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("PAY-CB-1001 是什么错误？")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 9,
-                "ollama", "bge-m3", 1024)).thenReturn(vectorHits);
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(vectorHits);
         when(authorizedRetrievalRepository.searchWritableByKeywords(
-                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt()))
+                any(), any(), anyList(), anyInt(), anyString(), anyString(), anyInt(), anyString()))
                 .thenReturn(keywordHits);
         when(rerankModelAdapter.rerank(anyString(), anyList(), anyInt()))
                 .thenThrow(new RerankUnavailableException(new IllegalStateException("unavailable")));
@@ -324,13 +325,13 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("退款状态")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchReadableWithinSession(USER_ID, sessionId,
-                embedding, 2, "ollama", "bge-m3", 1024)).thenReturn(List.of(hit()));
+                embedding, 2, "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(hit()));
 
         var matches = service().retrieveReadableWithinSession(sessionId, "退款状态", 2);
 
         assertThat(matches).hasSize(1);
         verify(authorizedRetrievalRepository).searchReadableWithinSession(USER_ID, sessionId,
-                embedding, 2, "ollama", "bge-m3", 1024);
+                embedding, 2, "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH);
     }
 
     @Test
@@ -340,14 +341,14 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed("退款状态")).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchReadableWithinSession(USER_ID, sessionId,
-                embedding, 2, "ollama", "bge-m3", 1024)).thenReturn(List.of(hit()));
+                embedding, 2, "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(hit()));
 
         var matches = service().retrieveReadableWithinSession(USER_ID, sessionId, "退款状态", 2);
 
         assertThat(matches).hasSize(1);
         verify(accessPolicy, never()).currentUser();
         verify(authorizedRetrievalRepository).searchReadableWithinSession(USER_ID, sessionId,
-                embedding, 2, "ollama", "bge-m3", 1024);
+                embedding, 2, "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH);
     }
 
     @Test
@@ -357,7 +358,7 @@ class KnowledgeRetrievalServiceTest {
 
         verify(embeddingModel, never()).embed(any(String.class));
         verify(authorizedRetrievalRepository, never()).searchReadableWithinSession(any(), any(), any(float[].class), anyInt(),
-                anyString(), anyString(), anyInt());
+                anyString(), anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -371,7 +372,7 @@ class KnowledgeRetrievalServiceTest {
         when(accessPolicy.currentUser()).thenReturn(currentUser());
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(authorizedRetrievalRepository.revalidateReadableWithinSession(USER_ID, sessionId,
-                List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024))
+                List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH))
                 .thenReturn(List.of(second, first));
 
         var matches = service().revalidateReadableWithinSession(sessionId,
@@ -381,7 +382,7 @@ class KnowledgeRetrievalServiceTest {
                 .containsExactly(first.getChunkId(), secondChunkId);
         verify(embeddingModel, never()).embed(any(String.class));
         verify(authorizedRetrievalRepository).revalidateReadableWithinSession(USER_ID, sessionId,
-                List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024);
+                List.of(first.getChunkId(), secondChunkId), "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH);
     }
 
     @Test
@@ -390,7 +391,7 @@ class KnowledgeRetrievalServiceTest {
         AuthorizedRetrievalHit hit = hit();
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(authorizedRetrievalRepository.revalidateReadableWithinSession(USER_ID, sessionId,
-                List.of(hit.getChunkId()), "ollama", "bge-m3", 1024)).thenReturn(List.of(hit));
+                List.of(hit.getChunkId()), "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(List.of(hit));
 
         var matches = service().revalidateReadableWithinSession(USER_ID, sessionId, List.of(hit.getChunkId()));
 
@@ -421,7 +422,7 @@ class KnowledgeRetrievalServiceTest {
                 .isInstanceOf(KnowledgeRetrievalInvalidRequestException.class);
 
         verify(authorizedRetrievalRepository, never()).revalidateReadableWithinSession(
-                any(), any(), any(), anyString(), anyString(), anyInt());
+                any(), any(), any(), anyString(), anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -494,7 +495,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentProcessingSnapshotFactory.create()).thenReturn(snapshot());
         when(embeddingModel.embed(query)).thenReturn(embedding);
         when(authorizedRetrievalRepository.searchWritable(USER_ID, KNOWLEDGE_BASE_ID, embedding, 6,
-                "ollama", "bge-m3", 1024)).thenReturn(candidates);
+                "ollama", "bge-m3", 1024, PROCESSING_CONFIG_HASH)).thenReturn(candidates);
         return candidates;
     }
 
@@ -518,7 +519,7 @@ class KnowledgeRetrievalServiceTest {
     }
 
     private ProcessingConfigurationSnapshot snapshot() {
-        return new ProcessingConfigurationSnapshot("bge-m3", 1024, "config-hash",
+        return new ProcessingConfigurationSnapshot("bge-m3", 1024, PROCESSING_CONFIG_HASH,
                 "{\"embedding\":{\"provider\":\"ollama\",\"model\":\"bge-m3\",\"dimensions\":1024}}");
     }
 

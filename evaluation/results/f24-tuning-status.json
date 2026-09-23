@@ -1,0 +1,28 @@
+{
+  "datasetVersion": "f21-2026-09-23-v1",
+  "recordedAt": "2026-09-23T17:10:00+08:00",
+  "status": "NOT_RUN",
+  "configurationSchemaVersion": "f24-v1",
+  "selectionStatus": "PENDING_REAL_DEVELOPMENT_RUNS",
+  "currentFallbackConfiguration": {
+    "retrievalStrategy": "VECTOR",
+    "rerankEnabled": false,
+    "topK": 6,
+    "maxEvidenceTokens": 4096,
+    "minimumScores": {
+      "vector": -1.0,
+      "fusion": 0.0,
+      "rerank": 0.0
+    }
+  },
+  "requiredStrategies": ["VECTOR", "FUSION", "FUSION_RERANK"],
+  "executedDevelopmentCaseCount": 0,
+  "fixedTestUsedForTuning": false,
+  "blockers": [
+    "F22 尚未完成 development 分割的 VECTOR/FUSION 真实对比",
+    "F23 尚未完成 development 分割的重排序关闭/开启真实对比",
+    "本机尚未上传并绑定演示语料的实际 documentId、versionId 和 chunkId",
+    "本机 Ollama 与后端不可连接，qwen3-rerank 工作空间地址和密钥也未配置"
+  ],
+  "interpretation": "F24 的配置快照、证据预算、分策略阈值、索引配置隔离和可比性校验已实现；本文件不代表已经取得质量或成本收益，未选择新的默认策略，继续保留 VECTOR 且关闭重排序。"
+}

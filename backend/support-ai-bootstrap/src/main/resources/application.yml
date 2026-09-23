@@ -135,6 +135,11 @@ support:
         batch-size: 10
     rag:
       top-k: 6
+      # F24 真实开发集调参前使用无损阈值；预算覆盖当前 TopK 与单块上限。
+      max-evidence-tokens: 4096
+      minimum-vector-score: -1.0
+      minimum-fusion-score: 0.0
+      minimum-rerank-score: 0.0
     retrieval:
       # 未完成同一开发集真实对比前保持纯向量，融合策略需显式启用。
       strategy: VECTOR

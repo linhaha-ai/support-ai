@@ -24,11 +24,11 @@
         "datasetVersion": { "type": "string", "minLength": 1 },
         "split": { "enum": ["development", "test"] },
         "datasetSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{7,64}$" },
         "startedAt": { "type": "string", "format": "date-time" },
         "completedAt": { "type": "string", "format": "date-time" },
         "environment": { "type": "string", "minLength": 1 },
-        "configSnapshot": { "type": "object" },
+        "configSnapshot": { "$ref": "#/$defs/configSnapshot" },
         "reviewer": { "type": "string", "minLength": 1 }
       }
     },
@@ -54,10 +54,21 @@
           "noEvidence": { "type": ["boolean", "null"] },
           "retrievedEvidenceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
           "citedEvidenceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-          "usage": { "type": ["object", "null"] },
-          "metrics": { "type": ["object", "null"] },
+          "usage": {
+            "anyOf": [
+              { "$ref": "#/$defs/chatUsage" },
+              { "type": "null" }
+            ]
+          },
+          "metrics": {
+            "anyOf": [
+              { "$ref": "#/$defs/ragMetrics" },
+              { "type": "null" }
+            ]
+          },
           "humanReview": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["citationCorrect", "evidenceSufficient", "notes"],
             "properties": {
               "citationCorrect": { "type": ["boolean", "null"] },
@@ -66,6 +77,161 @@
             }
           }
         }
+      }
+    }
+  },
+  "$defs": {
+    "embeddingConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "dimensions"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "dimensions": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "configSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "mode", "retrieval", "rerank", "answer", "chat", "embedding", "index", "prompt"],
+      "properties": {
+        "schemaVersion": { "const": "f24-v1" },
+        "mode": { "const": "RAG" },
+        "retrieval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "topK", "candidateMultiplier", "rrfK", "maxKeywords"],
+          "properties": {
+            "strategy": { "enum": ["VECTOR", "FUSION"] },
+            "topK": { "type": "integer", "minimum": 1 },
+            "candidateMultiplier": { "type": "integer", "minimum": 1 },
+            "rrfK": { "type": "integer", "minimum": 1 },
+            "maxKeywords": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "rerank": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role", "enabled", "provider", "model", "candidateMultiplier", "maxCandidates", "maxEstimatedItemTokens", "maxEstimatedRequestTokens", "timeoutMs", "instruction"],
+          "properties": {
+            "role": { "const": "RERANK" },
+            "enabled": { "type": "boolean" },
+            "provider": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "candidateMultiplier": { "type": "integer", "minimum": 1 },
+            "maxCandidates": { "type": "integer", "minimum": 1 },
+            "maxEstimatedItemTokens": { "type": "integer", "minimum": 1 },
+            "maxEstimatedRequestTokens": { "type": "integer", "minimum": 1 },
+            "timeoutMs": { "type": "integer", "minimum": 1 },
+            "instruction": { "type": "string", "minLength": 1 }
+          }
+        },
+        "answer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxEvidenceTokens", "minimumScores"],
+          "properties": {
+            "maxEvidenceTokens": { "type": "integer", "minimum": 1 },
+            "minimumScores": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["vector", "fusion", "rerank"],
+              "properties": {
+                "vector": { "type": "number", "minimum": -1, "maximum": 1 },
+                "fusion": { "type": "number", "minimum": 0, "maximum": 1 },
+                "rerank": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
+        "chat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role", "provider", "model", "temperature"],
+          "properties": {
+            "role": { "const": "CHAT" },
+            "provider": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "temperature": { "type": ["number", "null"] }
+          }
+        },
+        "embedding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role", "provider", "model", "dimensions"],
+          "properties": {
+            "role": { "const": "EMBEDDING" },
+            "provider": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "dimensions": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "index": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["configHash", "parser", "chunker", "embedding"],
+          "properties": {
+            "configHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "parser": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version"],
+              "properties": { "version": { "type": "string", "minLength": 1 } }
+            },
+            "chunker": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "tokenizer", "maxTokens", "maxChunks"],
+              "properties": {
+                "version": { "type": "string", "minLength": 1 },
+                "tokenizer": { "type": "string", "minLength": 1 },
+                "maxTokens": { "type": "integer", "minimum": 1 },
+                "maxChunks": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "embedding": { "$ref": "#/$defs/embeddingConfiguration" }
+          }
+        },
+        "prompt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version"],
+          "properties": { "version": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "chatUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["promptTokens", "completionTokens", "totalTokens"],
+      "properties": {
+        "promptTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "completionTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "totalTokens": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "ragMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceCount", "retrievedEvidenceCount", "scoreFilteredEvidenceCount", "budgetFilteredEvidenceCount", "evidenceTokenCount", "citedCount", "noEvidence", "retrievalMs", "embeddingTotalTokens", "rerankStatus", "rerankCandidateCount", "rerankMs", "rerankTotalTokens", "generationMs", "totalMs", "firstDeltaMs"],
+      "properties": {
+        "evidenceCount": { "type": "integer", "minimum": 0 },
+        "retrievedEvidenceCount": { "type": "integer", "minimum": 0 },
+        "scoreFilteredEvidenceCount": { "type": "integer", "minimum": 0 },
+        "budgetFilteredEvidenceCount": { "type": "integer", "minimum": 0 },
+        "evidenceTokenCount": { "type": "integer", "minimum": 0 },
+        "citedCount": { "type": "integer", "minimum": 0 },
+        "noEvidence": { "type": "boolean" },
+        "retrievalMs": { "type": "integer", "minimum": 0 },
+        "embeddingTotalTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "rerankStatus": { "enum": ["NOT_REACHED", "DISABLED", "SKIPPED_NO_CANDIDATES", "SKIPPED_INSUFFICIENT_CANDIDATES", "SKIPPED_INPUT_LIMIT", "APPLIED", "FALLBACK_UNAVAILABLE", "FALLBACK_INVALID_RESPONSE"] },
+        "rerankCandidateCount": { "type": "integer", "minimum": 0 },
+        "rerankMs": { "type": "integer", "minimum": 0 },
+        "rerankTotalTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "generationMs": { "type": ["integer", "null"], "minimum": 0 },
+        "totalMs": { "type": "integer", "minimum": 0 },
+        "firstDeltaMs": { "type": ["integer", "null"], "minimum": 0 }
       }
     }
   }

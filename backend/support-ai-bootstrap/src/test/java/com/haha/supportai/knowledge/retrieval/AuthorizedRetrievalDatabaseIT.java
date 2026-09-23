@@ -32,6 +32,7 @@ class AuthorizedRetrievalDatabaseIT {
     private static final String EMBEDDING_PROVIDER = "ollama";
     private static final String EMBEDDING_MODEL = "bge-m3";
     private static final int DIMENSIONS = 1024;
+    private static final String PROCESSING_CONFIG_HASH = "b".repeat(64);
     private static final String ERROR_CODE_PATTERN =
             "(^|[^A-Za-z0-9_-])pay-cb-1001([^A-Za-z0-9_-]|$)";
     private static final String API_PATH_PATTERN =
@@ -63,35 +64,40 @@ class AuthorizedRetrievalDatabaseIT {
             float[] queryEmbedding = vector(1.0F, 0.0F);
 
             List<AuthorizedRetrievalHit> singleHit = authorizedRetrievalRepository.searchWritable(fixture.writerId(),
-                    fixture.activeKnowledgeBaseId(), queryEmbedding, 1, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+                    fixture.activeKnowledgeBaseId(), queryEmbedding, 1, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS,
+                    PROCESSING_CONFIG_HASH);
             assertThat(singleHit).extracting(AuthorizedRetrievalHit::getChunkId)
                     .containsExactly(fixture.authorizedDocument().chunkId());
 
             List<AuthorizedRetrievalHit> writableHits = authorizedRetrievalRepository.searchWritable(fixture.writerId(),
-                    fixture.activeKnowledgeBaseId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+                    fixture.activeKnowledgeBaseId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
+                    DIMENSIONS, PROCESSING_CONFIG_HASH);
             assertThat(writableHits).extracting(AuthorizedRetrievalHit::getChunkId)
                     .containsExactlyInAnyOrder(fixture.authorizedDocument().chunkId(), fixture.currentVersionDocument().chunkId());
             assertThat(writableHits).extracting(AuthorizedRetrievalHit::getDocumentName)
                     .containsExactlyInAnyOrder("F11 已授权已发布文档", "F11 当前活动版本文档");
 
             assertThat(authorizedRetrievalRepository.searchWritable(fixture.readerId(), fixture.activeKnowledgeBaseId(),
-                    queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS,
+                    PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchWritable(fixture.outsiderId(), fixture.activeKnowledgeBaseId(),
-                    queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS,
+                    PROCESSING_CONFIG_HASH)).isEmpty();
 
             List<AuthorizedRetrievalHit> readableHits = authorizedRetrievalRepository.searchReadableWithinSession(
                     fixture.readerId(), fixture.readerSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER,
-                    EMBEDDING_MODEL, DIMENSIONS);
+                    EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH);
             assertThat(readableHits).extracting(AuthorizedRetrievalHit::getChunkId)
                     .containsExactlyInAnyOrder(fixture.authorizedDocument().chunkId(), fixture.currentVersionDocument().chunkId());
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.writerId(),
-                    fixture.readerSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    fixture.readerSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS,
+                    PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(),
                     fixture.deletedReaderSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
-                    DIMENSIONS)).isEmpty();
+                    DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(),
                     fixture.assistantReaderSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
-                    DIMENSIONS)).isEmpty();
+                    DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
         } finally {
             deleteFixture(fixture);
         }
@@ -103,46 +109,64 @@ class AuthorizedRetrievalDatabaseIT {
         try {
             List<AuthorizedRetrievalHit> writableHits = authorizedRetrievalRepository.searchWritableByKeywords(
                     fixture.writerId(), fixture.activeKnowledgeBaseId(), List.of(ERROR_CODE_PATTERN), 10,
-                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH);
             assertThat(writableHits).extracting(AuthorizedRetrievalHit::getChunkId)
                     .containsExactly(fixture.authorizedDocument().chunkId());
 
             List<AuthorizedRetrievalHit> pathHits = authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(
                     fixture.readerId(), fixture.readerSessionId(), List.of(API_PATH_PATTERN), 10,
-                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH);
             assertThat(pathHits).extracting(AuthorizedRetrievalHit::getChunkId)
                     .containsExactly(fixture.authorizedDocument().chunkId());
 
             assertThat(authorizedRetrievalRepository.searchWritableByKeywords(fixture.readerId(),
                     fixture.activeKnowledgeBaseId(), List.of(ERROR_CODE_PATTERN), 10,
-                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.readerId(),
                     fixture.deletedReaderSessionId(), List.of(ERROR_CODE_PATTERN), 10,
-                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.disabledMemberId(),
                     fixture.disabledMemberSessionId(), List.of(ERROR_CODE_PATTERN), 10,
-                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.readerId(),
                     fixture.readerSessionId(), List.of(ERROR_CODE_PATTERN), 10,
-                    "dashscope", "text-embedding-v4", DIMENSIONS)).isEmpty();
+                    "dashscope", "text-embedding-v4", DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
         } finally {
             deleteFixture(fixture);
         }
     }
 
     @Test
-    void returnsNoHitForDisabledMemberOrDifferentEmbeddingSpace() {
+    void returnsNoHitForDisabledMemberOrDifferentProcessingConfiguration() {
         Fixture fixture = createFixture();
         try {
             float[] queryEmbedding = vector(1.0F, 0.0F);
+            String differentConfigHash = "d".repeat(64);
 
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.disabledMemberId(),
                     fixture.disabledMemberSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
-                    DIMENSIONS)).isEmpty();
+                    DIMENSIONS, PROCESSING_CONFIG_HASH)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(),
-                    fixture.readerSessionId(), queryEmbedding, 10, "dashscope", "text-embedding-v4", DIMENSIONS)).isEmpty();
+                    fixture.readerSessionId(), queryEmbedding, 10, "dashscope", "text-embedding-v4", DIMENSIONS,
+                    PROCESSING_CONFIG_HASH)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(),
+                    fixture.readerSessionId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS,
+                    differentConfigHash)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchWritable(fixture.writerId(),
+                    fixture.activeKnowledgeBaseId(), queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL,
+                    DIMENSIONS, differentConfigHash)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchWritableByKeywords(fixture.writerId(),
+                    fixture.activeKnowledgeBaseId(), List.of(ERROR_CODE_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, differentConfigHash)).isEmpty();
+            assertThat(authorizedRetrievalRepository.searchReadableWithinSessionByKeywords(fixture.readerId(),
+                    fixture.readerSessionId(), List.of(ERROR_CODE_PATTERN), 10,
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, differentConfigHash)).isEmpty();
+            assertThat(authorizedRetrievalRepository.revalidateReadableWithinSession(fixture.readerId(),
+                    fixture.readerSessionId(), List.of(fixture.authorizedDocument().chunkId()),
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, differentConfigHash)).isEmpty();
             assertThat(authorizedRetrievalRepository.searchReadableWithinSession(fixture.readerId(), UUID.randomUUID(),
-                    queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS)).isEmpty();
+                    queryEmbedding, 10, EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS,
+                    PROCESSING_CONFIG_HASH)).isEmpty();
         } finally {
             deleteFixture(fixture);
         }
@@ -155,7 +179,7 @@ class AuthorizedRetrievalDatabaseIT {
             List<AuthorizedRetrievalHit> revalidated = authorizedRetrievalRepository.revalidateReadableWithinSession(
                     fixture.readerId(), fixture.readerSessionId(),
                     List.of(fixture.historicalDocument().chunkId(), fixture.authorizedDocument().chunkId()),
-                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS);
+                    EMBEDDING_PROVIDER, EMBEDDING_MODEL, DIMENSIONS, PROCESSING_CONFIG_HASH);
 
             assertThat(revalidated).extracting(AuthorizedRetrievalHit::getChunkId)
                     .containsExactly(fixture.authorizedDocument().chunkId());
@@ -307,7 +331,7 @@ class AuthorizedRetrievalDatabaseIT {
                 ) VALUES (?, ?, 1, ?, ?, 32, 'text/markdown', 'f11.md', ?, 'plain-text-v1', 'token-budget-v1',
                           ?, 1024, ?, CAST(? AS JSONB), 1)
                 """, versionId, documentId, "2026/09/" + versionId + ".md", "a".repeat(64), status,
-                embeddingModel, "b".repeat(64), configuration);
+                embeddingModel, PROCESSING_CONFIG_HASH, configuration);
         jdbcTemplate.update("""
                 -- document_chunk：F11 检索测试分块，vector_store.id 与本表 id 一致。
                 INSERT INTO document_chunk (

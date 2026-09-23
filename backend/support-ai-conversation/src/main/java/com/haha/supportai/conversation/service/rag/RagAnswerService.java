@@ -21,6 +21,8 @@ import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestExcept
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.exception.RagPersistenceException;
 import com.haha.supportai.conversation.support.CitationParser;
+import com.haha.supportai.conversation.support.RagEvidenceSelector;
+import com.haha.supportai.conversation.support.RagEvidenceSelector.EvidenceSelection;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.conversation.support.RagPromptFactory.NumberedEvidence;
 import com.haha.supportai.conversation.support.RagPromptFactory.RagPrompt;
@@ -55,6 +57,7 @@ public class RagAnswerService {
     private final ChatModelGateway chatModelGateway;
     private final RagRunPersistenceService persistenceService;
     private final RagPromptFactory promptFactory;
+    private final RagEvidenceSelector evidenceSelector;
     private final CitationParser citationParser;
     private final RagProperties ragProperties;
     private final ObjectMapper objectMapper;
@@ -165,7 +168,12 @@ public class RagAnswerService {
                         retrievalScores.getOrDefault(chunkId, evidence.getScore())));
             }
         }
-        return List.copyOf(revalidatedEvidence);
+        context.retrievedEvidenceCount = revalidatedEvidence.size();
+        EvidenceSelection selection = evidenceSelector.select(retrieval, revalidatedEvidence);
+        context.scoreFilteredEvidenceCount = selection.scoreFilteredCount();
+        context.budgetFilteredEvidenceCount = selection.budgetFilteredCount();
+        context.evidenceTokenCount = selection.evidenceTokens();
+        return selection.evidenceList();
     }
 
     private KnowledgeRetrievalEvidenceResponse withRetrievalScore(KnowledgeRetrievalEvidenceResponse evidence,
@@ -328,7 +336,10 @@ public class RagAnswerService {
     }
 
     private RagMetrics metrics(GenerationContext context, int citedCount, boolean noEvidence) {
-        return new RagMetrics(context.evidenceCount, citedCount, noEvidence, context.retrievalMs,
+        return new RagMetrics(context.evidenceCount, context.retrievedEvidenceCount,
+                context.scoreFilteredEvidenceCount, context.budgetFilteredEvidenceCount,
+                context.evidenceTokenCount, citedCount, noEvidence, context.retrievalMs,
+                context.embeddingTotalTokens,
                 context.rerankStatus, context.rerankCandidateCount, context.rerankMs, context.rerankTotalTokens,
                 context.generationMs, context.elapsedMillis(), context.firstDeltaMs);
     }
@@ -372,7 +383,12 @@ public class RagAnswerService {
         private ChatModelUsage usage;
         private Long firstDeltaMs;
         private int evidenceCount;
+        private int retrievedEvidenceCount;
+        private int scoreFilteredEvidenceCount;
+        private int budgetFilteredEvidenceCount;
+        private int evidenceTokenCount;
         private long retrievalMs;
+        private Integer embeddingTotalTokens;
         private RerankStatusEnum rerankStatus = RerankStatusEnum.NOT_REACHED;
         private int rerankCandidateCount;
         private long rerankMs;

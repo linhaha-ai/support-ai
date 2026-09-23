@@ -19,7 +19,7 @@ public interface AuthorizedRetrievalMapper {
     @Select({
             "<script>",
             "/* vector_store、document_chunk、document_version、document、knowledge_base、kb_member、app_user：",
-            "   在 pgvector 余弦排序前完成成员权限、启用账号、知识库状态、文档发布版本和嵌入空间过滤。 */",
+            "   在 pgvector 余弦排序前完成成员权限、启用账号、知识库状态、发布版本和完整处理配置过滤。 */",
             "SELECT kb.id AS knowledge_base_id, document.id AS document_id, document.name AS document_name,",
             "       version.id AS version_id, version.version_no, chunk.id AS chunk_id, chunk.chunk_index,",
             "       chunk.section, chunk.page_no, chunk.start_offset, chunk.end_offset, vector.content,",
@@ -38,6 +38,7 @@ public interface AuthorizedRetrievalMapper {
             "  AND document.deleted_at IS NULL",
             "  AND document.active_version_id = version.id",
             "  AND version.status = 'READY'",
+            "  AND version.config_hash = #{processingConfigHash}",
             "  AND version.dimensions = #{dimensions}",
             "  AND vector_dims(vector.embedding) = #{dimensions}",
             "  AND version.embedding_model = #{embeddingModel}",
@@ -75,12 +76,13 @@ public interface AuthorizedRetrievalMapper {
                                                  @Param("topK") int topK,
                                                  @Param("embeddingProvider") String embeddingProvider,
                                                  @Param("embeddingModel") String embeddingModel,
-                                                 @Param("dimensions") int dimensions);
+                                                 @Param("dimensions") int dimensions,
+                                                 @Param("processingConfigHash") String processingConfigHash);
 
     @Select({
             "<script>",
             "/* vector_store、document_chunk、document_version、document、knowledge_base、kb_member、app_user：",
-            "   在关键词排序前复用向量路由的 WRITE 权限、发布版本和嵌入空间过滤。 */",
+            "   在关键词排序前复用向量路由的 WRITE 权限、发布版本和完整处理配置过滤。 */",
             "SELECT kb.id AS knowledge_base_id, document.id AS document_id, document.name AS document_name,",
             "       version.id AS version_id, version.version_no, chunk.id AS chunk_id, chunk.chunk_index,",
             "       chunk.section, chunk.page_no, chunk.start_offset, chunk.end_offset, vector.content,",
@@ -103,6 +105,7 @@ public interface AuthorizedRetrievalMapper {
             "  AND document.deleted_at IS NULL",
             "  AND document.active_version_id = version.id",
             "  AND version.status = 'READY'",
+            "  AND version.config_hash = #{processingConfigHash}",
             "  AND version.dimensions = #{dimensions}",
             "  AND vector_dims(vector.embedding) = #{dimensions}",
             "  AND version.embedding_model = #{embeddingModel}",
@@ -126,12 +129,13 @@ public interface AuthorizedRetrievalMapper {
                                                             @Param("topK") int topK,
                                                             @Param("embeddingProvider") String embeddingProvider,
                                                             @Param("embeddingModel") String embeddingModel,
-                                                            @Param("dimensions") int dimensions);
+                                                            @Param("dimensions") int dimensions,
+                                                            @Param("processingConfigHash") String processingConfigHash);
 
     @Select({
             "<script>",
             "/* vector_store、document_chunk、document_version、document、knowledge_base、kb_member、app_user、",
-            "   chat_session、chat_session_kb：在 pgvector 余弦排序前，以会话范围和当前成员关系的交集过滤已发布分块。 */",
+            "   chat_session、chat_session_kb：在 pgvector 排序前按会话、成员和完整处理配置过滤已发布分块。 */",
             "SELECT kb.id AS knowledge_base_id, document.id AS document_id, document.name AS document_name,",
             "       version.id AS version_id, version.version_no, chunk.id AS chunk_id, chunk.chunk_index,",
             "       chunk.section, chunk.page_no, chunk.start_offset, chunk.end_offset, vector.content,",
@@ -156,6 +160,7 @@ public interface AuthorizedRetrievalMapper {
             "  AND document.deleted_at IS NULL",
             "  AND document.active_version_id = version.id",
             "  AND version.status = 'READY'",
+            "  AND version.config_hash = #{processingConfigHash}",
             "  AND version.dimensions = #{dimensions}",
             "  AND vector_dims(vector.embedding) = #{dimensions}",
             "  AND version.embedding_model = #{embeddingModel}",
@@ -192,12 +197,13 @@ public interface AuthorizedRetrievalMapper {
                                                               @Param("topK") int topK,
                                                               @Param("embeddingProvider") String embeddingProvider,
                                                               @Param("embeddingModel") String embeddingModel,
-                                                              @Param("dimensions") int dimensions);
+                                                              @Param("dimensions") int dimensions,
+                                                              @Param("processingConfigHash") String processingConfigHash);
 
     @Select({
             "<script>",
             "/* vector_store、document_chunk、document_version、document、knowledge_base、kb_member、app_user、",
-            "   chat_session、chat_session_kb：关键词路由与向量路由使用相同的会话、成员、版本和嵌入空间边界。 */",
+            "   chat_session、chat_session_kb：关键词路由与向量路由使用相同的会话、成员和完整处理配置边界。 */",
             "SELECT kb.id AS knowledge_base_id, document.id AS document_id, document.name AS document_name,",
             "       version.id AS version_id, version.version_no, chunk.id AS chunk_id, chunk.chunk_index,",
             "       chunk.section, chunk.page_no, chunk.start_offset, chunk.end_offset, vector.content,",
@@ -226,6 +232,7 @@ public interface AuthorizedRetrievalMapper {
             "  AND document.deleted_at IS NULL",
             "  AND document.active_version_id = version.id",
             "  AND version.status = 'READY'",
+            "  AND version.config_hash = #{processingConfigHash}",
             "  AND version.dimensions = #{dimensions}",
             "  AND vector_dims(vector.embedding) = #{dimensions}",
             "  AND version.embedding_model = #{embeddingModel}",
@@ -248,12 +255,13 @@ public interface AuthorizedRetrievalMapper {
                                                                          @Param("topK") int topK,
                                                                          @Param("embeddingProvider") String embeddingProvider,
                                                                          @Param("embeddingModel") String embeddingModel,
-                                                                         @Param("dimensions") int dimensions);
+                                                                         @Param("dimensions") int dimensions,
+                                                                         @Param("processingConfigHash") String processingConfigHash);
 
     @Select({
             "<script>",
             "/* vector_store、document_chunk、document_version、document、knowledge_base、kb_member、app_user、",
-            "   chat_session、chat_session_kb：模型调用前按候选分块再次复核会话范围、当前权限和嵌入空间。 */",
+            "   chat_session、chat_session_kb：模型调用前按候选分块复核会话、权限和完整处理配置。 */",
             "SELECT kb.id AS knowledge_base_id, document.id AS document_id, document.name AS document_name,",
             "       version.id AS version_id, version.version_no, chunk.id AS chunk_id, chunk.chunk_index,",
             "       chunk.section, chunk.page_no, chunk.start_offset, chunk.end_offset, vector.content,",
@@ -278,6 +286,7 @@ public interface AuthorizedRetrievalMapper {
             "  AND document.deleted_at IS NULL",
             "  AND document.active_version_id = version.id",
             "  AND version.status = 'READY'",
+            "  AND version.config_hash = #{processingConfigHash}",
             "  AND version.dimensions = #{dimensions}",
             "  AND vector_dims(vector.embedding) = #{dimensions}",
             "  AND version.embedding_model = #{embeddingModel}",
@@ -296,5 +305,6 @@ public interface AuthorizedRetrievalMapper {
                                                                    @Param("chunkIds") List<UUID> chunkIds,
                                                                    @Param("embeddingProvider") String embeddingProvider,
                                                                    @Param("embeddingModel") String embeddingModel,
-                                                                   @Param("dimensions") int dimensions);
+                                                                   @Param("dimensions") int dimensions,
+                                                                   @Param("processingConfigHash") String processingConfigHash);
 }

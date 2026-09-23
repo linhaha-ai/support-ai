@@ -6,10 +6,13 @@ import java.util.Map;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.ai.config.RerankProperties;
 import com.haha.supportai.conversation.config.RagProperties;
 import com.haha.supportai.knowledge.config.RetrievalProperties;
+import com.haha.supportai.knowledge.document.entity.dto.ProcessingConfigurationSnapshot;
+import com.haha.supportai.knowledge.document.support.DocumentProcessingSnapshotFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -26,6 +29,7 @@ public class RagConfigurationSnapshotFactory {
     private final RagProperties ragProperties;
     private final RetrievalProperties retrievalProperties;
     private final RerankProperties rerankProperties;
+    private final DocumentProcessingSnapshotFactory documentProcessingSnapshotFactory;
 
     public String create() {
         String chatProvider = provider("chat");
@@ -44,6 +48,7 @@ public class RagConfigurationSnapshotFactory {
         embedding.put("dimensions", requiredPositiveInteger("support.ai.dimensions"));
 
         Map<String, Object> rerank = new LinkedHashMap<>();
+        rerank.put("role", "RERANK");
         rerank.put("enabled", rerankProperties.isEnabled());
         rerank.put("provider", "dashscope");
         rerank.put("model", rerankProperties.getModel());
@@ -54,16 +59,26 @@ public class RagConfigurationSnapshotFactory {
         rerank.put("timeoutMs", rerankProperties.getTimeout().toMillis());
         rerank.put("instruction", rerankProperties.getInstruction());
 
+        Map<String, Object> minimumScores = new LinkedHashMap<>();
+        minimumScores.put("vector", ragProperties.getMinimumVectorScore());
+        minimumScores.put("fusion", ragProperties.getMinimumFusionScore());
+        minimumScores.put("rerank", ragProperties.getMinimumRerankScore());
+        Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("maxEvidenceTokens", ragProperties.getMaxEvidenceTokens());
+        answer.put("minimumScores", minimumScores);
+
         Map<String, Object> prompt = new LinkedHashMap<>();
         prompt.put("version", RagPromptFactory.PROMPT_VERSION);
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("schemaVersion", "f23-v1");
+        snapshot.put("schemaVersion", "f24-v1");
         snapshot.put("mode", "RAG");
         snapshot.put("retrieval", retrieval);
         snapshot.put("rerank", rerank);
+        snapshot.put("answer", answer);
         snapshot.put("chat", chat);
         snapshot.put("embedding", embedding);
+        snapshot.put("index", indexSnapshot());
         snapshot.put("prompt", prompt);
         try {
             return objectMapper.writeValueAsString(snapshot);
@@ -74,9 +89,30 @@ public class RagConfigurationSnapshotFactory {
 
     private Map<String, Object> modelSnapshot(String provider, String role) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("role", role.toUpperCase(Locale.ROOT));
         snapshot.put("provider", provider);
         snapshot.put("model", requiredProperty("spring.ai." + provider + "." + role + ".options.model"));
         return snapshot;
+    }
+
+    private Map<String, Object> indexSnapshot() {
+        ProcessingConfigurationSnapshot processing = documentProcessingSnapshotFactory.create();
+        try {
+            JsonNode configuration = objectMapper.readTree(processing.getConfigSnapshot());
+            if (!configuration.isObject() || !configuration.path("parser").isObject()
+                    || !configuration.path("chunker").isObject()
+                    || !configuration.path("embedding").isObject()) {
+                throw new IllegalStateException("文档处理配置快照结构无效");
+            }
+            Map<String, Object> index = new LinkedHashMap<>();
+            index.put("configHash", processing.getConfigHash());
+            index.put("parser", configuration.path("parser"));
+            index.put("chunker", configuration.path("chunker"));
+            index.put("embedding", configuration.path("embedding"));
+            return index;
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("无法读取文档处理配置快照", exception);
+        }
     }
 
     private String provider(String role) {

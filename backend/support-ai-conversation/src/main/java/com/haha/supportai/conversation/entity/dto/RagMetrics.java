@@ -13,6 +13,18 @@ public class RagMetrics {
     @Schema(description = "实际送入模型的证据数量", requiredMode = Schema.RequiredMode.REQUIRED)
     private final int evidenceCount; // 实际送入模型的证据数量
 
+    @Schema(description = "二次授权复核后、分数与预算筛选前的证据数量", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int retrievedEvidenceCount; // 二次授权复核后的证据数量
+
+    @Schema(description = "因最终评分低于当前策略阈值而移除的证据数量", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int scoreFilteredEvidenceCount; // 分数阈值移除的证据数量
+
+    @Schema(description = "因证据正文 Token 预算而移除的证据数量", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int budgetFilteredEvidenceCount; // Token 预算移除的证据数量
+
+    @Schema(description = "实际送入模型的证据正文估算 Token 总量", requiredMode = Schema.RequiredMode.REQUIRED)
+    private final int evidenceTokenCount; // 入模证据正文估算 Token 总量
+
     @Schema(description = "回答显式引用的合法来源数量", requiredMode = Schema.RequiredMode.REQUIRED)
     private final int citedCount; // 回答显式引用的合法来源数量
 
@@ -21,6 +33,9 @@ public class RagMetrics {
 
     @Schema(description = "授权检索、可选重排序与证据复核的总耗时毫秒", requiredMode = Schema.RequiredMode.REQUIRED)
     private final long retrievalMs; // 授权检索、可选重排序与证据复核的总耗时毫秒
+
+    @Schema(description = "查询向量模型返回的 Token 总量；提供方未提供时为空", nullable = true)
+    private final Integer embeddingTotalTokens; // 查询向量模型 Token 总量，当前提供方未知
 
     @Schema(description = "重排序执行或回退状态", requiredMode = Schema.RequiredMode.REQUIRED)
     private final RerankStatusEnum rerankStatus; // 重排序执行或回退状态

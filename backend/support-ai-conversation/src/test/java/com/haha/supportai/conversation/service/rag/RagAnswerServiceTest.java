@@ -14,6 +14,7 @@ import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.RagGenerationException;
 import com.haha.supportai.conversation.support.CitationParser;
+import com.haha.supportai.conversation.support.RagEvidenceSelector;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
@@ -79,14 +80,15 @@ class RagAnswerServiceTest {
     ArgumentCaptor<String> userPromptCaptor;
 
     private RagAnswerService ragAnswerService;
+    private RagProperties ragProperties;
 
     @BeforeEach
     void setUp() {
-        RagProperties properties = new RagProperties();
-        properties.setTopK(6);
+        ragProperties = new RagProperties();
+        ragProperties.setTopK(6);
         ragAnswerService = new RagAnswerService(knowledgeRetrievalService, documentSourceQueryService,
-                chatModelGateway, persistenceService, new RagPromptFactory(), new CitationParser(), properties,
-                new ObjectMapper());
+                chatModelGateway, persistenceService, new RagPromptFactory(), new RagEvidenceSelector(ragProperties),
+                new CitationParser(), ragProperties, new ObjectMapper());
     }
 
     @Test
@@ -170,7 +172,48 @@ class RagAnswerServiceTest {
         assertThat(result.getMetrics().getRerankCandidateCount()).isEqualTo(2);
         assertThat(result.getMetrics().getRerankMs()).isEqualTo(7L);
         assertThat(result.getMetrics().getRerankTotalTokens()).isEqualTo(19);
+        assertThat(result.getMetrics().getRetrievedEvidenceCount()).isEqualTo(1);
+        assertThat(result.getMetrics().getEvidenceTokenCount()).isPositive();
+        assertThat(result.getMetrics().getEmbeddingTotalTokens()).isNull();
         assertThat(result.getMetrics().getGenerationMs()).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void appliesVectorThresholdAfterAuthorizationRevalidation() {
+        KnowledgeRetrievalEvidenceResponse first = evidence(1, "高相关资料", 0.8D);
+        KnowledgeRetrievalEvidenceResponse second = evidence(2, "低相关资料", 0.2D);
+        ragProperties.setMinimumVectorScore(0.5D);
+        arrangeEvidence(List.of(first, second));
+        streamAnswer("仅使用高相关资料。[1]", null);
+
+        var result = ragAnswerService.generate(preparedRun("如何处理？"));
+
+        then(persistenceService).should().registerEvidence(any(PreparedChatRunResponse.class),
+                sourceListCaptor.capture());
+        assertThat(sourceListCaptor.getValue()).extracting(MessageSource::getChunkId)
+                .containsExactly(first.getChunkId());
+        assertThat(result.getMetrics().getRetrievedEvidenceCount()).isEqualTo(2);
+        assertThat(result.getMetrics().getEvidenceCount()).isEqualTo(1);
+        assertThat(result.getMetrics().getScoreFilteredEvidenceCount()).isEqualTo(1);
+        assertThat(result.getMetrics().getBudgetFilteredEvidenceCount()).isZero();
+    }
+
+    @Test
+    void keepsRankedPrefixWithinEvidenceTokenBudget() {
+        KnowledgeRetrievalEvidenceResponse first = evidence(1, "a", 0.8D);
+        KnowledgeRetrievalEvidenceResponse second = evidence(2, "b", 0.7D);
+        ragProperties.setMaxEvidenceTokens(1);
+        arrangeEvidence(List.of(first, second));
+        streamAnswer("仅使用预算内资料。[1]", null);
+
+        var result = ragAnswerService.generate(preparedRun("如何处理？"));
+
+        then(persistenceService).should().registerEvidence(any(PreparedChatRunResponse.class),
+                sourceListCaptor.capture());
+        assertThat(sourceListCaptor.getValue()).extracting(MessageSource::getChunkId)
+                .containsExactly(first.getChunkId());
+        assertThat(result.getMetrics().getEvidenceTokenCount()).isEqualTo(1);
+        assertThat(result.getMetrics().getBudgetFilteredEvidenceCount()).isEqualTo(1);
     }
 
     @Test
