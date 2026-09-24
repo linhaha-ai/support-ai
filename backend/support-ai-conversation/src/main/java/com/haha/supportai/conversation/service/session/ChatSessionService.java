@@ -205,7 +205,7 @@ public class ChatSessionService {
             try {
                 if (source.getSourceType() == MessageSourceTypeEnum.DOCUMENT) {
                     documentSourceQueryService.findAuthorizedSource(userId, source.getChunkId())
-                            .map(documentSource -> toSourceResponse(source.getCitationNo(), documentSource))
+                            .map(documentSource -> toSourceResponse(source, documentSource))
                             .ifPresent(sources::add);
                 } else if (sourceResponseFactory != null) {
                     sourceResponseFactory.create(userId, source).ifPresent(sources::add);
@@ -217,11 +217,12 @@ public class ChatSessionService {
         return List.copyOf(sources);
     }
 
-    private RagSourceResponse toSourceResponse(int citationNumber, DocumentSourceAvailabilityResponse source) {
-        return new RagSourceResponse(citationNumber, MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
+    private RagSourceResponse toSourceResponse(MessageSource stored, DocumentSourceAvailabilityResponse source) {
+        return new RagSourceResponse(stored.getCitationNo(), MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
                 source.getVersionId(), source.getChunkId(), source.getDocumentName(), source.getSection(),
                 source.isCurrent(), source.isAvailable(), source.isAvailable()
-                        ? "/api/chunks/" + source.getChunkId() + "/source" : null);
+                        ? "/api/chunks/" + source.getChunkId() + "/source" : null,
+                null, null, null, null, stored.getOriginSourceId(), stored.getToolCallId());
     }
 
     private int normalizeLimit(Integer requestedLimit) {

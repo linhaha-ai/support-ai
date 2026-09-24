@@ -75,6 +75,13 @@ function toolStatusLabel(status: string): string {
   return '失败'
 }
 
+function ticketStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    OPEN: '待处理', IN_PROGRESS: '处理中', WAITING_CUSTOMER: '等待反馈', RESOLVED: '已解决', CLOSED: '已关闭',
+  }
+  return labels[status] ?? status
+}
+
 function beginRename() {
   if (!sessions.createdSession || !sessions.canManageSession) return
   titleInput.value = sessions.createdSession.title
@@ -284,7 +291,10 @@ onMounted(() => {
                 [{{ source.number }}] {{ source.title }}{{ source.available ? '' : ' · 已失效' }}
               </button>
               <span v-else class="chat-ticket-source">
-                [{{ source.number }}] {{ source.ticketNo }} · {{ source.ticketStatus }}
+                [{{ source.number }}] {{ source.ticketNo }} · {{ ticketStatusLabel(source.ticketStatus) }}
+                · {{ source.inherited ? '先前查询结果' : '本轮查询结果' }}
+                · 查询于 {{ formatDate(source.ticketQueriedAt) }}
+                <span class="chat-ticket-source-note">（仅代表查询时状态，询问当前状态会重新查询）</span>
               </span>
             </template>
           </div>

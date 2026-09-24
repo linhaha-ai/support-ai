@@ -74,7 +74,7 @@ describe('会话创建页面', () => {
     expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'RAG' }))
   })
 
-  it('创建智能助手会话并展示工具状态和工单来源', async () => {
+  it.each([false, true])('创建智能助手会话并展示工单查询时刻和历史标记（继承：%s）', async (inherited) => {
     const encoder = new TextEncoder()
     const stream = new Response(new ReadableStream<Uint8Array>({
       start(controller) {
@@ -92,11 +92,15 @@ describe('会话创建页面', () => {
             title: '支付工单',
             section: '张工',
             available: true,
-            isCurrent: true,
+            isCurrent: !inherited,
             previewPath: null,
             ticketNo: 'T10086',
             ticketStatus: 'IN_PROGRESS',
             ticketUpdatedAt: '2026-09-23T12:00:00Z',
+            ticketQueriedAt: '2026-09-23T12:05:00Z',
+            inherited,
+            originSourceId: inherited ? 'root-source' : null,
+            toolCallId: 'tool-current',
           }] })
           + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
         ))
@@ -127,7 +131,10 @@ describe('会话创建页面', () => {
       .toBe(JSON.stringify({ kbIds: [knowledgeBaseId], mode: 'ASSISTANT' }))
     expect(view.text()).toContain('智能助手')
     expect(view.text()).toContain('查询工单 · 已完成')
-    expect(view.text()).toContain('[1] T10086 · IN_PROGRESS')
+    expect(view.text()).toContain('[1] T10086 · 处理中')
+    expect(view.text()).toContain(inherited ? '先前查询结果' : '本轮查询结果')
+    expect(view.text()).toContain('查询于')
+    expect(view.text()).toContain('仅代表查询时状态')
   })
 
   it('逐步追加回答，完成后展示可打开的授权来源', async () => {

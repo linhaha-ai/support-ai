@@ -61,11 +61,15 @@ export interface TicketChatSourceReference {
   title: string
   section: string | null
   available: true
-  isCurrent: true
+  isCurrent: boolean
   previewPath: null
   ticketNo: string
   ticketStatus: string
   ticketUpdatedAt: string
+  ticketQueriedAt: string
+  inherited: boolean
+  originSourceId: string | null
+  toolCallId: string
 }
 
 export type ChatSourceReference = DocumentChatSourceReference | TicketChatSourceReference
@@ -317,11 +321,17 @@ function parseSourceReference(value: unknown): ChatSourceReference | null {
     && value.versionId === null
     && value.chunkId === null
     && value.available === true
-    && value.isCurrent === true
+    && typeof value.isCurrent === 'boolean'
     && value.previewPath === null
     && typeof value.ticketNo === 'string'
     && typeof value.ticketStatus === 'string'
-    && typeof value.ticketUpdatedAt === 'string') {
+    && typeof value.ticketUpdatedAt === 'string' && Number.isFinite(Date.parse(value.ticketUpdatedAt))
+    && typeof value.ticketQueriedAt === 'string' && Number.isFinite(Date.parse(value.ticketQueriedAt))
+    && typeof value.inherited === 'boolean'
+    && typeof value.toolCallId === 'string' && value.toolCallId.length > 0
+    && (value.inherited
+      ? typeof value.originSourceId === 'string' && value.originSourceId.length > 0 && !value.isCurrent
+      : value.originSourceId === null && value.isCurrent)) {
     return {
       number: value.number as number,
       type: 'TICKET',
@@ -331,11 +341,15 @@ function parseSourceReference(value: unknown): ChatSourceReference | null {
       title: value.title,
       section: value.section,
       available: true,
-      isCurrent: true,
+      isCurrent: value.isCurrent,
       previewPath: null,
       ticketNo: value.ticketNo,
       ticketStatus: value.ticketStatus,
       ticketUpdatedAt: value.ticketUpdatedAt,
+      ticketQueriedAt: value.ticketQueriedAt,
+      inherited: value.inherited,
+      originSourceId: value.originSourceId as string | null,
+      toolCallId: value.toolCallId,
     }
   }
   return null

@@ -9,7 +9,11 @@ import java.util.UUID;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.assistant.agent.entity.dto.AssistantAgentRunResult;
+import com.haha.supportai.assistant.agent.entity.dto.AssistantConversationContext;
+import com.haha.supportai.assistant.agent.entity.dto.AssistantHistoryTurn;
+import com.haha.supportai.assistant.agent.exception.AssistantAgentBudgetException;
 import com.haha.supportai.assistant.agent.support.AssistantCitationParser;
+import com.haha.supportai.assistant.agent.support.AssistantTicketFreshnessPolicy;
 import com.haha.supportai.assistant.agent.tool.constant.AssistantToolNameConstant;
 import com.haha.supportai.conversation.config.AssistantAgentProperties;
 import com.haha.supportai.conversation.entity.dto.AssistantAnswerResult;
@@ -36,9 +40,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -74,6 +81,9 @@ class SupportAssistantAnswerServiceTest {
     @Mock
     AssistantStreamObserver observer;
 
+    @Mock
+    AssistantHistoryService historyService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private SupportAssistantAnswerService service;
@@ -82,7 +92,9 @@ class SupportAssistantAnswerServiceTest {
     void setUp() {
         service = new SupportAssistantAnswerService(agentRunner, new AssistantCitationParser(), persistenceService,
                 messageSourceRepository, sessionKnowledgeBaseRepository, knowledgeScopeAccess,
-                sourceResponseFactory, new AssistantAgentProperties(), objectMapper);
+                sourceResponseFactory, new AssistantAgentProperties(), objectMapper, historyService,
+                new AssistantTicketFreshnessPolicy());
+        when(historyService.load(any())).thenReturn(AssistantConversationContext.empty());
     }
 
     @Test
@@ -90,7 +102,7 @@ class SupportAssistantAnswerServiceTest {
         PreparedChatRunResponse preparedRun = preparedRun();
         MessageSource source = ticketSource();
         String rawAnswer = "工单仍在处理中[[source:" + SOURCE_ID + "]]";
-        when(agentRunner.run(preparedRun, observer)).thenReturn(new AssistantAgentRunResult(rawAnswer,
+        when(agentRunner.run(eq(preparedRun), any(), eq(Set.of("T10086")), eq(observer))).thenReturn(new AssistantAgentRunResult(rawAnswer,
                 2, 1, 320, Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)));
         when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of(source));
         when(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID))
@@ -121,7 +133,7 @@ class SupportAssistantAnswerServiceTest {
     @Test
     void rejectsCurrentTicketAnswerWithoutFreshLookup() {
         PreparedChatRunResponse preparedRun = preparedRun();
-        when(agentRunner.run(preparedRun, observer)).thenReturn(new AssistantAgentRunResult(
+        when(agentRunner.run(eq(preparedRun), any(), anySet(), eq(observer))).thenReturn(new AssistantAgentRunResult(
                 "工单仍在处理中", 1, 0, 120, Set.of()));
 
         assertThatThrownBy(() -> service.generateStreaming(preparedRun, observer))
@@ -137,7 +149,7 @@ class SupportAssistantAnswerServiceTest {
     @Test
     void rejectsCurrentTicketAnswerWithoutTicketCitation() {
         PreparedChatRunResponse preparedRun = preparedRun();
-        when(agentRunner.run(preparedRun, observer)).thenReturn(new AssistantAgentRunResult(
+        when(agentRunner.run(eq(preparedRun), any(), anySet(), eq(observer))).thenReturn(new AssistantAgentRunResult(
                 "工单仍在处理中", 2, 1, 120, Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)));
         when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of(ticketSource()));
 
@@ -149,6 +161,71 @@ class SupportAssistantAnswerServiceTest {
                 eq("AGENT_INVALID_CITATION"), eq("模型返回了未知或不可信的来源引用"), isNull(), anyString());
         verify(persistenceService, never()).complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID),
                 anyString(), eq(List.of()), isNull(), anyString());
+    }
+
+    @Test
+    void rejectsInheritedTicketEvenWhenAgentClaimsItCalledTheTool() {
+        MessageSource old = ticketSource();
+        old.setOriginSourceId(UUID.randomUUID());
+        when(agentRunner.run(any(), any(), anySet(), eq(observer))).thenReturn(new AssistantAgentRunResult(
+                "当前状态[[source:" + SOURCE_ID + "]]", 1, 1, 120,
+                Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of(old));
+
+        assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
+        verify(persistenceService, never()).append(any(), any(), anyString());
+    }
+
+    @Test
+    void rejectsFreshLookupForWrongTicket() {
+        MessageSource other = ticketSource();
+        other.setSnapshot("{\"ticketNo\":\"T10087\"}");
+        when(agentRunner.run(any(), any(), anySet(), eq(observer))).thenReturn(new AssistantAgentRunResult(
+                "当前状态[[source:" + SOURCE_ID + "]]", 1, 1, 120,
+                Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of(other));
+
+        assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
+    }
+
+    @Test
+    void implicitFollowUpRequiresFreshLookupForAuthorizedHistoryTicket() {
+        PreparedChatRunResponse prepared = new PreparedChatRunResponse(RUN_ID, SESSION_ID, USER_ID,
+                USER_MESSAGE_ID, ASSISTANT_MESSAGE_ID, "现在呢？", ChatSessionModeEnum.ASSISTANT,
+                ChatRunStatusEnum.QUEUED, false);
+        AssistantConversationContext history = new AssistantConversationContext(List.of(
+                new AssistantHistoryTurn("T10086 状态", "先前处理中", Set.of("T10086"))), List.of());
+        when(historyService.load(prepared)).thenReturn(history);
+        when(agentRunner.run(prepared, history, Set.of("T10086"), observer)).thenReturn(
+                new AssistantAgentRunResult("还是处理中", 1, 0, 120, Set.of()));
+
+        assertThatThrownBy(() -> service.generateStreaming(prepared, observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_REQUIRED_TOOL_NOT_CALLED"));
+        verify(historyService).register(prepared, history);
+    }
+
+    @Test
+    void doesNotPersistOrSendAnswerWhenEvidenceIsRevokedAfterModelCall() {
+        when(agentRunner.run(any(), any(), anySet(), eq(observer))).thenReturn(new AssistantAgentRunResult(
+                "处理中[[source:" + SOURCE_ID + "]]", 2, 1, 120,
+                Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of(ticketSource()));
+        when(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID))
+                .thenReturn(List.of(KNOWLEDGE_BASE_ID));
+        when(knowledgeScopeAccess.allReadable(USER_ID, List.of(KNOWLEDGE_BASE_ID))).thenReturn(true);
+        doThrow(new AssistantAgentBudgetException("AGENT_SOURCE_REVOKED", "助手历史或来源权限已失效"))
+                .when(historyService).ensureReadable(any());
+
+        assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_SOURCE_REVOKED"));
+        verify(persistenceService, never()).append(any(), any(), anyString());
+        verify(observer, never()).onDelta(anyString());
     }
 
     private PreparedChatRunResponse preparedRun() {

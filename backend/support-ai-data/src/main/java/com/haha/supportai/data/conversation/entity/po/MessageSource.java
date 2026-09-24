@@ -50,7 +50,7 @@ public class MessageSource {
     private UUID ticketId; // 工单来源的内部工单标识，文档来源为空
 
     @TableField("tool_call_id")
-    private UUID toolCallId; // 直接工具来源对应的实际工具调用标识
+    private UUID toolCallId; // 直接来源对应本轮调用，继承来源保留根来源的历史调用
 
     @TableField(value = "locator", jdbcType = JdbcType.VARCHAR)
     private String locator; // 章节、页码和字符偏移等定位信息 JSON

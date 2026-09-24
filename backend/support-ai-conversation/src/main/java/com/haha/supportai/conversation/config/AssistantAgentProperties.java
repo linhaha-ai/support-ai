@@ -31,6 +31,14 @@ public class AssistantAgentProperties {
     @Max(50000)
     private int maxContextTokens = 8000; // 单次模型调用允许的最大上下文 Token 数
 
+    @Min(0)
+    @Max(10)
+    private int historyMaxRounds = 3; // 最多注入的完整成功历史轮次，零表示关闭历史
+
+    @Min(0)
+    @Max(50000)
+    private int historyMaxCharacters = 6000; // 历史问答及来源说明的字符预算
+
     @Min(4)
     @Max(100)
     private int recursionLimit = 16; // ReactAgent 图执行的最大递归步数

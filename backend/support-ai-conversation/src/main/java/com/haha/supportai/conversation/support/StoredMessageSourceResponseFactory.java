@@ -8,22 +8,36 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.conversation.entity.vo.RagSourceResponse;
+import com.haha.supportai.data.assistant.repository.AssistantHistoryRepository;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class StoredMessageSourceResponseFactory {
 
     private final DocumentSourceQueryService documentSourceQueryService;
     private final ObjectMapper objectMapper;
+    private final AssistantHistoryRepository historyRepository;
+
+    @Autowired
+    public StoredMessageSourceResponseFactory(DocumentSourceQueryService documentSourceQueryService,
+            ObjectMapper objectMapper, AssistantHistoryRepository historyRepository) {
+        this.documentSourceQueryService = documentSourceQueryService;
+        this.objectMapper = objectMapper;
+        this.historyRepository = historyRepository;
+    }
+
+    public StoredMessageSourceResponseFactory(DocumentSourceQueryService documentSourceQueryService,
+            ObjectMapper objectMapper) {
+        this(documentSourceQueryService, objectMapper, null);
+    }
 
     /**
-     * 文档来源按当前权限重新读取；工单来源只在上层确认会话固定范围仍全部可读后解析审计快照。
+     * 上层复核固定范围，工单再按来源所属用户、历史根调用和当前成员权校验后返回原查询快照。
      */
     public Optional<RagSourceResponse> create(UUID userId, MessageSource source) {
         if (source == null || source.getSourceType() == null || source.getCitationNo() < 1) {
@@ -31,16 +45,18 @@ public class StoredMessageSourceResponseFactory {
         }
         if (source.getSourceType() == MessageSourceTypeEnum.DOCUMENT) {
             return documentSourceQueryService.findAuthorizedSource(userId, source.getChunkId())
-                    .map(document -> document(source.getCitationNo(), document));
+                    .map(document -> document(source, document));
         }
-        return source.getSourceType() == MessageSourceTypeEnum.TICKET ? ticket(source) : Optional.empty();
+        return source.getSourceType() == MessageSourceTypeEnum.TICKET && historyRepository != null
+                && historyRepository.isUsable(source.getId(), null, userId) ? ticket(source) : Optional.empty();
     }
 
-    private RagSourceResponse document(int citationNumber, DocumentSourceAvailabilityResponse source) {
-        return new RagSourceResponse(citationNumber, MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
+    private RagSourceResponse document(MessageSource stored, DocumentSourceAvailabilityResponse source) {
+        return new RagSourceResponse(stored.getCitationNo(), MessageSourceTypeEnum.DOCUMENT, source.getDocumentId(),
                 source.getVersionId(), source.getChunkId(), source.getDocumentName(), source.getSection(),
                 source.isCurrent(), source.isAvailable(), source.isAvailable()
-                        ? "/api/chunks/" + source.getChunkId() + "/source" : null);
+                        ? "/api/chunks/" + source.getChunkId() + "/source" : null,
+                null, null, null, null, stored.getOriginSourceId(), stored.getToolCallId());
     }
 
     private Optional<RagSourceResponse> ticket(MessageSource source) {
@@ -54,9 +70,12 @@ public class StoredMessageSourceResponseFactory {
             String title = optionalText(snapshot, "title");
             String ownerName = optionalText(snapshot, "ownerName");
             String updatedAt = requiredText(snapshot, "updatedAt");
+            String queriedAt = requiredText(snapshot, "queriedAt");
             return Optional.of(new RagSourceResponse(source.getCitationNo(), MessageSourceTypeEnum.TICKET,
-                    null, null, null, title == null ? ticketNo : title, ownerName, true, true, null,
-                    ticketNo, status, OffsetDateTime.parse(updatedAt)));
+                    null, null, null, title == null ? ticketNo : title, ownerName,
+                    source.getOriginSourceId() == null, true, null, ticketNo, status,
+                    OffsetDateTime.parse(updatedAt), OffsetDateTime.parse(queriedAt),
+                    source.getOriginSourceId(), source.getToolCallId()));
         } catch (JsonProcessingException | RuntimeException exception) {
             // 工具审计快照损坏时隐藏该来源，禁止返回不完整或未经验证的字段。
             return Optional.empty();

@@ -340,6 +340,10 @@ describe('流式问答接口', () => {
           ticketNo: 'T10086',
           ticketStatus: 'PROCESSING',
           ticketUpdatedAt: '2026-09-23T12:00:00Z',
+          ticketQueriedAt: '2026-09-23T12:05:00Z',
+          inherited: false,
+          originSourceId: null,
+          toolCallId: 'tool-current',
         }] })
         + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
       )]))
@@ -349,6 +353,29 @@ describe('流式问答接口', () => {
       (event) => events.push(event))).resolves.toMatchObject({ kind: 'stream' })
     expect(events.map((event) => event.event))
       .toEqual(['start', 'tool', 'tool', 'delta', 'sources', 'done'])
+  })
+})
+
+describe('工单历史来源契约', () => {
+  it.each([
+    { inherited: true, originSourceId: null, isCurrent: false, ticketQueriedAt: '2026-09-23T12:05:00Z' },
+    { inherited: true, originSourceId: 'root-source', isCurrent: true, ticketQueriedAt: '2026-09-23T12:05:00Z' },
+    { inherited: false, originSourceId: null, isCurrent: true, ticketQueriedAt: 'invalid-date' },
+  ])('拒绝不完整或矛盾的历史工单来源 %j', async (overrides) => {
+    fetchMock.mockResolvedValueOnce(ok({
+      sessionId, contentReadable: true, nextCursor: null,
+      items: [{
+        messageId: assistantMessageId, runId, sequence: 2, role: 'ASSISTANT', content: '先前结果[1]',
+        status: 'COMPLETED', createdAt: '2026-09-23T12:00:00Z', updatedAt: '2026-09-23T12:00:00Z',
+        sources: [{
+          number: 1, type: 'TICKET', documentId: null, versionId: null, chunkId: null,
+          title: '工单', section: null, available: true, previewPath: null,
+          ticketNo: 'T10086', ticketStatus: 'OPEN', ticketUpdatedAt: '2026-09-23T12:00:00Z',
+          toolCallId: 'audited-tool', ...overrides,
+        }],
+      }],
+    }))
+    await expect(fetchChatMessages(sessionId)).rejects.toMatchObject({ kind: 'invalid-response' })
   })
 })
 

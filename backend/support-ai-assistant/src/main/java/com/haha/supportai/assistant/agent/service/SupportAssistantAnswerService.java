@@ -4,15 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haha.supportai.assistant.agent.entity.dto.AssistantAgentRunResult;
 import com.haha.supportai.assistant.agent.entity.dto.AssistantCitationResult;
+import com.haha.supportai.assistant.agent.entity.dto.AssistantConversationContext;
 import com.haha.supportai.assistant.agent.exception.AssistantAgentBudgetException;
 import com.haha.supportai.assistant.agent.exception.AssistantCitationException;
 import com.haha.supportai.assistant.agent.support.AssistantCitationParser;
+import com.haha.supportai.assistant.agent.support.AssistantTicketFreshnessPolicy;
 import com.haha.supportai.assistant.agent.tool.constant.AssistantToolNameConstant;
 import com.haha.supportai.assistant.agent.tool.exception.AssistantToolException;
 import com.haha.supportai.conversation.config.AssistantAgentProperties;
@@ -42,9 +43,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SupportAssistantAnswerService implements AssistantAnswerService {
 
-    private static final Pattern CURRENT_TICKET_QUESTION = Pattern.compile(
-            "(?is).*(工单|状态|进度|当前|现在|latest|status).*(\\bT[0-9]{4,31}\\b).*"
-                    + "|.*(\\bT[0-9]{4,31}\\b).*(工单|状态|进度|当前|现在|latest|status).*");
     private static final String PUBLIC_FAILURE_MESSAGE = "智能助手本次未能完成，请稍后重试";
 
     private final AssistantAgentRunner agentRunner;
@@ -56,6 +54,8 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
     private final StoredMessageSourceResponseFactory sourceResponseFactory;
     private final AssistantAgentProperties properties;
     private final ObjectMapper objectMapper;
+    private final AssistantHistoryService historyService;
+    private final AssistantTicketFreshnessPolicy freshnessPolicy;
 
     @Override
     public AssistantAnswerResult generateStreaming(PreparedChatRunResponse preparedRun,
@@ -66,14 +66,18 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
         try {
             persistenceService.start(preparedRun);
             notifyStarted(safeObserver);
-            AssistantAgentRunResult runResult = agentRunner.run(preparedRun, safeObserver);
-            ensureRequiredTicketLookup(preparedRun.getQuestion(), runResult.getCalledToolNames());
+            AssistantConversationContext history = historyService.load(preparedRun);
+            Set<String> requiredTickets = freshnessPolicy.requiredTickets(preparedRun.getQuestion(), history);
+            historyService.register(preparedRun, history);
+            AssistantAgentRunResult runResult = agentRunner.run(preparedRun, history, requiredTickets, safeObserver);
+            ensureRequiredTicketLookup(requiredTickets, runResult.getCalledToolNames());
             List<MessageSource> registeredSources = messageSourceRepository
                     .listByMessageId(preparedRun.getAssistantMessageId());
             AssistantCitationResult citation = citationParser.parse(runResult.getAnswer(), registeredSources);
-            ensureRequiredTicketCitation(preparedRun.getQuestion(), registeredSources,
+            ensureRequiredTicketCitation(requiredTickets, registeredSources,
                     citation.getCitationNumbers());
             ensureScopeReadable(preparedRun);
+            historyService.ensureReadable(preparedRun);
             List<RagSourceResponse> sources = readableSources(preparedRun.getUserId(), registeredSources,
                     citation.getCitationNumbers());
             if (sources.size() != citation.getCitationNumbers().size()) {
@@ -96,29 +100,34 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
         }
     }
 
-    private void ensureRequiredTicketLookup(String question, Set<String> calledToolNames) {
-        if (requiresCurrentTicketLookup(question)
+    private void ensureRequiredTicketLookup(Set<String> requiredTickets, Set<String> calledToolNames) {
+        if (!requiredTickets.isEmpty()
                 && !calledToolNames.contains(AssistantToolNameConstant.GET_TICKET_STATUS)) {
             throw new AssistantAgentBudgetException("AGENT_REQUIRED_TOOL_NOT_CALLED",
                     "当前工单状态必须实时查询");
         }
     }
 
-    private void ensureRequiredTicketCitation(String question, List<MessageSource> sources,
+    private void ensureRequiredTicketCitation(Set<String> requiredTickets, List<MessageSource> sources,
             List<Integer> citedNumbers) {
-        if (!requiresCurrentTicketLookup(question)) {
-            return;
-        }
-        boolean citedTicket = sources.stream()
-                .anyMatch(source -> source.getSourceType() == MessageSourceTypeEnum.TICKET
-                        && citedNumbers.contains(source.getCitationNo()));
-        if (!citedTicket) {
-            throw new AssistantCitationException();
+        for (String ticketNo : requiredTickets) {
+            boolean citedTicket = sources.stream()
+                    .anyMatch(source -> source.getSourceType() == MessageSourceTypeEnum.TICKET
+                            && source.getOriginSourceId() == null && source.getToolCallId() != null
+                            && citedNumbers.contains(source.getCitationNo()) && matchesTicket(source, ticketNo));
+            if (!citedTicket) {
+                throw new AssistantCitationException();
+            }
         }
     }
 
-    private boolean requiresCurrentTicketLookup(String question) {
-        return CURRENT_TICKET_QUESTION.matcher(question).matches();
+    private boolean matchesTicket(MessageSource source, String ticketNo) {
+        try {
+            return source.getSnapshot() != null && ticketNo.equals(
+                    objectMapper.readTree(source.getSnapshot()).path("ticketNo").asText());
+        } catch (JsonProcessingException exception) {
+            return false;
+        }
     }
 
     private void ensureScopeReadable(PreparedChatRunResponse preparedRun) {
@@ -163,6 +172,7 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
         if (budgetException != null) {
             errorCode = budgetException.getErrorCode();
             errorDetail = budgetException.getMessage();
+            publicMessage = errorDetail;
         } else if (toolException != null) {
             errorCode = "AGENT_TOOL_FAILED";
             errorDetail = "白名单工具执行失败: " + toolException.getErrorCode();

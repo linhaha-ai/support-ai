@@ -33,8 +33,9 @@ public class RagSourceResponse {
     @Schema(description = "来源章节", nullable = true)
     private final String section; // 来源章节
 
-    @Schema(name = "isCurrent", description = "是否仍为文档当前版本", requiredMode = Schema.RequiredMode.REQUIRED)
-    private final boolean current; // 是否仍为文档当前版本
+    @Schema(name = "isCurrent", description = "文档是否为当前版本；工单是否为该回答本轮直接查询，不代表展示时实时状态",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+    private final boolean current; // 文档当前版本或工单本轮直接查询标记
 
     @Schema(description = "当前是否仍可预览来源正文", requiredMode = Schema.RequiredMode.REQUIRED)
     private final boolean available; // 是否仍可预览正文
@@ -51,6 +52,15 @@ public class RagSourceResponse {
     @Schema(description = "生成时查询到的工单更新时间；文档来源为空", nullable = true)
     private final OffsetDateTime ticketUpdatedAt; // 生成时查询到的工单更新时间
 
+    @Schema(description = "原工具实际查询工单的时间；继承时保持原值", nullable = true)
+    private final OffsetDateTime ticketQueriedAt; // 工单快照的真实查询时刻
+
+    @Schema(description = "历史继承的直接根来源标识；直接来源为空", nullable = true)
+    private final UUID originSourceId; // 可追溯的历史根来源标识
+
+    @Schema(description = "真实工具调用标识；继承时指向历史调用，普通 RAG 来源为空", nullable = true)
+    private final UUID toolCallId; // 原始工具调用审计标识
+
     public RagSourceResponse(int number, MessageSourceTypeEnum type, UUID documentId, UUID versionId, UUID chunkId,
             String title, String section, boolean current, boolean available, String previewPath) {
         this(number, type, documentId, versionId, chunkId, title, section, current, available, previewPath,
@@ -60,6 +70,14 @@ public class RagSourceResponse {
     public RagSourceResponse(int number, MessageSourceTypeEnum type, UUID documentId, UUID versionId, UUID chunkId,
             String title, String section, boolean current, boolean available, String previewPath, String ticketNo,
             String ticketStatus, OffsetDateTime ticketUpdatedAt) {
+        this(number, type, documentId, versionId, chunkId, title, section, current, available, previewPath,
+                ticketNo, ticketStatus, ticketUpdatedAt, null, null, null);
+    }
+
+    public RagSourceResponse(int number, MessageSourceTypeEnum type, UUID documentId, UUID versionId, UUID chunkId,
+            String title, String section, boolean current, boolean available, String previewPath, String ticketNo,
+            String ticketStatus, OffsetDateTime ticketUpdatedAt, OffsetDateTime ticketQueriedAt,
+            UUID originSourceId, UUID toolCallId) {
         this.number = number;
         this.type = type;
         this.documentId = documentId;
@@ -73,6 +91,14 @@ public class RagSourceResponse {
         this.ticketNo = ticketNo;
         this.ticketStatus = ticketStatus;
         this.ticketUpdatedAt = ticketUpdatedAt;
+        this.ticketQueriedAt = ticketQueriedAt;
+        this.originSourceId = originSourceId;
+        this.toolCallId = toolCallId;
+    }
+
+    @Schema(description = "是否从历史完整轮次继承", requiredMode = Schema.RequiredMode.REQUIRED)
+    public boolean isInherited() {
+        return originSourceId != null;
     }
 
     @JsonProperty("isCurrent")

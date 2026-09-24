@@ -110,7 +110,11 @@ public class ChatRunConfigurationSnapshotFactory {
     private Map<String, Object> assistantAgentSnapshot() {
         Map<String, Object> agent = new LinkedHashMap<>();
         agent.put("framework", "spring-ai-alibaba-react-agent");
-        agent.put("promptVersion", "assistant-agent-v1");
+        agent.put("promptVersion", "assistant-agent-v2");
+        agent.put("historyInjection", "authorized-history-once");
+        agent.put("historyMaxRounds", assistantAgentProperties.getHistoryMaxRounds());
+        agent.put("historyMaxCharacters", assistantAgentProperties.getHistoryMaxCharacters());
+        agent.put("ticketFreshness", "current-run-tool-result");
         agent.put("maxToolCalls", assistantAgentProperties.getMaxToolCalls());
         agent.put("maxModelCalls", assistantAgentProperties.getMaxModelCalls());
         agent.put("maxContextTokens", assistantAgentProperties.getMaxContextTokens());
