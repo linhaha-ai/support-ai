@@ -1,7 +1,7 @@
 import { effectScope } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DocumentDetail, DocumentVersionSummary } from '../document'
+import type { DocumentDetail, DocumentIngestionJob, DocumentVersionSummary } from '../document'
 import { useDocuments } from '../useDocuments'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -112,6 +112,58 @@ describe('文档检查异步状态', () => {
     expect(documents.selectedDocument.value?.documentId).toBe(documentId)
     expect(documents.deleteError.value).toBe('文档暂时无法删除，请稍后重试。')
     expect(documents.deleting.value).toBe(false)
+    scope.stop()
+  })
+
+  it('人工重试和取消后同步版本状态与待处理指针', async () => {
+    const failedJob: DocumentIngestionJob = {
+      jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId: firstVersionId,
+      status: 'FAILED', stage: 'PARSE', attempt: 1, maxAttempts: 3,
+      completedChunks: 0, totalChunks: 0, progressPercent: 0,
+      retryable: true, cancellable: false,
+      errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取', errorStage: 'PARSE',
+      nextRunAt: null, startedAt: '2026-09-21T10:00:00+08:00',
+      finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
+    }
+    const failedVersion: DocumentVersionSummary = {
+      ...version(firstVersionId, 1), status: 'FAILED', active: false, task: failedJob,
+    }
+    const retriedJob: DocumentIngestionJob = {
+      ...failedJob, status: 'QUEUED', retryable: false, cancellable: true,
+      errorCode: null, errorMessage: null, errorStage: null, finishedAt: null,
+      updatedAt: '2026-09-21T10:02:00+08:00',
+    }
+    const cancelledJob: DocumentIngestionJob = {
+      ...retriedJob, status: 'CANCELLED', cancellable: false,
+      finishedAt: '2026-09-21T10:03:00+08:00', updatedAt: '2026-09-21T10:03:00+08:00',
+    }
+    fetchMock.mockResolvedValueOnce(ok({ token: 'retry-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(retriedJob))
+      .mockResolvedValueOnce(ok({ token: 'cancel-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(cancelledJob))
+
+    const scope = effectScope()
+    const documents = scope.run(() => useDocuments(() => detail.knowledgeBaseId))
+    if (!documents) throw new Error('未能创建文档状态')
+    documents.documents.value = [detail]
+    documents.selectedDocument.value = detail
+    documents.versions.value = [failedVersion]
+    documents.selectedVersion.value = failedVersion
+
+    await expect(documents.retryTask(failedVersion)).resolves.toBe(true)
+    expect(documents.selectedVersion.value?.status).toBe('QUEUED')
+    expect(documents.selectedDocument.value?.pendingVersion?.versionId).toBe(firstVersionId)
+    expect(documents.selectedDocument.value?.revision).toBe(2)
+
+    const retriedVersion = documents.selectedVersion.value
+    if (!retriedVersion) throw new Error('人工重试后未保留选中版本')
+    await expect(documents.cancelTask(retriedVersion)).resolves.toBe(true)
+    expect(documents.selectedVersion.value?.status).toBe('CANCELLED')
+    expect(documents.selectedDocument.value?.pendingVersion).toBeNull()
+    expect(documents.selectedDocument.value?.revision).toBe(3)
+    expect(fetchMock).toHaveBeenNthCalledWith(4,
+      `/api/ingestion-jobs/${failedJob.jobId}/cancel`,
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'cancel-token' }) }))
     scope.stop()
   })
 })

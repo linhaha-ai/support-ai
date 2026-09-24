@@ -2,6 +2,7 @@ package com.haha.supportai.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.assistant.ticket.service.TicketQueryService;
 import com.haha.supportai.conversation.service.run.ChatRunService;
 import com.haha.supportai.conversation.service.run.ChatRunControlService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
@@ -11,8 +12,12 @@ import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
+import com.haha.supportai.data.assistant.repository.AssistantHistoryRepository;
+import com.haha.supportai.data.assistant.repository.TicketRepository;
+import com.haha.supportai.data.assistant.repository.ToolCallRepository;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
+import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentCleanupJobRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVectorRepository;
@@ -23,6 +28,7 @@ import com.haha.supportai.data.knowledge.repository.KnowledgeBaseRepository;
 import com.haha.supportai.data.knowledge.repository.KnowledgeDocumentRepository;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.ingestion.service.IngestionJobControlService;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -100,6 +106,9 @@ class HealthSecurityTest {
     IngestionJobQueryService ingestionJobQueryService;
 
     @MockBean
+    IngestionJobControlService ingestionJobControlService;
+
+    @MockBean
     KnowledgeRetrievalService knowledgeRetrievalService;
 
     @MockBean
@@ -124,6 +133,9 @@ class HealthSecurityTest {
     AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
 
     @MockBean
+    AuthorizedRetrievalRepository authorizedRetrievalRepository;
+
+    @MockBean
     ChatSessionService chatSessionService;
 
     @MockBean
@@ -135,6 +147,18 @@ class HealthSecurityTest {
     @MockBean
     ChatMessageStreamService chatMessageStreamService;
 
+    @MockBean
+    TicketRepository ticketRepository;
+
+    @MockBean
+    ToolCallRepository toolCallRepository;
+
+    @MockBean
+    AssistantHistoryRepository assistantHistoryRepository;
+
+    @MockBean
+    TicketQueryService ticketQueryService;
+
     @Test
     void publicHealthShowsOnlyStatus() throws Exception {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
@@ -144,10 +168,12 @@ class HealthSecurityTest {
     @Test
     void anonymousBusinessEntriesRequireAuthenticationAndWritesRequireCsrf() throws Exception {
         for (String path : new String[] { "/api/chat", "/api/health/db", "/api/env", "/actuator", "/doc.html",
-                "/v3/api-docs", "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
+                "/v3/api-docs", "/v3/api-docs/swagger-config",
+                "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000",
                 "/api/chat/sessions", "/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests",
                 "/api/chat/runs/550e8400-e29b-41d4-a716-446655440000",
                 "/api/chunks/550e8400-e29b-41d4-a716-446655440000/source",
+                "/api/tickets/T10086",
                 "/" }) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
@@ -159,6 +185,14 @@ class HealthSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
+        for (String path : new String[] {
+                "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000/retry",
+                "/api/ingestion-jobs/550e8400-e29b-41d4-a716-446655440000/cancel" }) {
+            mvc.perform(post(path))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("CSRF_INVALID"))
+                    .andExpect(jsonPath("$.traceId").isNotEmpty());
+        }
         mvc.perform(post("/api/knowledge-bases/550e8400-e29b-41d4-a716-446655440000/retrieval-tests")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"query\":\"退款状态\",\"topK\":3}"))

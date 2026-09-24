@@ -92,10 +92,10 @@ springdoc:
     tags-sorter: alpha
   show-actuator: true
 knife4j:
-  enable: true
+  # 4.5.0 增强器依赖旧版 springdoc 的 List 方法签名，与当前 Set 签名不兼容。
+  # 关闭增强后仍由 springdoc 生成 OpenAPI，/doc.html 沿用现有登录保护。
+  enable: false
   production: false
-  setting:
-    language: zh_cn
 sa-token:
   token-name: support-ai-token
   timeout: 1800
@@ -140,10 +140,32 @@ support:
         batch-size: 10
     rag:
       top-k: 6
+      # F24 真实开发集调参前使用无损阈值；预算覆盖当前 TopK 与单块上限。
+      max-evidence-tokens: 4096
+      minimum-vector-score: -1.0
+      minimum-fusion-score: 0.0
+      minimum-rerank-score: 0.0
       history-max-rounds: 3
       history-max-characters: 6000
       query-rewrite-enabled: true
       query-rewrite-max-characters: 500
+    retrieval:
+      # 未完成同一开发集真实对比前保持纯向量，融合策略需显式启用。
+      strategy: VECTOR
+      candidate-multiplier: 3
+      rrf-k: 60
+      max-keywords: 8
+    rerank:
+      # 未完成同一开发集真实对比前保持关闭；地址必须指向 qwen3-rerank 的兼容接口。
+      enabled: ${SUPPORT_AI_RERANK_ENABLED:false}
+      model: qwen3-rerank
+      endpoint: ${SUPPORT_AI_RERANK_ENDPOINT:}
+      candidate-multiplier: 3
+      max-candidates: 50
+      max-estimated-item-tokens: 3500
+      max-estimated-request-tokens: 100000
+      timeout: 5s
+      instruction: Given a web search query, retrieve relevant passages that answer the query.
     chat:
       stream:
         pool-size: 4

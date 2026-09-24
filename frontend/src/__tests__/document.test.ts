@@ -6,6 +6,7 @@ import {
   fetchDocumentContent,
   fetchDocuments,
   fetchDocumentVersions,
+  retryIngestionJob,
 } from '../document'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -22,7 +23,7 @@ function ok(data: unknown, status = 200) {
 const task = {
   jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, status: 'RUNNING', stage: 'CHUNK',
   attempt: 1, maxAttempts: 3, completedChunks: 2, totalChunks: 5, progressPercent: 40,
-  retryable: false, cancellable: true, errorCode: null, errorMessage: null, nextRunAt: null,
+  retryable: false, cancellable: true, errorCode: null, errorMessage: null, errorStage: null, nextRunAt: null,
   startedAt: '2026-09-21T10:00:00+08:00', finishedAt: null, updatedAt: '2026-09-21T10:00:00+08:00',
 }
 const version = {
@@ -103,5 +104,20 @@ describe('文档查询接口', () => {
     await expect(deleteKnowledgeDocument(documentId)).rejects.toMatchObject({
       kind: 'forbidden', message: '当前账号没有删除此文档的权限。',
     })
+  })
+
+  it('携带最新 CSRF 令牌提交人工重试并校验任务响应', async () => {
+    const retriedTask = { ...task, status: 'QUEUED', cancellable: true }
+    fetchMock.mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+      .mockResolvedValueOnce(ok(retriedTask))
+
+    const result = await retryIngestionJob(task.jobId)
+
+    expect(result.status).toBe('QUEUED')
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/csrf', expect.objectContaining({ method: 'GET' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/ingestion-jobs/${task.jobId}/retry`, expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
+    }))
   })
 })

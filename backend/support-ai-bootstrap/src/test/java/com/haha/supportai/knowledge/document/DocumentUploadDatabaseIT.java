@@ -54,7 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
         "spring.ai.dashscope.api-key=", "spring.ai.ollama.base-url=http://127.0.0.1:1",
-        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.document.upload.max-file-size=32B",
+        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.document.upload.max-file-size=64B",
         "support.ai.ingestion.worker.enabled=false"
 })
 @AutoConfigureMockMvc
@@ -174,7 +174,7 @@ class DocumentUploadDatabaseIT {
             assertThat(documentCount(knowledgeBaseId)).isEqualTo(documentCount);
 
             mvc.perform(multipart("/api/knowledge-bases/{kbId}/documents", knowledgeBaseId)
-                            .file(file("oversize.txt", "text/plain", "123456789012345678901234567890123"))
+                            .file(file("oversize.txt", "text/plain", "x".repeat(65)))
                             .session(admin.session()).cookie(admin.cookie())
                             .header(admin.csrfHeader(), admin.csrfToken()))
                     .andExpect(status().isPayloadTooLarge())
@@ -510,7 +510,7 @@ class DocumentUploadDatabaseIT {
                     .isInstanceOf(DataIntegrityViolationException.class);
         } finally {
             deleteDocumentGraph(firstDocumentId, versionId, null, null);
-            deleteDocumentGraph(secondDocumentId, null, null, null);
+            deleteDocumentGraph(secondDocumentId, List.of(), List.of(), List.of());
             jdbcTemplate.update("DELETE FROM knowledge_base WHERE id = ?", knowledgeBaseId);
             jdbcTemplate.update("DELETE FROM app_user WHERE id = ?", userId);
         }

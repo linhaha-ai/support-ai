@@ -1,6 +1,7 @@
 package com.haha.supportai.conversation;
 
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -102,8 +103,9 @@ class ChatConversationMapperDatabaseIT {
         createAuthorizedKnowledgeBase(userId, secondKnowledgeBaseId, "会话映射知识库二", false);
         createAuthorizedKnowledgeBase(userId, outOfScopeKnowledgeBaseId, "未加入会话的知识库", false);
 
+        // PostgreSQL 按 UUID 无符号字节序排序，与 Java 默认的有符号比较不同。
         List<UUID> knowledgeBaseIds = List.of(firstKnowledgeBaseId, secondKnowledgeBaseId).stream()
-                .sorted()
+                .sorted(Comparator.comparing(UUID::toString))
                 .toList();
         assertThat(knowledgeScopeAccess.lockAllReadable(userId, knowledgeBaseIds)).isTrue();
         assertThat(knowledgeScopeAccess.lockAllReadable(userId, List.of(UUID.randomUUID()))).isFalse();
@@ -185,6 +187,10 @@ class ChatConversationMapperDatabaseIT {
         assertThat(messageSourceRepository.insertAll(run.getId(), List.of(source, secondSource))).isEqualTo(2);
         assertThat(messageSourceRepository.listByMessageId(assistantMessage.getId()))
                 .hasSize(2)
+                .allSatisfy(storedSource -> {
+                    assertThat(storedSource.getTicketId()).isNull();
+                    assertThat(storedSource.getToolCallId()).isNull();
+                })
                 .first()
                 .satisfies(storedSource -> {
                     assertThat(storedSource.getCitationNo()).isEqualTo(1);

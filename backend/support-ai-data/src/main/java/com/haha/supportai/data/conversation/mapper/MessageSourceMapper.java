@@ -23,7 +23,8 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
     @Insert("""
             <script>
             /* message_source：模型调用前按消息所属会话、当前成员关系及 active READY 版本复核来源归属；
-               任一来源失效时由业务事务按写入数量不一致回滚整批来源。 */
+               任一来源失效时由业务事务按写入数量不一致回滚整批来源；
+               文档来源的 ticket_id、tool_call_id 显式使用 UUID 空值，避免 UNION ALL 将整列推断为 text。 */
             INSERT INTO message_source (
                 id, message_id, origin_source_id, citation_no, is_cited, source_type,
                 kb_id, chunk_id, ticket_id, tool_call_id, locator, snapshot, created_at
@@ -33,7 +34,7 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
                 #{source.id,jdbcType=OTHER}, #{source.messageId,jdbcType=OTHER},
                 CAST(#{source.originSourceId,jdbcType=OTHER} AS UUID), #{source.citationNo}, #{source.cited},
                 #{source.sourceType,jdbcType=VARCHAR}, #{source.knowledgeBaseId,jdbcType=OTHER},
-                #{source.chunkId,jdbcType=OTHER}, NULL, NULL,
+                #{source.chunkId,jdbcType=OTHER}, CAST(NULL AS UUID), CAST(NULL AS UUID),
                 CAST(#{source.locator,jdbcType=VARCHAR} AS JSONB),
                 CAST(#{source.snapshot,jdbcType=VARCHAR} AS JSONB), #{source.createdAt}
             WHERE EXISTS (
@@ -89,7 +90,7 @@ public interface MessageSourceMapper extends BaseMapper<MessageSource> {
                             AND origin_run.status = 'COMPLETED'
                             AND origin_session.id = chat.id
                             AND origin_session.user_id = chat.user_id
-                            AND origin_message.seq < message.seq
+                            AND origin_message.seq &lt; message.seq
                             AND origin.source_type = #{source.sourceType,jdbcType=VARCHAR}
                             AND origin.kb_id = #{source.knowledgeBaseId,jdbcType=OTHER}
                             AND origin.chunk_id = #{source.chunkId,jdbcType=OTHER}

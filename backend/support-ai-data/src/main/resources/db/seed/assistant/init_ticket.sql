@@ -1,4 +1,4 @@
--- ticket：F25 模拟工单种子脚本，须先完成 Flyway V12 和 identity/init_app_user.sql。
+-- ticket：F25 模拟工单种子脚本，须先完成 Flyway V13 和 identity/init_app_user.sql。
 -- 脚本创建独立演示知识库，为 support1/support2 建立成员关系，并幂等补齐 30 条工单。
 -- admin 仅作为知识库负责人，不自动获得成员权限，用于验证管理员身份不能绕过资料授权。
 BEGIN;

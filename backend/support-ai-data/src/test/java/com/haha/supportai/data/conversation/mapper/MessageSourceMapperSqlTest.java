@@ -22,7 +22,7 @@ class MessageSourceMapperSqlTest {
                 .contains("origin.origin_source_id IS NULL")
                 .contains("origin_session.id = chat.id")
                 .contains("origin_session.user_id = chat.user_id")
-                .contains("origin_message.seq < message.seq")
+                .contains("origin_message.seq &lt; message.seq")
                 .contains("origin_message.status = 'COMPLETED'")
                 .contains("origin_run.status = 'COMPLETED'")
                 .contains("origin.source_type = #{source.sourceType,jdbcType=VARCHAR}")

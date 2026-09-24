@@ -40,6 +40,7 @@ public class RagConfigurationSnapshotFactory {
         retrieval.put("candidateMultiplier", retrievalProperties.getCandidateMultiplier());
         retrieval.put("rrfK", retrievalProperties.getRrfK());
         retrieval.put("maxKeywords", retrievalProperties.getMaxKeywords());
+        retrieval.put("queryRewrite", queryRewriteSnapshot());
 
         Map<String, Object> chat = modelSnapshot(chatProvider, "chat");
         chat.put("temperature", optionalDouble("spring.ai." + chatProvider + ".chat.options.temperature"));
@@ -69,6 +70,9 @@ public class RagConfigurationSnapshotFactory {
 
         Map<String, Object> prompt = new LinkedHashMap<>();
         prompt.put("version", RagPromptFactory.PROMPT_VERSION);
+        prompt.put("historyInjection", "business-prompt-once");
+        prompt.put("historyMaxRounds", ragProperties.getHistoryMaxRounds());
+        prompt.put("historyMaxCharacters", ragProperties.getHistoryMaxCharacters());
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("schemaVersion", "f24-v1");
@@ -93,6 +97,14 @@ public class RagConfigurationSnapshotFactory {
         snapshot.put("provider", provider);
         snapshot.put("model", requiredProperty("spring.ai." + provider + "." + role + ".options.model"));
         return snapshot;
+    }
+
+    private Map<String, Object> queryRewriteSnapshot() {
+        Map<String, Object> queryRewrite = new LinkedHashMap<>();
+        queryRewrite.put("enabled", ragProperties.isQueryRewriteEnabled());
+        queryRewrite.put("version", RetrievalQueryPromptFactory.PROMPT_VERSION);
+        queryRewrite.put("maxCharacters", ragProperties.getQueryRewriteMaxCharacters());
+        return queryRewrite;
     }
 
     private Map<String, Object> indexSnapshot() {

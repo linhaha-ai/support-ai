@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.haha.supportai.assistant.ticket.service.TicketQueryService;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.ChatRunCancellationResult;
 import com.haha.supportai.conversation.entity.vo.ChatRunStatusResponse;
@@ -24,10 +25,14 @@ import com.haha.supportai.data.conversation.repository.ChatRunRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionKnowledgeBaseRepository;
 import com.haha.supportai.data.conversation.repository.ChatSessionRepository;
 import com.haha.supportai.data.conversation.repository.MessageSourceRepository;
+import com.haha.supportai.data.assistant.repository.AssistantHistoryRepository;
+import com.haha.supportai.data.assistant.repository.TicketRepository;
+import com.haha.supportai.data.assistant.repository.ToolCallRepository;
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
 import com.haha.supportai.data.identity.repository.AppUserRepository;
 import com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepository;
+import com.haha.supportai.data.knowledge.repository.AuthorizedRetrievalRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentChunkRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentCleanupJobRepository;
 import com.haha.supportai.data.knowledge.repository.DocumentVectorRepository;
@@ -42,11 +47,14 @@ import com.haha.supportai.identity.service.AuthenticationService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadPersistenceService;
 import com.haha.supportai.knowledge.document.service.DocumentQueryService;
 import com.haha.supportai.knowledge.document.service.DocumentUploadService;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
+import com.haha.supportai.knowledge.entity.enums.RetrievalStrategyEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalTestResponse;
 import com.haha.supportai.knowledge.exception.KnowledgeBaseAccessDeniedException;
 import com.haha.supportai.knowledge.exception.KnowledgeRetrievalUnavailableException;
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
+import com.haha.supportai.knowledge.ingestion.service.IngestionJobControlService;
 import com.haha.supportai.knowledge.service.KnowledgeBaseService;
 import com.haha.supportai.knowledge.service.document.DocumentDeletionService;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -141,6 +149,9 @@ class OpenApiDocumentationTest {
     IngestionJobQueryService ingestionJobQueryService;
 
     @MockBean
+    IngestionJobControlService ingestionJobControlService;
+
+    @MockBean
     KnowledgeRetrievalService knowledgeRetrievalService;
 
     @MockBean
@@ -165,6 +176,9 @@ class OpenApiDocumentationTest {
     AuthorizedDocumentSourceRepository authorizedDocumentSourceRepository;
 
     @MockBean
+    AuthorizedRetrievalRepository authorizedRetrievalRepository;
+
+    @MockBean
     ChatSessionService chatSessionService;
 
     @MockBean
@@ -175,6 +189,18 @@ class OpenApiDocumentationTest {
 
     @MockBean
     ChatMessageStreamService chatMessageStreamService;
+
+    @MockBean
+    TicketRepository ticketRepository;
+
+    @MockBean
+    ToolCallRepository toolCallRepository;
+
+    @MockBean
+    AssistantHistoryRepository assistantHistoryRepository;
+
+    @MockBean
+    TicketQueryService ticketQueryService;
 
     @Test
     void authenticatedUserCanReadCompleteCurrentApiContract() throws Exception {
@@ -243,6 +269,11 @@ class OpenApiDocumentationTest {
                         + "['requestBody']['content']['multipart/form-data']['schema']['properties']['file']"
                         + "['format']").value("binary"))
                 .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['requestBody']['content']['multipart/form-data']['schema']['properties']['displayName']"
+                        + "['maxLength']").value(255))
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
+                        + "['parameters'][?(@.name == 'displayName')]").isEmpty())
+                .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['post']"
                         + "['responses']['202']").exists())
                 .andExpect(jsonPath("$['paths']['/api/knowledge-bases/{kbId}/documents']['get']['operationId']")
                         .value("listKnowledgeDocuments"))
@@ -274,6 +305,15 @@ class OpenApiDocumentationTest {
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['requestBody']"
                         + "['content']['multipart/form-data']['schema']['properties']['expectedRevision']")
                         .exists())
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']"
+                        + "['requestBody']['required']").value(true))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['requestBody']"
+                        + "['content']['multipart/form-data']['schema']['required']").value(hasItem("file")))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['requestBody']"
+                        + "['content']['multipart/form-data']['schema']['required']")
+                        .value(hasItem("expectedRevision")))
+                .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']"
+                        + "['parameters'][?(@.name == 'expectedRevision')]").isEmpty())
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['responses']['200']")
                         .exists())
                 .andExpect(jsonPath("$['paths']['/api/documents/{documentId}/versions']['post']['responses']['202']")
@@ -288,12 +328,24 @@ class OpenApiDocumentationTest {
                         .value("getDocumentChunkSource"))
                 .andExpect(jsonPath("$['paths']['/api/chunks/{chunkId}/source']['get']['security'][0]"
                         + "['SaTokenCookie']").isArray())
+                .andExpect(jsonPath("$['paths']['/api/tickets/{ticketNo}']['get']['operationId']")
+                        .value("getTicketStatus"))
+                .andExpect(jsonPath("$['paths']['/api/tickets/{ticketNo}']['get']['security'][0]"
+                        + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['operationId']")
                         .value("getIngestionJob"))
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['security'][0]"
                         + "['SaTokenCookie']").isArray())
                 .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}']['get']['responses']['200']")
                         .exists())
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/retry']['post']['operationId']")
+                        .value("retryIngestionJob"))
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/retry']['post']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/cancel']['post']['operationId']")
+                        .value("cancelIngestionJob"))
+                .andExpect(jsonPath("$['paths']['/api/ingestion-jobs/{jobId}/cancel']['post']"
+                        + "['parameters'][?(@.name == 'X-CSRF-TOKEN')]").exists())
                 .andExpect(jsonPath("$['paths']['/api/chat/sessions']['post']['operationId']")
                         .value("createChatSession"))
                 .andExpect(jsonPath("$['paths']['/api/chat/runs/{runId}']['get']['operationId']")
@@ -383,7 +435,13 @@ class OpenApiDocumentationTest {
                 "DocumentContentResponse");
         assertResponseDataSchema(apiDocs, "/api/chunks/{chunkId}/source", "get",
                 "DocumentSourceResponse");
+        assertResponseDataSchema(apiDocs, "/api/tickets/{ticketNo}", "get",
+                "TicketQueryResponse");
         assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}", "get",
+                "IngestionJobStatusResponse");
+        assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}/retry", "post",
+                "IngestionJobStatusResponse");
+        assertResponseDataSchema(apiDocs, "/api/ingestion-jobs/{jobId}/cancel", "post",
                 "IngestionJobStatusResponse");
         assertResponseDataSchema(apiDocs, "/api/chat/sessions", "post", "201",
                 "ChatSessionResponse");
@@ -403,11 +461,15 @@ class OpenApiDocumentationTest {
         assertThat(apiDocs.path("components").path("schemas").path("UserSummaryResponse")
                 .path("properties").has("passwordHash")).isFalse();
 
-        mvc.perform(get("/v3/api-docs/actuator")
+        // 管理端点与业务使用同一端口，当前 springdoc 将健康接口收录在主文档中。
+        assertThat(apiDocs.path("paths").has("/api/health")).isTrue();
+
+        mvc.perform(get("/v3/api-docs/swagger-config")
                         .session(authenticatedRequest.session())
                         .cookie(authenticatedRequest.cookie()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$['paths']['/api/health']").exists());
+                .andExpect(jsonPath("$.url").value("/v3/api-docs"))
+                .andExpect(jsonPath("$.configUrl").value("/v3/api-docs/swagger-config"));
 
         mvc.perform(get("/doc.html")
                         .session(authenticatedRequest.session())
@@ -529,7 +591,9 @@ class OpenApiDocumentationTest {
         UUID knowledgeBaseId = UUID.fromString("550e8400-e29b-41d4-a716-446655440021");
         configureAuthenticatedUser();
         when(knowledgeRetrievalService.testWritableKnowledgeBase(eq(knowledgeBaseId), any()))
-                .thenReturn(new KnowledgeRetrievalTestResponse(knowledgeBaseId, "退款状态", 3, 12L, List.of()));
+                .thenReturn(new KnowledgeRetrievalTestResponse(knowledgeBaseId, "退款状态", 3,
+                        RetrievalStrategyEnum.VECTOR, 0, 0, RerankStatusEnum.DISABLED,
+                        0, 0L, null, 12L, List.of()));
 
         AuthenticatedRequest authenticatedRequest = login();
         mvc.perform(post("/api/knowledge-bases/{kbId}/retrieval-tests", knowledgeBaseId)
@@ -540,6 +604,11 @@ class OpenApiDocumentationTest {
                         .content("{\"query\":\"退款状态\",\"topK\":3}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.knowledgeBaseId").value(knowledgeBaseId.toString()))
+                .andExpect(jsonPath("$.data.strategy").value("VECTOR"))
+                .andExpect(jsonPath("$.data.vectorCandidateCount").value(0))
+                .andExpect(jsonPath("$.data.keywordCandidateCount").value(0))
+                .andExpect(jsonPath("$.data.rerankStatus").value("DISABLED"))
+                .andExpect(jsonPath("$.data.rerankCandidateCount").value(0))
                 .andExpect(jsonPath("$.data.matches").isArray());
     }
 
@@ -586,10 +655,10 @@ class OpenApiDocumentationTest {
                         .session(authenticatedRequest.session())
                         .cookie(authenticatedRequest.cookie())
                         .header(authenticatedRequest.csrfHeader(), authenticatedRequest.csrfToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"query\":\"退款状态\",\"topK\":3,\"kbIds\":[]}"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"query\":\"退款状态\",\"topK\":3,\"kbIds\":[]}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(jsonPath("$.code").value("KNOWLEDGE_RETRIEVAL_INVALID"));
     }
 
     @Test

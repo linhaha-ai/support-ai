@@ -27,7 +27,7 @@ const version = {
   task: {
     jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, status: 'FAILED', stage: 'PARSE',
     attempt: 1, maxAttempts: 3, completedChunks: 0, totalChunks: 0, progressPercent: 0,
-    retryable: true, cancellable: false, errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取',
+    retryable: true, cancellable: false, errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取', errorStage: 'PARSE',
     nextRunAt: null, startedAt: '2026-09-21T10:00:00+08:00', finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
   },
   createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
@@ -52,7 +52,7 @@ function activeDetail() {
     status: 'READY',
     active: true,
     pending: false,
-    task: { ...version.task, status: 'SUCCEEDED', retryable: false, cancellable: false },
+    task: { ...version.task, status: 'SUCCEEDED', retryable: false, cancellable: false, errorStage: null },
   }
   return {
     documentId, knowledgeBaseId, name: '产品说明', activeVersion, pendingVersion: null,
@@ -104,14 +104,15 @@ describe('文档管理视图', () => {
         originalFilename: 'guide.md', mediaType: 'text/markdown', content: '# 产品说明',
       }))
       .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
-    const view = mountView()
+    const view = mountView(true)
     await flushPromises()
 
     await view.get('.document-list-item').trigger('click')
     await flushPromises()
 
     expect(view.text()).toContain('处理失败')
-    expect(view.text()).toContain('DOCUMENT_READ_FAILED · 原文件暂时无法读取')
+    expect(view.text()).toContain('解析阶段终止失败 · DOCUMENT_READ_FAILED · 原文件暂时无法读取')
+    expect(view.text()).toContain('重新处理')
     expect(view.text()).toContain('# 产品说明')
   })
 
@@ -167,7 +168,7 @@ describe('文档管理视图', () => {
       .mockResolvedValueOnce(ok({
         jobId: versionReceipt.jobId, versionId: versionReceipt.versionId, status: 'SUCCEEDED', stage: 'PUBLISH',
         attempt: 0, maxAttempts: 3, completedChunks: 0, totalChunks: 0, progressPercent: 0,
-        retryable: false, cancellable: false, errorCode: null, errorMessage: null, nextRunAt: null,
+        retryable: false, cancellable: false, errorCode: null, errorMessage: null, errorStage: null, nextRunAt: null,
         startedAt: '2026-09-21T10:00:00+08:00', finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
       }))
       .mockResolvedValueOnce(ok(active))

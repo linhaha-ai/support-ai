@@ -46,12 +46,12 @@ class ChatConversationDatabaseIT {
 
     @Test
     void migratesConversationTablesIdempotentlyAndRetainsDescriptions() {
-        assertThat(firstMigrationCount).isGreaterThanOrEqualTo(13);
+        assertThat(firstMigrationCount).isGreaterThanOrEqualTo(14);
         assertThat(repeatedMigrationCount).isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT count(*)
                 FROM flyway_schema_history
-                WHERE version IN ('10', '11', '13')
+                WHERE version IN ('10', '11', '14')
                   AND success = TRUE
                 """, Integer.class)).isEqualTo(3);
         assertThat(jdbc.queryForObject("""

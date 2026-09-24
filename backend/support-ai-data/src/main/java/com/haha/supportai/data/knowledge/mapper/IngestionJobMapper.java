@@ -31,8 +31,6 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                 INNER JOIN document_version version ON version.id = job.version_id
                 INNER JOIN document document ON document.id = version.document_id
                 WHERE job.stage = #{stage,jdbcType=VARCHAR}
-                  AND document.deleted_at IS NULL
-                  AND document.pending_version_id = version.id
                   AND job.attempt < job.max_attempts
                   AND job.cancel_requested_at IS NULL
                   AND version.status IN ('QUEUED', 'BUILDING')

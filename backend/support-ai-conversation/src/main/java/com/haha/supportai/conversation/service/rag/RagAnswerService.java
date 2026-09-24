@@ -30,12 +30,16 @@ import com.haha.supportai.conversation.exception.RagPersistenceException;
 import com.haha.supportai.conversation.service.context.ConversationContextService;
 import com.haha.supportai.conversation.service.rewrite.RetrievalQueryRewriteService;
 import com.haha.supportai.conversation.support.CitationParser;
+import com.haha.supportai.conversation.support.RagEvidenceSelector;
+import com.haha.supportai.conversation.support.RagEvidenceSelector.EvidenceSelection;
 import com.haha.supportai.conversation.support.RagPromptFactory;
 import com.haha.supportai.conversation.support.RagPromptFactory.NumberedEvidence;
 import com.haha.supportai.conversation.support.RagPromptFactory.RagPrompt;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalResult;
+import com.haha.supportai.knowledge.entity.enums.RerankStatusEnum;
 import com.haha.supportai.knowledge.entity.vo.DocumentSourceAvailabilityResponse;
 import com.haha.supportai.knowledge.entity.vo.KnowledgeRetrievalEvidenceResponse;
 import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
@@ -68,6 +72,7 @@ public class RagAnswerService {
     private final ChatModelGateway chatModelGateway;
     private final RagRunPersistenceService persistenceService;
     private final RagPromptFactory promptFactory;
+    private final RagEvidenceSelector evidenceSelector;
     private final CitationParser citationParser;
     private final RagProperties ragProperties;
     private final ObjectMapper objectMapper;
@@ -97,13 +102,16 @@ public class RagAnswerService {
         context.queryRewrite = rewriteRetrievalQuery(preparedRun.getQuestion(), conversationContext);
 
         List<KnowledgeRetrievalEvidenceResponse> evidenceList;
+        long retrievalStartedNanos = System.nanoTime();
         try {
             evidenceList = retrieveAndRevalidate(preparedRun.getUserId(), preparedRun.getSessionId(),
-                    context.queryRewrite.getRetrievalQuestion());
+                    context.queryRewrite.getRetrievalQuestion(), context);
         } catch (RuntimeException exception) {
+            context.retrievalMs = elapsedMillis(retrievalStartedNanos);
             throw failureOrCancellation(preparedRun, context, exception, RETRIEVAL_ERROR_CODE,
                     RETRIEVAL_ERROR_DETAIL);
         }
+        context.retrievalMs = elapsedMillis(retrievalStartedNanos);
 
         ModelInput modelInput;
         try {
@@ -139,15 +147,19 @@ public class RagAnswerService {
             throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
                     PERSISTENCE_ERROR_DETAIL);
         }
+        long generationStartedNanos = System.nanoTime();
         try {
             chatModelGateway.stream(prompt.systemPrompt(), prompt.userPrompt(),
                     chunk -> acceptChunk(preparedRun, safeObserver, context, chunk));
         } catch (RagPersistenceException exception) {
+            context.generationMs = elapsedMillis(generationStartedNanos);
             throw failureOrCancellation(preparedRun, context, exception, PERSISTENCE_ERROR_CODE,
                     PERSISTENCE_ERROR_DETAIL);
         } catch (RuntimeException exception) {
+            context.generationMs = elapsedMillis(generationStartedNanos);
             throw failureOrCancellation(preparedRun, context, exception, MODEL_ERROR_CODE, MODEL_ERROR_DETAIL);
         }
+        context.generationMs = elapsedMillis(generationStartedNanos);
         String answer = context.content.toString();
         if (answer == null || answer.isBlank()) {
             throw failureOrCancellation(preparedRun, context, null, EMPTY_MODEL_ERROR_CODE,
@@ -172,9 +184,14 @@ public class RagAnswerService {
     }
 
     private List<KnowledgeRetrievalEvidenceResponse> retrieveAndRevalidate(UUID userId, UUID sessionId,
-            String question) {
-        List<KnowledgeRetrievalEvidenceResponse> candidates = knowledgeRetrievalService
-                .retrieveReadableWithinSession(userId, sessionId, question, ragProperties.getTopK());
+            String question, GenerationContext context) {
+        KnowledgeRetrievalResult retrieval = knowledgeRetrievalService
+                .retrieveReadableWithinSessionDetailed(userId, sessionId, question, ragProperties.getTopK());
+        context.rerankStatus = retrieval.getRerankStatus();
+        context.rerankCandidateCount = retrieval.getRerankCandidateCount();
+        context.rerankMs = retrieval.getRerankDurationMs();
+        context.rerankTotalTokens = retrieval.getRerankTotalTokens();
+        List<KnowledgeRetrievalEvidenceResponse> candidates = retrieval.getMatches();
         if (candidates.isEmpty()) {
             return List.of();
         }
@@ -194,7 +211,12 @@ public class RagAnswerService {
                         retrievalScores.getOrDefault(chunkId, evidence.getScore())));
             }
         }
-        return List.copyOf(revalidatedEvidence);
+        context.retrievedEvidenceCount = revalidatedEvidence.size();
+        EvidenceSelection selection = evidenceSelector.select(retrieval, revalidatedEvidence);
+        context.scoreFilteredEvidenceCount = selection.scoreFilteredCount();
+        context.budgetFilteredEvidenceCount = selection.budgetFilteredCount();
+        context.evidenceTokenCount = selection.evidenceTokens();
+        return selection.evidenceList();
     }
 
     private RagConversationContext loadConversationContext(PreparedChatRunResponse preparedRun) {
@@ -464,8 +486,16 @@ public class RagAnswerService {
     }
 
     private RagMetrics metrics(GenerationContext context, int citedCount, boolean noEvidence) {
-        return new RagMetrics(context.evidenceCount, citedCount, noEvidence, context.elapsedMillis(),
-                context.firstDeltaMs, context.queryRewrite);
+        return new RagMetrics(context.evidenceCount, context.retrievedEvidenceCount,
+                context.scoreFilteredEvidenceCount, context.budgetFilteredEvidenceCount,
+                context.evidenceTokenCount, citedCount, noEvidence, context.retrievalMs,
+                context.embeddingTotalTokens, context.rerankStatus, context.rerankCandidateCount,
+                context.rerankMs, context.rerankTotalTokens, context.generationMs,
+                context.elapsedMillis(), context.firstDeltaMs, context.queryRewrite);
+    }
+
+    private long elapsedMillis(long startedNanos) {
+        return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
     }
 
     private RuntimeException failureOrCancellation(PreparedChatRunResponse preparedRun, GenerationContext context,
@@ -523,6 +553,17 @@ public class RagAnswerService {
         private ChatModelUsage usage;
         private Long firstDeltaMs;
         private int evidenceCount;
+        private int retrievedEvidenceCount;
+        private int scoreFilteredEvidenceCount;
+        private int budgetFilteredEvidenceCount;
+        private int evidenceTokenCount;
+        private long retrievalMs;
+        private Integer embeddingTotalTokens;
+        private RerankStatusEnum rerankStatus = RerankStatusEnum.NOT_REACHED;
+        private int rerankCandidateCount;
+        private long rerankMs;
+        private Integer rerankTotalTokens;
+        private Long generationMs;
         private RetrievalQueryDiagnostics queryRewrite;
 
         private GenerationContext(String originalQuestion) {

@@ -60,7 +60,7 @@ class DocumentDeletionMapperSqlTest {
         assertThat(sql)
                 .contains("document.deleted_at IS NULL")
                 .contains("document.pending_version_id = version.id")
-                .contains("FOR UPDATE SKIP LOCKED");
+                .contains("FOR UPDATE OF job SKIP LOCKED");
     }
 
     @Test

@@ -308,7 +308,8 @@ class DocumentDeletionDatabaseIT {
         writeStorageFile(otherStorageKey, "其他文档原文件");
 
         return new DeletionFixture(knowledgeBaseId, documentId, otherDocumentId, activeVersionId, pendingVersionId,
-                activeJobId, pendingJobId, activeChunkId, pendingChunkId, otherChunkId, pendingLeaseToken,
+                otherVersionId, activeJobId, pendingJobId, otherJobId, activeChunkId, pendingChunkId, otherChunkId,
+                pendingLeaseToken,
                 activeStorageKey, pendingStorageKey, otherStorageKey, history.sessionId(), history.runId(),
                 history.messageId());
     }
@@ -342,7 +343,8 @@ class DocumentDeletionDatabaseIT {
                     id, version_id, status, stage, attempt, max_attempts, lease_owner, lease_token, lease_until,
                     next_run_at, finished_at
                 ) VALUES (?, ?, ?, ?, 1, 3, ?, ?,
-                          CASE WHEN ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP + INTERVAL '5 minutes' END,
+                          CASE WHEN CAST(? AS UUID) IS NULL THEN NULL
+                               ELSE CURRENT_TIMESTAMP + INTERVAL '5 minutes' END,
                           CURRENT_TIMESTAMP,
                           CASE WHEN ? = 'SUCCEEDED' THEN CURRENT_TIMESTAMP ELSE NULL END)
                 """, jobId, versionId, status, stage, leaseOwner, leaseToken, leaseToken, status);
@@ -500,8 +502,9 @@ class DocumentDeletionDatabaseIT {
     }
 
     private record DeletionFixture(UUID knowledgeBaseId, UUID documentId, UUID otherDocumentId, UUID activeVersionId,
-                                   UUID pendingVersionId, UUID activeJobId, UUID pendingJobId, UUID activeChunkId,
-                                   UUID pendingChunkId, UUID otherChunkId, UUID pendingLeaseToken,
+                                   UUID pendingVersionId, UUID otherVersionId, UUID activeJobId, UUID pendingJobId,
+                                   UUID otherJobId, UUID activeChunkId, UUID pendingChunkId, UUID otherChunkId,
+                                   UUID pendingLeaseToken,
                                    String activeStorageKey, String pendingStorageKey, String otherStorageKey,
                                    UUID sessionId, UUID runId, UUID messageId) {
     }

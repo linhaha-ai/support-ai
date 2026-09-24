@@ -12,7 +12,10 @@ import com.haha.supportai.knowledge.document.service.DocumentUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.SchemaProperty;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,6 +46,15 @@ public class DocumentVersionController {
             summary = "上传文档新版本",
             description = "需要知识库写权限和当前修订号；相同内容与配置返回 200 并复用当前版本，"
                     + "否则返回 202。新版本完整发布前旧版本继续用于检索",
+            requestBody = @RequestBody(required = true, content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(type = "object", requiredProperties = { "file", "expectedRevision" }),
+                    schemaProperties = {
+                            @SchemaProperty(name = "file", schema = @Schema(type = "string", format = "binary",
+                                    description = "UTF-8 Markdown 或 TXT 新版本原文件")),
+                            @SchemaProperty(name = "expectedRevision", schema = @Schema(type = "integer",
+                                    format = "int64", description = "文档详情中的当前修订号", example = "1"))
+                    })),
             responses = {
                     @ApiResponse(responseCode = "200", description = "已复用当前可用版本",
                             useReturnTypeSchema = true),
@@ -59,9 +71,9 @@ public class DocumentVersionController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResult<DocumentVersionUploadResponse>> upload(
             @Parameter(description = "文档标识", required = true) @PathVariable UUID documentId,
-            @Parameter(description = "UTF-8 Markdown 或 TXT 新版本原文件", required = true)
+            @Parameter(hidden = true)
             @RequestPart("file") MultipartFile file,
-            @Parameter(description = "文档详情中的当前修订号", required = true, example = "1")
+            @Parameter(hidden = true)
             @RequestParam("expectedRevision") long expectedRevision,
             @Parameter(hidden = true) HttpServletRequest request) {
         DocumentVersionUploadResponse response = documentUploadService

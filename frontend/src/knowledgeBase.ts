@@ -93,6 +93,7 @@ export interface IngestionJobDetail {
   cancellable: boolean
   errorCode: string | null
   errorMessage: string | null
+  errorStage: IngestionJobStage | null
   nextRunAt: string | null
   startedAt: string | null
   finishedAt: string | null
@@ -292,6 +293,9 @@ function parseIngestionJobDetail(value: unknown): IngestionJobDetail | null {
   const completedChunks = isRecord(value) ? parseNullableNumber(value.completedChunks) : undefined
   const totalChunks = isRecord(value) ? parseNullableNumber(value.totalChunks) : undefined
   const progressPercent = isRecord(value) ? parseNullableNumber(value.progressPercent) : undefined
+  const errorStage = isRecord(value)
+    ? value.errorStage === null ? null : parseIngestionJobStage(value.errorStage) ?? undefined
+    : undefined
   if (!isRecord(value)
     || typeof value.jobId !== 'string'
     || typeof value.versionId !== 'string'
@@ -306,6 +310,7 @@ function parseIngestionJobDetail(value: unknown): IngestionJobDetail | null {
     || typeof value.cancellable !== 'boolean'
     || parseNullableString(value.errorCode) === undefined
     || parseNullableString(value.errorMessage) === undefined
+    || errorStage === undefined
     || parseNullableString(value.nextRunAt) === undefined
     || parseNullableString(value.startedAt) === undefined
     || parseNullableString(value.finishedAt) === undefined
@@ -324,6 +329,7 @@ function parseIngestionJobDetail(value: unknown): IngestionJobDetail | null {
     cancellable: value.cancellable,
     errorCode: parseNullableString(value.errorCode) ?? null,
     errorMessage: parseNullableString(value.errorMessage) ?? null,
+    errorStage,
     nextRunAt: parseNullableString(value.nextRunAt) ?? null,
     startedAt: parseNullableString(value.startedAt) ?? null,
     finishedAt: parseNullableString(value.finishedAt) ?? null,
