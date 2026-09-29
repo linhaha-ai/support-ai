@@ -62,7 +62,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                       job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                       job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                      job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                      job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                      job.trace_id
             """)
     @Results(id = "ingestionJobResultMap", value = {
             @Result(column = "id", property = "id", javaType = UUID.class, typeHandler = UuidTypeHandler.class,
@@ -89,7 +90,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             @Result(column = "started_at", property = "startedAt"),
             @Result(column = "finished_at", property = "finishedAt"),
             @Result(column = "created_at", property = "createdAt"),
-            @Result(column = "updated_at", property = "updatedAt")
+            @Result(column = "updated_at", property = "updatedAt"),
+            @Result(column = "trace_id", property = "traceId")
     })
     Optional<IngestionJob> claimNextByStage(@Param("stage") IngestionStageEnum stage,
                                             @Param("leaseOwner") String leaseOwner,
@@ -123,7 +125,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                    job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                    job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                   job.trace_id
             FROM ingestion_job job
             WHERE job.version_id IN
             <foreach collection="versionIds" item="versionId" open="(" separator="," close=")">
@@ -139,7 +142,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                    job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                    job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                   job.trace_id
             FROM ingestion_job job
             INNER JOIN document_version version ON version.id = job.version_id
             INNER JOIN document document ON document.id = version.document_id
@@ -208,7 +212,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                 RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                           job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                           job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                          job.trace_id
             ), cancelled_version AS (
                 UPDATE document_version version
                 SET status = 'CANCELLED',
@@ -230,7 +235,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                    job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                    job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                   job.trace_id
             FROM cancelled_job job
             """)
     @ResultMap("ingestionJobResultMap")
@@ -299,12 +305,14 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                 RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                           job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                           job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                          job.trace_id
             )
             SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                    job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                    job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                   job.trace_id
             FROM retried_job job
             """)
     @ResultMap("ingestionJobResultMap")
@@ -315,7 +323,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                    job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                    job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                   job.trace_id
             FROM ingestion_job job
             INNER JOIN document_version version ON version.id = job.version_id
             INNER JOIN document document ON document.id = version.document_id
@@ -481,7 +490,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
                 RETURNING job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                           job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                           job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                          job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                          job.trace_id
             ), failed_version AS (
                 UPDATE document_version version
                 SET status = 'FAILED',
@@ -503,7 +513,8 @@ public interface IngestionJobMapper extends BaseMapper<IngestionJob> {
             SELECT job.id, job.version_id, job.status, job.stage, job.attempt, job.max_attempts,
                    job.lease_owner, job.lease_token, job.lease_until, job.heartbeat_at, job.next_run_at,
                    job.completed_chunks, job.total_chunks, job.error_code, job.error_detail,
-                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at
+                   job.cancel_requested_at, job.started_at, job.finished_at, job.created_at, job.updated_at,
+                   job.trace_id
             FROM failed_job job
             """)
     @ResultMap("ingestionJobResultMap")

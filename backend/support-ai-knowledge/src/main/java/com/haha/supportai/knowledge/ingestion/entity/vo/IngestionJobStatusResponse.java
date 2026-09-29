@@ -37,6 +37,9 @@ public class IngestionJobStatusResponse {
     @Schema(description = "待处理文档版本标识", requiredMode = Schema.RequiredMode.REQUIRED)
     private final UUID versionId; // 待处理文档版本标识
 
+    @Schema(description = "创建任务的请求追踪标识；历史任务可能为空", nullable = true)
+    private final String traceId; // 创建任务的请求追踪标识
+
     @Schema(description = "任务状态", requiredMode = Schema.RequiredMode.REQUIRED)
     private final IngestionJobStatusEnum status; // 任务状态
 
@@ -86,7 +89,8 @@ public class IngestionJobStatusResponse {
     private final OffsetDateTime updatedAt; // 任务最近更新时间
 
     public static IngestionJobStatusResponse from(IngestionJob job, boolean canManage) {
-        return new IngestionJobStatusResponse(job.getId(), job.getVersionId(), job.getStatus(), job.getStage(),
+        return new IngestionJobStatusResponse(job.getId(), job.getVersionId(), job.getTraceId(),
+                job.getStatus(), job.getStage(),
                 job.getAttempt(), job.getMaxAttempts(), job.getCompletedChunks(), job.getTotalChunks(),
                 progressPercent(job), canManage && isRetryable(job),
                 canManage && CANCELLABLE_STATUSES.contains(job.getStatus()), safeErrorCode(job),

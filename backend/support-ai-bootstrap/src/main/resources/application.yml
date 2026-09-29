@@ -170,6 +170,8 @@ support:
       stream:
         pool-size: 4
         queue-capacity: 32
+        max-question-length: 2000
+        max-concurrent-runs-per-user: 2
         timeout: 200s
         execution-timeout: 180s
     assistant:

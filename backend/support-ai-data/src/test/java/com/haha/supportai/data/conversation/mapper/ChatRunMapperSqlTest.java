@@ -51,6 +51,17 @@ class ChatRunMapperSqlTest {
                 .contains("created_at < #{startupBoundary}");
     }
 
+    @Test
+    void userActiveRunCountUsesSessionOwnerAndActiveStatuses() throws NoSuchMethodException {
+        String sql = selectSql("countActiveByUserId", UUID.class);
+
+        assertThat(sql)
+                .contains("INNER JOIN chat_session session ON session.id = run.session_id")
+                .contains("session.user_id = #{userId,jdbcType=OTHER}")
+                .contains("session.deleted_at IS NULL")
+                .contains("run.status IN ('QUEUED', 'RUNNING')");
+    }
+
     private String selectSql(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {
         Method method = ChatRunMapper.class.getMethod(methodName, parameterTypes);
         return String.join("\n", method.getAnnotation(Select.class).value());

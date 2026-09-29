@@ -2,6 +2,12 @@ package com.haha.supportai.data.identity;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.haha.supportai.data.identity.entity.po.AppUser;
 import com.haha.supportai.data.identity.enums.UserRoleEnum;
@@ -24,12 +30,14 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
 @SpringBootTest(properties = {
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
         "spring.ai.dashscope.api-key=", "spring.ai.ollama.base-url=http://127.0.0.1:1",
-        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false"
+        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false",
+        "support.ai.document.cleanup.enabled=false"
 })
 class AppUserMapperDatabaseIT {
 
@@ -125,6 +133,53 @@ class AppUserMapperDatabaseIT {
             assertThat(appUserRepository.isEnabled(existing.getId())).isTrue();
         } finally {
             jdbcTemplate.update("DELETE FROM app_user WHERE id IN (?, ?)", existing.getId(), inserted.getId());
+        }
+    }
+
+    @Test
+    void enabledUserLockSerializesPerUserQuotaChecks() throws Exception {
+        AppUser user = newUser(UserRoleEnum.USER);
+        assertThat(appUserMapper.insert(user)).isEqualTo(1);
+        CountDownLatch firstLockAcquired = new CountDownLatch(1);
+        CountDownLatch releaseFirstLock = new CountDownLatch(1);
+        CountDownLatch secondLookupStarted = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(status -> {
+                        assertThat(appUserRepository.findEnabledByIdForUpdate(user.getId())).isPresent();
+                        firstLockAcquired.countDown();
+                        await(releaseFirstLock);
+                    }));
+            assertThat(firstLockAcquired.await(5, TimeUnit.SECONDS)).isTrue();
+            Future<AppUser> second = executor.submit(() -> new TransactionTemplate(transactionManager)
+                    .execute(status -> {
+                        secondLookupStarted.countDown();
+                        return appUserRepository.findEnabledByIdForUpdate(user.getId()).orElseThrow();
+                    }));
+            assertThat(secondLookupStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            releaseFirstLock.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            assertStoredUser(second.get(5, TimeUnit.SECONDS), user);
+        } finally {
+            releaseFirstLock.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+            jdbcTemplate.update("DELETE FROM app_user WHERE id = ?", user.getId());
+        }
+    }
+
+    private void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("账号行锁测试等待超时");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("账号行锁测试被中断", exception);
         }
     }
 

@@ -55,7 +55,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
         "spring.ai.dashscope.api-key=", "spring.ai.ollama.base-url=http://127.0.0.1:1",
         "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.document.upload.max-file-size=64B",
-        "support.ai.ingestion.worker.enabled=false"
+        "support.ai.ingestion.worker.enabled=false", "support.ai.document.cleanup.enabled=false"
 })
 @AutoConfigureMockMvc
 class DocumentUploadDatabaseIT {
@@ -117,6 +117,8 @@ class DocumentUploadDatabaseIT {
             documentId = UUID.fromString(receipt.path("documentId").asText());
             versionId = UUID.fromString(receipt.path("versionId").asText());
             jobId = UUID.fromString(receipt.path("jobId").asText());
+            String traceId = result.getResponse().getHeader("X-Trace-Id");
+            assertThat(traceId).isNotBlank();
             assertThat(result.getResponse().getHeader("Location")).isEqualTo("/api/ingestion-jobs/" + jobId);
             storageKey = jdbcTemplate.queryForObject("SELECT storage_key FROM document_version WHERE id = ?",
                     String.class, versionId);
@@ -137,6 +139,12 @@ class DocumentUploadDatabaseIT {
                     jobId)).isEqualTo("QUEUED");
             assertThat(jdbcTemplate.queryForObject("SELECT stage FROM ingestion_job WHERE id = ?", String.class,
                     jobId)).isEqualTo("PARSE");
+            assertThat(jdbcTemplate.queryForObject("SELECT trace_id FROM ingestion_job WHERE id = ?", String.class,
+                    jobId)).isEqualTo(traceId);
+            mvc.perform(get("/api/ingestion-jobs/{jobId}", jobId)
+                            .session(admin.session()).cookie(admin.cookie()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.traceId").value(traceId));
             assertThat(Files.exists(STORAGE_ROOT.resolve(storageKey))).isTrue();
             mvc.perform(get("/api/knowledge-bases/{kbId}", knowledgeBaseId)
                             .session(admin.session()).cookie(admin.cookie()))

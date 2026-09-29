@@ -11,6 +11,7 @@ import com.haha.supportai.conversation.exception.ChatSessionKnowledgeBaseUnavail
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
 import com.haha.supportai.conversation.exception.ChatSessionScopeRevokedException;
 import com.haha.supportai.conversation.exception.ChatStreamCapacityException;
+import com.haha.supportai.conversation.exception.ChatUserConcurrencyLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -71,6 +72,12 @@ public class ConversationExceptionHandler {
     @ExceptionHandler(ChatStreamCapacityException.class)
     ResponseEntity<ApiError> handleStreamCapacity(ChatStreamCapacityException exception, HttpServletRequest request) {
         return error(HttpStatus.TOO_MANY_REQUESTS, "REQUEST_LIMITED", "当前请求较多，请稍后重试", request);
+    }
+
+    @ExceptionHandler(ChatUserConcurrencyLimitException.class)
+    ResponseEntity<ApiError> handleUserConcurrencyLimit(ChatUserConcurrencyLimitException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.TOO_MANY_REQUESTS, "REQUEST_LIMITED", "当前账号进行中的问答已达上限", request);
     }
 
     private ResponseEntity<ApiError> error(HttpStatus status, String code, String message, HttpServletRequest request) {

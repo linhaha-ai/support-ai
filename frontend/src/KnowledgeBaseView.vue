@@ -520,6 +520,9 @@ onMounted(knowledgeBases.load)
             <span v-if="documentUpload.stateFor(item.id).job?.status === 'FAILED' && documentUpload.stateFor(item.id).job?.errorCode">
               错误代码 {{ documentUpload.stateFor(item.id).job?.errorCode }}
             </span>
+            <span v-if="documentUpload.stateFor(item.id).job?.status === 'FAILED' && documentUpload.stateFor(item.id).job?.traceId">
+              追踪号 {{ documentUpload.stateFor(item.id).job?.traceId }}
+            </span>
             <span>文档 {{ documentUpload.stateFor(item.id).receipt?.documentId }}</span>
             <span>版本 {{ documentUpload.stateFor(item.id).receipt?.versionId }}</span>
             <span>任务 {{ documentUpload.stateFor(item.id).receipt?.jobId }}</span>

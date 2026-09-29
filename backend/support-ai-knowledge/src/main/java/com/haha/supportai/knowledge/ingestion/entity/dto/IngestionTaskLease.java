@@ -26,4 +26,11 @@ public class IngestionTaskLease {
     private final UUID leaseToken; // 本次领取生成的随机租约令牌
 
     private final OffsetDateTime leaseUntil; // 本次租约失效时间
+
+    private final String traceId; // 创建任务的请求追踪标识
+
+    public IngestionTaskLease(UUID jobId, UUID versionId, IngestionStageEnum stage, int attempt, int maxAttempts,
+            String leaseOwner, UUID leaseToken, OffsetDateTime leaseUntil) {
+        this(jobId, versionId, stage, attempt, maxAttempts, leaseOwner, leaseToken, leaseUntil, null);
+    }
 }

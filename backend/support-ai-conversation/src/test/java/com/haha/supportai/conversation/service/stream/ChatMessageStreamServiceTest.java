@@ -44,6 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -122,7 +123,9 @@ class ChatMessageStreamServiceTest {
     void acceptedTaskUsesConfiguredTimeoutAndRunsGenerationOnce() {
         PreparedChatRunResponse preparedRun = preparedRun(false);
         ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        List<String> observedTraceIds = new ArrayList<>();
         doAnswer(invocation -> {
+            observedTraceIds.add(MDC.get("traceId"));
             RagStreamObserver observer = invocation.getArgument(1);
             observer.onStarted();
             observer.onDelta("增量");
@@ -135,6 +138,8 @@ class ChatMessageStreamServiceTest {
 
         assertThat(emitter.getTimeout()).isEqualTo(30_000L);
         assertThat(eventNames).containsExactly("start", "delta", "sources", "done");
+        assertThat(observedTraceIds).containsExactly("trace-test");
+        assertThat(MDC.get("traceId")).isNull();
         verify(ragAnswerService).generateStreaming(eq(preparedRun), any(RagStreamObserver.class));
         verify(timeoutFuture).cancel(false);
     }

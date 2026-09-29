@@ -554,6 +554,7 @@ class CrossFeatureAuthorizationDatabaseIT {
 
     private void useUser(AuthenticatedUser user) {
         when(activeAccountGuard.currentUser()).thenReturn(user);
+        when(activeAccountGuard.currentUserForUpdate()).thenReturn(user);
     }
 
     private MockMultipartFile upload(String filename, String content) {

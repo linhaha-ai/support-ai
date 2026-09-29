@@ -82,6 +82,12 @@ function ticketStatusLabel(status: string): string {
   return labels[status] ?? status
 }
 
+function usageLabel(usage: { promptTokens: number | null, completionTokens: number | null, totalTokens: number | null } | null): string {
+  if (!usage) return '模型 Token 用量未知'
+  const value = (tokens: number | null) => tokens === null ? '未知' : String(tokens)
+  return `模型 Token：输入 ${value(usage.promptTokens)} · 输出 ${value(usage.completionTokens)} · 合计 ${value(usage.totalTokens)}`
+}
+
 function beginRename() {
   if (!sessions.createdSession || !sessions.canManageSession) return
   titleInput.value = sessions.createdSession.title
@@ -264,6 +270,10 @@ onMounted(() => {
           <p v-else-if="message.status === 'STREAMING'" class="chat-message-pending">正在生成回答...</p>
           <p v-else-if="!sessions.historyContentReadable" class="chat-message-pending">内容已受限</p>
           <p v-if="message.errorMessage" class="chat-message-error">{{ message.errorMessage }}</p>
+          <p v-if="message.role === 'assistant' && (message.usage !== undefined || message.traceId)" class="chat-message-diagnostics">
+            <span v-if="message.usage !== undefined">{{ usageLabel(message.usage) }}</span>
+            <span v-if="message.traceId">追踪号 {{ message.traceId }}</span>
+          </p>
           <div v-if="message.tools.length > 0" class="chat-tools" aria-label="工具执行过程">
             <ElTag
               v-for="(tool, index) in message.tools"
@@ -310,6 +320,8 @@ onMounted(() => {
           resize="none"
           placeholder="输入你的问题"
           aria-label="问题内容"
+          maxlength="2000"
+          show-word-limit
           :disabled="sessions.sending || !sessions.historyContentReadable"
         />
         <div class="chat-composer-actions">

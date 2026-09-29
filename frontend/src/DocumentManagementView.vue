@@ -71,7 +71,8 @@ function stageLabel(stage: DocumentIngestionJob['stage']): string {
 function jobSummary(job: DocumentIngestionJob | null): string {
   if (!job) return ''
   const errorStage = stageLabel(job.errorStage ?? job.stage)
-  const error = [job.errorCode, job.errorMessage].filter(Boolean).join(' · ')
+  const error = [job.errorCode, job.errorMessage, job.traceId ? `追踪号 ${job.traceId}` : null]
+    .filter(Boolean).join(' · ')
   if (job.status === 'FAILED') return `${errorStage}阶段终止失败${error ? ` · ${error}` : ''}`
   if (job.status === 'RETRY_WAIT') return `${errorStage}阶段失败，等待自动重试${error ? ` · ${error}` : ''}`
   if (job.status === 'RUNNING') return `${stageLabel(job.stage)}阶段处理中${job.progressPercent === null ? '' : `，${job.progressPercent}%`}`

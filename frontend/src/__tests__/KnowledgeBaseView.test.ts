@@ -79,6 +79,7 @@ function ingestionJob(
   return {
     jobId: queuedReceipt().jobId,
     versionId: queuedReceipt().versionId,
+      traceId: status === 'FAILED' ? 'trace-f30-job' : null,
     status,
     stage: status === 'RUNNING' ? 'EMBED' : 'PARSE',
     attempt: status === 'RETRY_WAIT' ? 1 : 0,
@@ -201,6 +202,7 @@ describe('知识库视图', () => {
     expect(view.text()).toContain('FAILED · 处理失败')
     expect(view.text()).toContain('原文件暂时无法读取')
     expect(view.text()).toContain('错误代码 DOCUMENT_READ_FAILED')
+    expect(view.text()).toContain('追踪号 trace-f30-job')
   })
 
   it('文档任务运行但进度未知时仅展示中文阶段', async () => {

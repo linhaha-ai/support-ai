@@ -25,6 +25,10 @@ public class AppUserRepository {
         return Optional.ofNullable(appUserMapper.selectById(id));
     }
 
+    public Optional<AppUser> findEnabledByIdForUpdate(UUID id) {
+        return appUserMapper.selectEnabledByIdForUpdate(id);
+    }
+
     public List<AppUser> listForAdministration() {
         return appUserMapper.selectList(Wrappers.<AppUser>lambdaQuery()
                 .orderByAsc(AppUser::getUsername)

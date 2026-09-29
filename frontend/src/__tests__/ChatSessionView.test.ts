@@ -191,6 +191,7 @@ describe('会话创建页面', () => {
 
     expect(view.text()).toContain('先检查回调日志，再核对订单状态。[1]')
     expect(view.text()).toContain('已完成')
+    expect(view.text()).toContain('模型 Token 用量未知')
     expect(newSessionButton?.attributes('disabled')).toBeUndefined()
     expect(view.get('.chat-source-button').text()).toContain('[1] 支付排查手册')
 
@@ -253,6 +254,7 @@ describe('会话创建页面', () => {
     expect(view.text()).toContain('已生成的部分回答。')
     expect(view.text()).toContain('未完整')
     expect(view.text()).toContain('回答模型暂时不可用')
+    expect(view.text()).toContain('追踪号 trace-stream')
     expect(view.text()).not.toContain('已完成')
   })
 

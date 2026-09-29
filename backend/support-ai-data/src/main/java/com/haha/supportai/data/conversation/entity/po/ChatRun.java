@@ -66,4 +66,15 @@ public class ChatRun {
 
     @TableField("updated_at")
     private OffsetDateTime updatedAt; // 运行最近更新时间
+
+    @TableField("trace_id")
+    private String traceId; // 创建运行的请求追踪标识
+
+    public ChatRun(UUID id, UUID sessionId, UUID clientRequestId, String requestHash, ChatRunStatusEnum status,
+            String configSnapshot, String usage, String metrics, String errorCode, String errorDetail,
+            OffsetDateTime cancelRequestedAt, OffsetDateTime startedAt, OffsetDateTime finishedAt,
+            OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+        this(id, sessionId, clientRequestId, requestHash, status, configSnapshot, usage, metrics, errorCode,
+                errorDetail, cancelRequestedAt, startedAt, finishedAt, createdAt, updatedAt, null);
+    }
 }

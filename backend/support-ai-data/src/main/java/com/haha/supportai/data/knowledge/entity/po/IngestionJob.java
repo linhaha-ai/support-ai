@@ -81,4 +81,17 @@ public class IngestionJob {
 
     @TableField("updated_at")
     private OffsetDateTime updatedAt; // 最近更新时间
+
+    @TableField("trace_id")
+    private String traceId; // 创建任务的请求追踪标识
+
+    public IngestionJob(UUID id, UUID versionId, IngestionJobStatusEnum status, IngestionStageEnum stage,
+            int attempt, int maxAttempts, String leaseOwner, UUID leaseToken, OffsetDateTime leaseUntil,
+            OffsetDateTime heartbeatAt, OffsetDateTime nextRunAt, Integer completedChunks, Integer totalChunks,
+            String errorCode, String errorDetail, OffsetDateTime cancelRequestedAt, OffsetDateTime startedAt,
+            OffsetDateTime finishedAt, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+        this(id, versionId, status, stage, attempt, maxAttempts, leaseOwner, leaseToken, leaseUntil, heartbeatAt,
+                nextRunAt, completedChunks, totalChunks, errorCode, errorDetail, cancelRequestedAt, startedAt,
+                finishedAt, createdAt, updatedAt, null);
+    }
 }

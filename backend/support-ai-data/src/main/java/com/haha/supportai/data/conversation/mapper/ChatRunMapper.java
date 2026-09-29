@@ -25,7 +25,8 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
             -- chat_run：显式转换 JSONB 快照和指标，保存请求幂等记录。
             INSERT INTO chat_run (
                 id, session_id, client_request_id, request_hash, status, config_snapshot, usage, metrics,
-                error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at
+                error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at,
+                trace_id
             ) VALUES (
                 #{run.id,jdbcType=OTHER}, #{run.sessionId,jdbcType=OTHER}, #{run.clientRequestId,jdbcType=OTHER},
                 #{run.requestHash}, #{run.status,jdbcType=VARCHAR},
@@ -33,7 +34,7 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
                 CAST(#{run.usage,jdbcType=VARCHAR} AS JSONB),
                 CAST(#{run.metrics,jdbcType=VARCHAR} AS JSONB),
                 #{run.errorCode}, #{run.errorDetail}, #{run.cancelRequestedAt}, #{run.startedAt},
-                #{run.finishedAt}, #{run.createdAt}, #{run.updatedAt}
+                #{run.finishedAt}, #{run.createdAt}, #{run.updatedAt}, #{run.traceId}
             )
             """)
     int insertChatRun(@Param("run") ChatRun run);
@@ -41,7 +42,8 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
     @Select("""
             -- chat_run：按照会话内客户端幂等键读取既有运行。
             SELECT id, session_id, client_request_id, request_hash, status, config_snapshot, usage, metrics,
-                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at
+                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at,
+                   trace_id
             FROM chat_run
             WHERE session_id = #{sessionId,jdbcType=OTHER}
               AND client_request_id = #{clientRequestId,jdbcType=OTHER}
@@ -65,7 +67,8 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
             @Result(column = "started_at", property = "startedAt"),
             @Result(column = "finished_at", property = "finishedAt"),
             @Result(column = "created_at", property = "createdAt"),
-            @Result(column = "updated_at", property = "updatedAt")
+            @Result(column = "updated_at", property = "updatedAt"),
+            @Result(column = "trace_id", property = "traceId")
     })
     Optional<ChatRun> selectBySessionIdAndClientRequestId(@Param("sessionId") UUID sessionId,
                                                           @Param("clientRequestId") UUID clientRequestId);
@@ -73,7 +76,8 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
     @Select("""
             -- chat_run：按运行标识读取持久化状态，供应用内部协调恢复和执行。
             SELECT id, session_id, client_request_id, request_hash, status, config_snapshot, usage, metrics,
-                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at
+                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at,
+                   trace_id
             FROM chat_run
             WHERE id = #{runId,jdbcType=OTHER}
             """)
@@ -84,7 +88,8 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
             -- chat_run、chat_session：仅读取当前用户拥有且未删除会话中的运行，避免泄露已删除会话内容。
             SELECT run.id, run.session_id, run.client_request_id, run.request_hash, run.status,
                    run.config_snapshot, run.usage, run.metrics, run.error_code, run.error_detail,
-                   run.cancel_requested_at, run.started_at, run.finished_at, run.created_at, run.updated_at
+                   run.cancel_requested_at, run.started_at, run.finished_at, run.created_at, run.updated_at,
+                   run.trace_id
             FROM chat_run run
             INNER JOIN chat_session session ON session.id = run.session_id
             WHERE run.id = #{runId,jdbcType=OTHER}
@@ -98,7 +103,8 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
             -- chat_run、chat_session：锁定当前用户拥有且未删除会话中的运行，串行化取消与终态写入。
             SELECT run.id, run.session_id, run.client_request_id, run.request_hash, run.status,
                    run.config_snapshot, run.usage, run.metrics, run.error_code, run.error_detail,
-                   run.cancel_requested_at, run.started_at, run.finished_at, run.created_at, run.updated_at
+                   run.cancel_requested_at, run.started_at, run.finished_at, run.created_at, run.updated_at,
+                   run.trace_id
             FROM chat_run run
             INNER JOIN chat_session session ON session.id = run.session_id
             WHERE run.id = #{runId,jdbcType=OTHER}
@@ -113,13 +119,25 @@ public interface ChatRunMapper extends BaseMapper<ChatRun> {
     @Select("""
             -- chat_run：读取会话中尚未结束的运行，应用层在会话锁内据此拒绝并发提问。
             SELECT id, session_id, client_request_id, request_hash, status, config_snapshot, usage, metrics,
-                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at
+                   error_code, error_detail, cancel_requested_at, started_at, finished_at, created_at, updated_at,
+                   trace_id
             FROM chat_run
             WHERE session_id = #{sessionId,jdbcType=OTHER}
               AND status IN ('QUEUED', 'RUNNING')
             """)
     @ResultMap("chatRunResultMap")
     Optional<ChatRun> selectActiveBySessionId(@Param("sessionId") UUID sessionId);
+
+    @Select("""
+            -- chat_run、chat_session：统计同一用户跨会话尚未结束的运行，配合账号行锁执行配额判断。
+            SELECT COUNT(*)
+            FROM chat_run run
+            INNER JOIN chat_session session ON session.id = run.session_id
+            WHERE session.user_id = #{userId,jdbcType=OTHER}
+              AND session.deleted_at IS NULL
+              AND run.status IN ('QUEUED', 'RUNNING')
+            """)
+    long countActiveByUserId(@Param("userId") UUID userId);
 
     @Update("""
             -- chat_run、chat_message：仅允许由同一会话、运行和已持久化问题组成的完整消息对领取运行。

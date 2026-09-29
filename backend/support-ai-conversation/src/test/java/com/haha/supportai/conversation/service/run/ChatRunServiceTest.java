@@ -9,11 +9,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.haha.supportai.conversation.config.ChatStreamProperties;
 import com.haha.supportai.conversation.entity.dto.SubmitMessageCommand;
 import com.haha.supportai.conversation.exception.ChatIdempotencyConflictException;
 import com.haha.supportai.conversation.exception.ChatRunInProgressException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionScopeRevokedException;
+import com.haha.supportai.conversation.exception.ChatUserConcurrencyLimitException;
 import com.haha.supportai.conversation.support.ChatRunConfigurationSnapshotFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
@@ -31,11 +33,13 @@ import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.security.ActiveAccountGuard;
 import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +48,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -76,8 +81,17 @@ class ChatRunServiceTest {
     @Mock
     ChatRunConfigurationSnapshotFactory configurationSnapshotFactory;
 
+    @Mock
+    ChatStreamProperties chatStreamProperties;
+
     @InjectMocks
     ChatRunService chatRunService;
+
+    @BeforeEach
+    void setUpLimits() {
+        lenient().when(chatStreamProperties.getMaxQuestionLength()).thenReturn(2000);
+        lenient().when(chatStreamProperties.getMaxConcurrentRunsPerUser()).thenReturn(2);
+    }
 
     @Test
     void preparesOneQueuedRunWithCompletedUserAndStreamingAssistantMessages() {
@@ -167,8 +181,45 @@ class ChatRunServiceTest {
     }
 
     @Test
+    void rejectsNewRunWhenUserConcurrencyLimitIsReachedAcrossSessions() {
+        arrangeAccessibleSession();
+        given(chatRunRepository.findBySessionIdAndClientRequestId(SESSION_ID, CLIENT_REQUEST_ID))
+                .willReturn(Optional.empty());
+        given(chatRunRepository.findActiveBySessionId(SESSION_ID)).willReturn(Optional.empty());
+        given(chatRunRepository.countActiveByUserId(USER_ID)).willReturn(2L);
+
+        assertThatThrownBy(() -> chatRunService.prepare(SESSION_ID,
+                new SubmitMessageCommand(CLIENT_REQUEST_ID, "新的问题")))
+                .isInstanceOf(ChatUserConcurrencyLimitException.class);
+
+        then(chatRunRepository).should(never()).insert(any());
+        then(chatSessionRepository).should(never()).advanceNextMessageSeq(SESSION_ID, 1);
+    }
+
+    @Test
+    void persistsCurrentTraceIdWithPreparedRun() {
+        arrangeAccessibleSession();
+        given(chatRunRepository.findBySessionIdAndClientRequestId(SESSION_ID, CLIENT_REQUEST_ID))
+                .willReturn(Optional.empty());
+        given(chatRunRepository.findActiveBySessionId(SESSION_ID)).willReturn(Optional.empty());
+        given(chatSessionRepository.advanceNextMessageSeq(SESSION_ID, 1)).willReturn(true);
+        given(configurationSnapshotFactory.create(ChatSessionModeEnum.RAG)).willReturn("{}");
+
+        try {
+            MDC.put("traceId", "trace-f30-run");
+            chatRunService.prepare(SESSION_ID, new SubmitMessageCommand(CLIENT_REQUEST_ID, "如何排查？"));
+        } finally {
+            MDC.remove("traceId");
+        }
+
+        ArgumentCaptor<ChatRun> runCaptor = ArgumentCaptor.forClass(ChatRun.class);
+        then(chatRunRepository).should().insert(runCaptor.capture());
+        assertThat(runCaptor.getValue().getTraceId()).isEqualTo("trace-f30-run");
+    }
+
+    @Test
     void rejectsRunWhenFixedKnowledgeScopeHasBeenRevoked() {
-        given(activeAccountGuard.currentUser()).willReturn(currentUser());
+        given(activeAccountGuard.currentUserForUpdate()).willReturn(currentUser());
         given(chatSessionRepository.findOwnedByIdForUpdate(SESSION_ID, USER_ID)).willReturn(Optional.of(session()));
         given(chatSessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID)).willReturn(List.of(KB_ID));
         given(knowledgeScopeAccess.lockAllReadable(USER_ID, List.of(KB_ID))).willReturn(false);
@@ -201,7 +252,7 @@ class ChatRunServiceTest {
     }
 
     private void arrangeAccessibleSession() {
-        given(activeAccountGuard.currentUser()).willReturn(currentUser());
+        given(activeAccountGuard.currentUserForUpdate()).willReturn(currentUser());
         given(chatSessionRepository.findOwnedByIdForUpdate(SESSION_ID, USER_ID)).willReturn(Optional.of(session()));
         given(chatSessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID)).willReturn(List.of(KB_ID));
         given(knowledgeScopeAccess.lockAllReadable(USER_ID, List.of(KB_ID))).willReturn(true);

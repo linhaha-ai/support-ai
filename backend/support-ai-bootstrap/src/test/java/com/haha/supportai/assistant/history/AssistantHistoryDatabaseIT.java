@@ -57,7 +57,8 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(properties = {
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
         "spring.ai.dashscope.api-key=", "spring.ai.ollama.base-url=http://127.0.0.1:1",
-        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false"
+        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false",
+        "support.ai.document.cleanup.enabled=false"
 })
 class AssistantHistoryDatabaseIT {
 
@@ -173,7 +174,7 @@ class AssistantHistoryDatabaseIT {
         PreparedChatRunResponse otherFirst = prepare(other, "工单 " + other.ticketNo() + " 当前状态");
         answers.generateStreaming(otherFirst, AssistantStreamObserver.NONE);
         MessageSource foreignRoot = sources.listByMessageId(otherFirst.getAssistantMessageId()).getFirst();
-        when(account.currentUser()).thenReturn(fixture.user());
+        useUser(fixture.user());
         PreparedChatRunResponse next = prepare(fixture, "解释先前结果");
         runPersistence.start(next);
         assertThat(historyRepository.isUsable(ownRoot.getId(), fixture.sessionId(), other.user().getId())).isFalse();
@@ -274,7 +275,7 @@ class AssistantHistoryDatabaseIT {
                 INSERT INTO ticket (id, ticket_no, kb_id, title, status) VALUES (?, ?, ?, 'F28 工单', 'OPEN')
                 """, ticketId, ticketNo, kbId);
         AuthenticatedUser user = new AuthenticatedUser(userId, username, "F28 用户", UserRoleEnum.USER);
-        when(account.currentUser()).thenReturn(user);
+        useUser(user);
         return new Fixture(user, kbId, ticketId, ticketNo, createSession(kbId));
     }
 
@@ -286,8 +287,13 @@ class AssistantHistoryDatabaseIT {
     }
 
     private PreparedChatRunResponse prepare(Fixture fixture, String question) {
-        when(account.currentUser()).thenReturn(fixture.user());
+        useUser(fixture.user());
         return runs.prepare(fixture.sessionId(), new SubmitMessageCommand(UUID.randomUUID(), question));
+    }
+
+    private void useUser(AuthenticatedUser user) {
+        when(account.currentUser()).thenReturn(user);
+        when(account.currentUserForUpdate()).thenReturn(user);
     }
 
     private int callCount(UUID runId) {

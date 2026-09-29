@@ -549,7 +549,7 @@ class OpenApiDocumentationTest {
         OffsetDateTime now = OffsetDateTime.parse("2026-09-21T08:00:00Z");
         configureAuthenticatedUser();
         when(chatRunControlService.getStatus(runId)).thenReturn(new ChatRunStatusResponse(runId, sessionId,
-                userMessageId, assistantMessageId, ChatRunStatusEnum.RUNNING,
+                "trace-f30-run", userMessageId, assistantMessageId, ChatRunStatusEnum.RUNNING,
                 ChatMessageStatusEnum.STREAMING, "部分回答", true,
                 List.of(), null, null, null, null, true, null, now, null));
         when(chatRunControlService.cancel(runId))
@@ -561,6 +561,7 @@ class OpenApiDocumentationTest {
                         .cookie(authenticatedRequest.cookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.runId").value(runId.toString()))
+                .andExpect(jsonPath("$.data.traceId").value("trace-f30-run"))
                 .andExpect(jsonPath("$.data.answer").value("部分回答"));
         mvc.perform(post("/api/chat/runs/{runId}/cancel", runId)
                         .session(authenticatedRequest.session())

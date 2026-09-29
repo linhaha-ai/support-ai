@@ -10,6 +10,7 @@ export interface DocumentApiError {
 export interface DocumentIngestionJob {
   jobId: string
   versionId: string
+  traceId: string | null
   status: IngestionJobStatus
   stage: IngestionJobStage
   attempt: number
@@ -147,9 +148,11 @@ function parseJob(value: unknown): DocumentIngestionJob | null {
   const nextRunAt = isRecord(value) ? parseNullableString(value.nextRunAt) : undefined
   const startedAt = isRecord(value) ? parseNullableString(value.startedAt) : undefined
   const finishedAt = isRecord(value) ? parseNullableString(value.finishedAt) : undefined
+  const traceId = isRecord(value) && value.traceId !== undefined ? parseNullableString(value.traceId) : null
   if (!isRecord(value)
     || typeof value.jobId !== 'string'
     || typeof value.versionId !== 'string'
+    || traceId === undefined
     || !status || !stage
     || typeof value.attempt !== 'number'
     || typeof value.maxAttempts !== 'number'
@@ -158,7 +161,7 @@ function parseJob(value: unknown): DocumentIngestionJob | null {
     || errorCode === undefined || errorMessage === undefined || errorStage === undefined || nextRunAt === undefined
     || startedAt === undefined || finishedAt === undefined || typeof value.updatedAt !== 'string') return null
   return {
-    jobId: value.jobId, versionId: value.versionId, status, stage,
+    jobId: value.jobId, versionId: value.versionId, traceId, status, stage,
     attempt: value.attempt, maxAttempts: value.maxAttempts,
     completedChunks, totalChunks, progressPercent,
     retryable: value.retryable, cancellable: value.cancellable,

@@ -19,6 +19,7 @@ import com.haha.supportai.conversation.exception.ChatIdempotencyConflictExceptio
 import com.haha.supportai.conversation.exception.ChatRunInProgressException;
 import com.haha.supportai.conversation.exception.ChatSessionActiveRunException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
+import com.haha.supportai.conversation.exception.ChatUserConcurrencyLimitException;
 import com.haha.supportai.conversation.service.run.ChatRunControlService;
 import com.haha.supportai.conversation.service.run.ChatRunService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
@@ -28,6 +29,7 @@ import com.haha.supportai.identity.entity.dto.AuthenticatedUser;
 import com.haha.supportai.identity.security.ActiveAccountGuard;
 import com.haha.supportai.storage.PostgresFixture;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -46,7 +48,8 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(properties = {
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
         "spring.ai.dashscope.api-key=", "spring.ai.ollama.base-url=http://127.0.0.1:1",
-        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false"
+        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false",
+        "support.ai.document.cleanup.enabled=false"
 })
 class ChatConversationServiceDatabaseIT {
 
@@ -78,7 +81,7 @@ class ChatConversationServiceDatabaseIT {
     @Test
     void preparesIdempotentRunsAndRejectsDifferentConcurrentRequestsThroughProductionTransactions() throws Exception {
         Fixture fixture = createFixture();
-        when(activeAccountGuard.currentUser()).thenReturn(fixture.currentUser());
+        useUser(fixture.currentUser());
         ChatSessionResponse session = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
         UUID clientRequestId = UUID.randomUUID();
         SubmitMessageCommand firstCommand = new SubmitMessageCommand(clientRequestId, "如何排查订单支付失败？");
@@ -142,6 +145,46 @@ class ChatConversationServiceDatabaseIT {
     }
 
     @Test
+    void persistsRequestTraceAndRejectsRunsBeyondPerUserLimit() {
+        Fixture fixture = createFixture();
+        useUser(fixture.currentUser());
+        ChatSessionResponse firstSession = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
+        ChatSessionResponse secondSession = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
+        ChatSessionResponse thirdSession = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
+
+        PreparedChatRunResponse firstRun;
+        String previousTraceId = MDC.get("traceId");
+        try {
+            MDC.put("traceId", "trace-f30-database-run");
+            firstRun = chatRunService.prepare(firstSession.getSessionId(),
+                    new SubmitMessageCommand(UUID.randomUUID(), "第一个并发问题"));
+        } finally {
+            if (previousTraceId == null) {
+                MDC.remove("traceId");
+            } else {
+                MDC.put("traceId", previousTraceId);
+            }
+        }
+        chatRunService.prepare(secondSession.getSessionId(),
+                new SubmitMessageCommand(UUID.randomUUID(), "第二个并发问题"));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT trace_id FROM chat_run WHERE id = ?", String.class,
+                firstRun.getRunId())).isEqualTo("trace-f30-database-run");
+        assertThat(chatRunControlService.getStatus(firstRun.getRunId()).getTraceId())
+                .isEqualTo("trace-f30-database-run");
+        assertThatThrownBy(() -> chatRunService.prepare(thirdSession.getSessionId(),
+                new SubmitMessageCommand(UUID.randomUUID(), "超过用户并发上限的问题")))
+                .isInstanceOf(ChatUserConcurrencyLimitException.class);
+        assertThat(jdbcTemplate.queryForObject("""
+                -- chat_run、chat_session：同一用户跨会话最多保留配置数量的活动运行。
+                SELECT count(*)
+                FROM chat_run run
+                INNER JOIN chat_session session ON session.id = run.session_id
+                WHERE session.user_id = ? AND run.status IN ('QUEUED', 'RUNNING')
+                """, Integer.class, fixture.currentUser().getId())).isEqualTo(2);
+    }
+
+    @Test
     void managesOnlyOwnedHistoryAndHidesContentAfterScopeRevocation() {
         Fixture fixture = createFixture();
         AuthenticatedUser otherUser = createUser("f15-other");
@@ -150,7 +193,7 @@ class ChatConversationServiceDatabaseIT {
                 INSERT INTO kb_member (kb_id, user_id, permission, granted_by)
                 VALUES (?, ?, 'READ', ?)
                 """, fixture.knowledgeBaseId(), otherUser.getId(), fixture.currentUser().getId());
-        when(activeAccountGuard.currentUser()).thenReturn(fixture.currentUser());
+        useUser(fixture.currentUser());
         ChatSessionResponse firstSession = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
         ChatSessionResponse secondSession = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
 
@@ -189,12 +232,12 @@ class ChatConversationServiceDatabaseIT {
         assertThat(updatedSession.getTitle()).isEqualTo("退款排查记录");
         assertThat(updatedSession.getKnowledgeBaseIds()).containsExactly(fixture.knowledgeBaseId());
 
-        when(activeAccountGuard.currentUser()).thenReturn(otherUser);
+        useUser(otherUser);
         assertThat(chatSessionService.list(20, null).getItems()).isEmpty();
         assertThatThrownBy(() -> chatSessionService.listMessages(firstSession.getSessionId(), 20, null))
                 .isInstanceOf(ChatSessionNotFoundException.class);
 
-        when(activeAccountGuard.currentUser()).thenReturn(fixture.currentUser());
+        useUser(fixture.currentUser());
         jdbcTemplate.update("""
                 -- kb_member：撤销会话拥有者的读取权，验证历史正文与来源整体隐藏。
                 DELETE FROM kb_member
@@ -227,7 +270,7 @@ class ChatConversationServiceDatabaseIT {
     @Test
     void concurrentPreparationAndDeletionNeverLeaveAnActiveRunInDeletedSession() throws Exception {
         Fixture fixture = createFixture();
-        when(activeAccountGuard.currentUser()).thenReturn(fixture.currentUser());
+        useUser(fixture.currentUser());
         ChatSessionResponse session = chatSessionService.create(createSessionRequest(fixture.knowledgeBaseId()));
         CyclicBarrier barrier = new CyclicBarrier(2);
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -299,6 +342,11 @@ class ChatConversationServiceDatabaseIT {
                 VALUES (?, ?, 'test-password-hash', 'F15 会话隔离用户', 'USER', TRUE)
                 """, userId, username);
         return new AuthenticatedUser(userId, username, "F15 会话隔离用户", UserRoleEnum.USER);
+    }
+
+    private void useUser(AuthenticatedUser user) {
+        when(activeAccountGuard.currentUser()).thenReturn(user);
+        when(activeAccountGuard.currentUserForUpdate()).thenReturn(user);
     }
 
     private RuntimeException attemptAfterBarrier(CyclicBarrier barrier, Runnable action) throws Exception {

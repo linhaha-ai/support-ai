@@ -35,6 +35,9 @@ import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.HealthContributorRegistry;
+import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -65,6 +68,9 @@ class HealthSecurityTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    HealthContributorRegistry healthContributorRegistry;
 
     @MockBean
     AppUserRepository appUserRepository;
@@ -163,6 +169,22 @@ class HealthSecurityTest {
     void publicHealthShowsOnlyStatus() throws Exception {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
                 .andExpect(content().json("{\"status\":\"UP\"}", JsonCompareMode.STRICT));
+    }
+
+    @Test
+    void databaseFailureHealthDoesNotExposeSensitiveDetails() throws Exception {
+        String contributorName = "f30DatabaseFailure";
+        HealthIndicator databaseFailure = () -> Health.down()
+                .withDetail("error", "jdbc:postgresql://internal.invalid/supportai?password=should-not-leak")
+                .build();
+        healthContributorRegistry.registerContributor(contributorName, databaseFailure);
+        try {
+            mvc.perform(get("/api/health"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(content().json("{\"status\":\"DOWN\"}", JsonCompareMode.STRICT));
+        } finally {
+            healthContributorRegistry.unregisterContributor(contributorName);
+        }
     }
 
     @Test

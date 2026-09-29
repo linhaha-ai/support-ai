@@ -25,7 +25,8 @@ const version = {
   versionId, versionNo: 2, status: 'FAILED', active: false, pending: true,
   originalFilename: 'guide.md', fileSize: 1024, mediaType: 'text/markdown', chunkCount: 0,
   task: {
-    jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, status: 'FAILED', stage: 'PARSE',
+    jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId, traceId: 'trace-f30-job',
+    status: 'FAILED', stage: 'PARSE',
     attempt: 1, maxAttempts: 3, completedChunks: 0, totalChunks: 0, progressPercent: 0,
     retryable: true, cancellable: false, errorCode: 'DOCUMENT_READ_FAILED', errorMessage: '原文件暂时无法读取', errorStage: 'PARSE',
     nextRunAt: null, startedAt: '2026-09-21T10:00:00+08:00', finishedAt: '2026-09-21T10:01:00+08:00', updatedAt: '2026-09-21T10:01:00+08:00',
@@ -111,7 +112,7 @@ describe('文档管理视图', () => {
     await flushPromises()
 
     expect(view.text()).toContain('处理失败')
-    expect(view.text()).toContain('解析阶段终止失败 · DOCUMENT_READ_FAILED · 原文件暂时无法读取')
+    expect(view.text()).toContain('解析阶段终止失败 · DOCUMENT_READ_FAILED · 原文件暂时无法读取 · 追踪号 trace-f30-job')
     expect(view.text()).toContain('重新处理')
     expect(view.text()).toContain('# 产品说明')
   })

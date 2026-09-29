@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.haha.supportai.common.support.TraceContext;
 import com.haha.supportai.knowledge.ingestion.config.IngestionWorkerConfiguration;
 import com.haha.supportai.knowledge.ingestion.config.IngestionWorkerProperties;
 import com.haha.supportai.knowledge.ingestion.entity.dto.IngestionStageResult;
@@ -46,6 +47,10 @@ public class IngestionWorker {
             return;
         }
         IngestionTaskLease lease = claimed.get();
+        TraceContext.run(lease.getTraceId(), () -> executeClaimed(processor, lease));
+    }
+
+    private void executeClaimed(IngestionStageProcessor processor, IngestionTaskLease lease) {
         AtomicBoolean leaseValid = new AtomicBoolean(true);
         ScheduledFuture<?> heartbeat;
         try {
@@ -77,8 +82,9 @@ public class IngestionWorker {
 
     private ScheduledFuture<?> startHeartbeat(IngestionTaskLease lease, AtomicBoolean leaseValid) {
         Instant firstHeartbeat = Instant.now().plus(properties.getHeartbeatInterval());
-        return heartbeatScheduler.scheduleAtFixedRate(() -> renewLease(lease, leaseValid), firstHeartbeat,
-                properties.getHeartbeatInterval());
+        return heartbeatScheduler.scheduleAtFixedRate(
+                () -> TraceContext.run(lease.getTraceId(), () -> renewLease(lease, leaseValid)),
+                firstHeartbeat, properties.getHeartbeatInterval());
     }
 
     private void renewLease(IngestionTaskLease lease, AtomicBoolean leaseValid) {

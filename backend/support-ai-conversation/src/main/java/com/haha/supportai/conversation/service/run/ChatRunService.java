@@ -8,6 +8,8 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
+import com.haha.supportai.common.support.TraceContext;
+import com.haha.supportai.conversation.config.ChatStreamProperties;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.SubmitMessageCommand;
 import com.haha.supportai.conversation.exception.ChatIdempotencyConflictException;
@@ -15,6 +17,7 @@ import com.haha.supportai.conversation.exception.ChatRunInProgressException;
 import com.haha.supportai.conversation.exception.ChatSessionInvalidRequestException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
 import com.haha.supportai.conversation.exception.ChatSessionScopeRevokedException;
+import com.haha.supportai.conversation.exception.ChatUserConcurrencyLimitException;
 import com.haha.supportai.conversation.support.ChatRunConfigurationSnapshotFactory;
 import com.haha.supportai.data.conversation.entity.po.ChatMessage;
 import com.haha.supportai.data.conversation.entity.po.ChatRun;
@@ -41,8 +44,6 @@ public class ChatRunService {
 
     private static final String REQUEST_HASH_VERSION = "f10-v1";
     private static final String EMPTY_JSON = "{}";
-    private static final int MAX_QUESTION_LENGTH = 2000;
-
     private final ChatSessionRepository chatSessionRepository;
     private final ChatSessionKnowledgeBaseRepository chatSessionKnowledgeBaseRepository;
     private final ChatRunRepository chatRunRepository;
@@ -50,11 +51,12 @@ public class ChatRunService {
     private final ActiveAccountGuard activeAccountGuard;
     private final KnowledgeScopeAccess knowledgeScopeAccess;
     private final ChatRunConfigurationSnapshotFactory configurationSnapshotFactory;
+    private final ChatStreamProperties chatStreamProperties;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PreparedChatRunResponse prepare(UUID sessionId, SubmitMessageCommand command) {
         ValidatedMessage validatedMessage = validateCommand(sessionId, command);
-        AuthenticatedUser currentUser = activeAccountGuard.currentUser();
+        AuthenticatedUser currentUser = activeAccountGuard.currentUserForUpdate();
         ChatSession session = chatSessionRepository.findOwnedByIdForUpdate(sessionId, currentUser.getId())
                 .orElseThrow(ChatSessionNotFoundException::new);
         List<UUID> knowledgeBaseIds = chatSessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(sessionId);
@@ -75,6 +77,10 @@ public class ChatRunService {
         if (chatRunRepository.findActiveBySessionId(sessionId).isPresent()) {
             throw new ChatRunInProgressException();
         }
+        if (chatRunRepository.countActiveByUserId(currentUser.getId())
+                >= chatStreamProperties.getMaxConcurrentRunsPerUser()) {
+            throw new ChatUserConcurrencyLimitException();
+        }
 
         long firstSequence = session.getNextMessageSeq();
         if (firstSequence < 1 || !chatSessionRepository.advanceNextMessageSeq(sessionId, firstSequence)) {
@@ -84,7 +90,7 @@ public class ChatRunService {
         ChatRun run = new ChatRun(UUID.randomUUID(), sessionId, validatedMessage.clientRequestId(),
                 validatedMessage.requestHash(), ChatRunStatusEnum.QUEUED,
                 configurationSnapshotFactory.create(session.getMode()), null,
-                EMPTY_JSON, null, null, null, null, null, now, now);
+                EMPTY_JSON, null, null, null, null, null, now, now, TraceContext.currentOrNull());
         chatRunRepository.insert(run);
 
         ChatMessage userMessage = new ChatMessage(UUID.randomUUID(), run.getId(), sessionId, firstSequence,
@@ -119,7 +125,7 @@ public class ChatRunService {
             throw new ChatSessionInvalidRequestException();
         }
         String content = command.getContent().trim();
-        if (content.isEmpty() || content.length() > MAX_QUESTION_LENGTH) {
+        if (content.isEmpty() || content.length() > chatStreamProperties.getMaxQuestionLength()) {
             throw new ChatSessionInvalidRequestException();
         }
         return new ValidatedMessage(command.getClientRequestId(), content, requestHash(content));

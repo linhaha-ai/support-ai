@@ -47,7 +47,8 @@ public class ChatMessageController {
             summary = "提交消息并逐步接收回答",
             description = "新请求返回 text/event-stream；RAG 会话依次发送 start、delta、sources、done 或 error，"
                     + "智能助手会话可在回答前追加 tool 工具状态事件；"
-                    + "命中相同幂等请求时返回 application/json，且不会再次调用模型",
+                    + "命中相同幂等请求时返回 application/json，且不会再次调用模型；"
+                    + "问题长度或同一用户跨会话活跃运行数量超限时返回结构化错误，其中并发超限为 429",
             parameters = @Parameter(
                     name = CsrfTokenService.HEADER_NAME,
                     description = "从 GET /api/auth/csrf 获取的令牌",

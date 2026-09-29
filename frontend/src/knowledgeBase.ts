@@ -82,6 +82,7 @@ export interface DocumentVersionUploadReceipt {
 export interface IngestionJobDetail {
   jobId: string
   versionId: string
+  traceId: string | null
   status: IngestionJobStatus
   stage: IngestionJobStage
   attempt: number
@@ -296,9 +297,11 @@ function parseIngestionJobDetail(value: unknown): IngestionJobDetail | null {
   const errorStage = isRecord(value)
     ? value.errorStage === null ? null : parseIngestionJobStage(value.errorStage) ?? undefined
     : undefined
+  const traceId = isRecord(value) && value.traceId !== undefined ? parseNullableString(value.traceId) : null
   if (!isRecord(value)
     || typeof value.jobId !== 'string'
     || typeof value.versionId !== 'string'
+    || traceId === undefined
     || !status
     || !stage
     || typeof value.attempt !== 'number'
@@ -318,6 +321,7 @@ function parseIngestionJobDetail(value: unknown): IngestionJobDetail | null {
   return {
     jobId: value.jobId,
     versionId: value.versionId,
+    traceId,
     status,
     stage,
     attempt: value.attempt,

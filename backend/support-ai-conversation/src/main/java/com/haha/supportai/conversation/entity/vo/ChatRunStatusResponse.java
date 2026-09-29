@@ -24,6 +24,9 @@ public class ChatRunStatusResponse {
     @Schema(description = "所属会话标识", requiredMode = Schema.RequiredMode.REQUIRED)
     private final UUID sessionId; // 所属会话标识
 
+    @Schema(description = "创建运行的请求追踪标识；历史运行可能为空", nullable = true)
+    private final String traceId; // 创建运行的请求追踪标识
+
     @Schema(description = "用户消息标识", requiredMode = Schema.RequiredMode.REQUIRED)
     private final UUID userMessageId; // 用户消息标识
 

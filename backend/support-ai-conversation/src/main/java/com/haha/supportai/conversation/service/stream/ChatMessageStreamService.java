@@ -10,6 +10,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.haha.supportai.common.support.TraceContext;
 import com.haha.supportai.conversation.config.ChatStreamConfiguration;
 import com.haha.supportai.conversation.config.ChatStreamProperties;
 import com.haha.supportai.conversation.config.AssistantAgentProperties;
@@ -117,8 +118,9 @@ public class ChatMessageStreamService {
         AtomicReference<FutureTask<Void>> taskReference = new AtomicReference<>();
         AtomicReference<ScheduledFuture<?>> timeoutReference = new AtomicReference<>();
         FutureTask<Void> task = new FutureTask<>(() -> {
-            generate(preparedRun, traceId, emitter, connected, started, terminalSent, taskReference.get(),
-                    timeoutReference.get());
+            TraceContext.run(traceId,
+                    () -> generate(preparedRun, traceId, emitter, connected, started, terminalSent,
+                            taskReference.get(), timeoutReference.get()));
             return null;
         });
         taskReference.set(task);
@@ -130,7 +132,8 @@ public class ChatMessageStreamService {
         ScheduledFuture<?> timeoutTask;
         try {
             timeoutTask = timeoutScheduler.schedule(
-                    () -> timeoutRun(preparedRun, traceId, emitter, connected, started, terminalSent),
+                    () -> TraceContext.run(traceId,
+                            () -> timeoutRun(preparedRun, traceId, emitter, connected, started, terminalSent)),
                     Instant.now().plus(executionTimeout(preparedRun)));
             if (timeoutTask == null) {
                 throw new IllegalStateException("问答超时任务创建失败");

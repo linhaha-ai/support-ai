@@ -113,7 +113,8 @@ public class IngestionTaskCoordinator {
 
     private IngestionTaskLease toLease(IngestionJob job) {
         return new IngestionTaskLease(job.getId(), job.getVersionId(), job.getStage(), job.getAttempt(),
-                job.getMaxAttempts(), job.getLeaseOwner(), job.getLeaseToken(), job.getLeaseUntil());
+                job.getMaxAttempts(), job.getLeaseOwner(), job.getLeaseToken(), job.getLeaseUntil(),
+                job.getTraceId());
     }
 
     private IngestionStageEnum nextStage(IngestionStageEnum currentStage) {

@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.haha.supportai.common.support.TraceContext;
 import com.haha.supportai.data.knowledge.entity.po.DocumentVersion;
 import com.haha.supportai.data.knowledge.entity.po.IngestionJob;
 import com.haha.supportai.data.knowledge.entity.po.KnowledgeDocument;
@@ -51,7 +52,7 @@ public class DocumentUploadPersistenceService {
         IngestionJob job = new IngestionJob(command.getJobId(), command.getVersionId(),
                 IngestionJobStatusEnum.QUEUED, IngestionStageEnum.PARSE, 0, command.getMaxAttempts(), null, null,
                 null, null, command.getCreatedAt(), 0, null, null, null, null, null, null,
-                command.getCreatedAt(), command.getCreatedAt());
+                command.getCreatedAt(), command.getCreatedAt(), TraceContext.currentOrNull());
 
         knowledgeDocumentRepository.insert(document);
         documentVersionRepository.insert(version);
@@ -110,7 +111,7 @@ public class DocumentUploadPersistenceService {
         IngestionJob job = new IngestionJob(command.getJobId(), version.getId(), IngestionJobStatusEnum.QUEUED,
                 IngestionStageEnum.PARSE, 0, command.getMaxAttempts(), null, null, null, null,
                 command.getCreatedAt(), 0, null, null, null, null, null, null,
-                command.getCreatedAt(), command.getCreatedAt());
+                command.getCreatedAt(), command.getCreatedAt(), TraceContext.currentOrNull());
 
         documentVersionRepository.insert(version);
         ingestionJobRepository.insert(job);

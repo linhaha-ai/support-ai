@@ -79,6 +79,12 @@ export interface ChatToolEvent {
   status: 'STARTED' | 'SUCCEEDED' | 'FAILED'
 }
 
+export interface ChatModelUsage {
+  promptTokens: number | null
+  completionTokens: number | null
+  totalTokens: number | null
+}
+
 export interface DocumentSource {
   knowledgeBaseId: string
   documentId: string
@@ -100,7 +106,7 @@ export type ChatStreamEvent =
   | { event: 'tool', data: ChatToolEvent }
   | { event: 'delta', data: { text: string } }
   | { event: 'sources', data: { sources: ChatSourceReference[] } }
-  | { event: 'done', data: { runId: string, status: 'COMPLETED', usage: unknown, metrics: unknown } }
+  | { event: 'done', data: { runId: string, status: 'COMPLETED', usage: ChatModelUsage | null, metrics: unknown } }
   | { event: 'error', data: { code: string, message: string, status: 'FAILED' | 'CANCELLED', traceId: string } }
 
 export interface ChatRunReuse {
@@ -114,6 +120,7 @@ export type ChatAssistantStatus = 'STREAMING' | 'COMPLETED' | 'FAILED' | 'CANCEL
 export interface ChatRunStatusResponse {
   runId: string
   sessionId: string
+  traceId: string | null
   userMessageId: string
   assistantMessageId: string
   status: ChatRunStatus
@@ -121,7 +128,7 @@ export interface ChatRunStatusResponse {
   answer: string | null
   contentReadable: boolean
   sources: ChatSourceReference[]
-  usage: Record<string, unknown> | null
+  usage: ChatModelUsage | null
   metrics: Record<string, unknown> | null
   errorCode: string | null
   errorMessage: string | null
@@ -144,6 +151,7 @@ export type SubmitChatMessageResult =
 export interface ChatSessionApiError {
   kind: 'unauthorized' | 'forbidden' | 'not-found' | 'conflict' | 'rate-limit' | 'request' | 'invalid-response'
   message: string
+  traceId?: string
 }
 
 interface ApiEnvelope<T> {
@@ -222,6 +230,21 @@ function parseOptionalRecord(value: unknown): Record<string, unknown> | null {
   return isRecord(value) || value === null ? value : null
 }
 
+function parseTokenCount(value: unknown): number | null | undefined {
+  if (value === null) return null
+  return Number.isInteger(value) && (value as number) >= 0 ? value as number : undefined
+}
+
+function parseModelUsage(value: unknown): ChatModelUsage | null | undefined {
+  if (value === null) return null
+  if (!isRecord(value)) return undefined
+  const promptTokens = parseTokenCount(value.promptTokens)
+  const completionTokens = parseTokenCount(value.completionTokens)
+  const totalTokens = parseTokenCount(value.totalTokens)
+  if (promptTokens === undefined || completionTokens === undefined || totalTokens === undefined) return undefined
+  return { promptTokens, completionTokens, totalTokens }
+}
+
 function parseReuse(value: unknown): ChatRunReuse | null {
   if (!isRecord(value) || typeof value.runId !== 'string' || value.reused !== true) return null
   const status = parseRunStatus(value.status)
@@ -243,21 +266,24 @@ function parseChatRunStatus(value: unknown): ChatRunStatusResponse | null {
   const status = parseRunStatus(value.status)
   const assistantStatus = parseAssistantStatus(value.assistantStatus)
   const sources = value.sources.map(parseSourceReference)
-  const usage = parseOptionalRecord(value.usage)
+  const usage = parseModelUsage(value.usage)
   const metrics = parseOptionalRecord(value.metrics)
+  const traceId = value.traceId === undefined ? null : parseOptionalTimestamp(value.traceId)
   const cancelRequestedAt = parseOptionalTimestamp(value.cancelRequestedAt)
   const startedAt = parseOptionalTimestamp(value.startedAt)
   const finishedAt = parseOptionalTimestamp(value.finishedAt)
   if (!status || !assistantStatus
     || !sources.every((source): source is ChatSourceReference => source !== null)
-    || usage === null && value.usage !== null
+    || usage === undefined
     || metrics === null && value.metrics !== null
+    || traceId === null && value.traceId !== null && value.traceId !== undefined
     || cancelRequestedAt === null && value.cancelRequestedAt !== null
     || startedAt === null && value.startedAt !== null
     || finishedAt === null && value.finishedAt !== null) return null
   return {
     runId: value.runId,
     sessionId: value.sessionId,
+    traceId,
     userMessageId: value.userMessageId,
     assistantMessageId: value.assistantMessageId,
     status,
@@ -435,7 +461,9 @@ function parseStreamEvent(eventName: string, json: unknown): ChatStreamEvent | n
     }
   }
   if (eventName === 'done' && typeof json.runId === 'string' && json.status === 'COMPLETED') {
-    return { event: 'done', data: { runId: json.runId, status: 'COMPLETED', usage: json.usage, metrics: json.metrics } }
+    const usage = json.usage === undefined ? null : parseModelUsage(json.usage)
+    if (usage === undefined) throw invalidStream()
+    return { event: 'done', data: { runId: json.runId, status: 'COMPLETED', usage, metrics: json.metrics } }
   }
   if (eventName === 'error'
     && typeof json.code === 'string'
@@ -546,17 +574,19 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 function errorFor(response: Response, action: 'create' | 'message' | 'source' | 'run' | 'session' | 'delete-session'): ChatSessionApiError {
-  if (response.status === 401) return { kind: 'unauthorized', message: '登录状态已失效，请重新登录。' }
-  if (response.status === 403) return { kind: 'forbidden', message: '当前账号没有执行此操作的权限。' }
-  if (response.status === 404) return { kind: 'not-found', message: action === 'source' ? '来源已不可访问。' : action === 'run' ? '问答运行不存在或已不可访问。' : '会话或知识范围不可用。' }
-  if (response.status === 409) return {
-    kind: 'conflict',
-    message: action === 'delete-session' ? '会话正在生成回答，请先停止生成再删除。' : '当前会话状态已变化，请稍后重试。',
-  }
-  if (response.status === 429) return { kind: 'rate-limit', message: '当前请求较多，请稍后再试。' }
+  const traceId = response.headers.get('X-Trace-Id') ?? undefined
+  const error = (kind: ChatSessionApiError['kind'], message: string): ChatSessionApiError => ({
+    kind, message, ...(traceId ? { traceId } : {}),
+  })
+  if (response.status === 401) return error('unauthorized', '登录状态已失效，请重新登录。')
+  if (response.status === 403) return error('forbidden', '当前账号没有执行此操作的权限。')
+  if (response.status === 404) return error('not-found', action === 'source' ? '来源已不可访问。' : action === 'run' ? '问答运行不存在或已不可访问。' : '会话或知识范围不可用。')
+  if (response.status === 409) return error('conflict',
+    action === 'delete-session' ? '会话正在生成回答，请先停止生成再删除。' : '当前会话状态已变化，请稍后重试。')
+  if (response.status === 429) return error('rate-limit', '当前请求较多，请稍后再试。')
   const label = action === 'create' || action === 'session' || action === 'delete-session'
     ? '会话' : action === 'message' ? '回答' : action === 'source' ? '来源' : '运行状态'
-  return { kind: 'request', message: `${label}请求未完成，请稍后重试。` }
+  return error('request', `${label}请求未完成，请稍后重试。`)
 }
 
 async function requestCsrf(action: 'create' | 'message' | 'run' | 'session', signal?: AbortSignal): Promise<CsrfData> {

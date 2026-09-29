@@ -197,6 +197,7 @@ describe('文档检查异步状态', () => {
   it('人工重试和取消后同步版本状态与待处理指针', async () => {
     const failedJob: DocumentIngestionJob = {
       jobId: '4e151efd-4c49-4263-8c43-a5589261d52b', versionId: firstVersionId,
+      traceId: 'trace-f30-job',
       status: 'FAILED', stage: 'PARSE', attempt: 1, maxAttempts: 3,
       completedChunks: 0, totalChunks: 0, progressPercent: 0,
       retryable: true, cancellable: false,

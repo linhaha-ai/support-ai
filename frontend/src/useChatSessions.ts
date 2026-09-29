@@ -14,6 +14,7 @@ import {
   type ChatSessionMode,
   type ChatSessionSummary,
   type ChatHistoryMessage,
+  type ChatModelUsage,
   type ChatSourceReference,
   type ChatStreamEvent,
   type ChatToolEvent,
@@ -29,6 +30,8 @@ export interface ChatTranscriptMessage {
   sources: ChatSourceReference[]
   tools: ChatToolEvent[]
   errorMessage: string
+  usage: ChatModelUsage | null | undefined
+  traceId: string | null
 }
 
 function transcriptMessageFor(message: ChatHistoryMessage, contentReadable: boolean): ChatTranscriptMessage {
@@ -41,13 +44,17 @@ function transcriptMessageFor(message: ChatHistoryMessage, contentReadable: bool
     sources: contentReadable && isAssistant ? message.sources : [],
     tools: [],
     errorMessage: contentReadable || !isAssistant ? '' : '当前资料授权已变化，回答正文不可读取。',
+    usage: undefined,
+    traceId: null,
   }
 }
 
 function messageFor(error: unknown): string {
-  return typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
-    ? error.message
-    : '会话服务暂时不可用，请稍后重试。'
+  if (typeof error !== 'object' || error === null || !('message' in error) || typeof error.message !== 'string') {
+    return '会话服务暂时不可用，请稍后重试。'
+  }
+  const traceId = 'traceId' in error && typeof error.traceId === 'string' ? error.traceId : null
+  return traceId ? `${error.message}（追踪号：${traceId}）` : error.message
 }
 
 export function useChatSessions() {
@@ -140,6 +147,8 @@ export function useChatSessions() {
           sources: [],
           tools: [],
           errorMessage: '',
+          usage: undefined,
+          traceId: null,
         })
       }
       messages.value.push({
@@ -150,6 +159,8 @@ export function useChatSessions() {
         sources: [],
         tools: [],
         errorMessage: '',
+        usage: undefined,
+        traceId: null,
       })
       assistantIndex = messages.value.length - 1
     }
@@ -161,6 +172,8 @@ export function useChatSessions() {
     assistant.errorMessage = run.contentReadable
       ? run.errorMessage ?? ''
       : '当前资料授权已变化，回答正文不可读取。'
+    assistant.usage = run.status === 'QUEUED' || run.status === 'RUNNING' ? undefined : run.usage
+    assistant.traceId = run.status === 'FAILED' || run.status === 'CANCELLED' ? run.traceId : null
     if (run.status === 'QUEUED' || run.status === 'RUNNING') {
       activeRunId.value = run.runId
       activeRunCancellable.value = run.cancellable
@@ -396,6 +409,8 @@ export function useChatSessions() {
       messages.value.push({
         id: crypto.randomUUID(), role: 'user', content: question, status: 'COMPLETED', sources: [], tools: [],
         errorMessage: '',
+        usage: undefined,
+        traceId: null,
       })
       messages.value.push({
         id: event.data.assistantMessageId,
@@ -405,6 +420,8 @@ export function useChatSessions() {
         sources: [],
         tools: [],
         errorMessage: '',
+        usage: undefined,
+        traceId: null,
       })
       assistantIndex.value = messages.value.length - 1
       activeRunId.value = event.data.runId
@@ -428,10 +445,12 @@ export function useChatSessions() {
       assistant.sources = event.data.sources
     } else if (event.event === 'done') {
       assistant.status = 'COMPLETED'
+      assistant.usage = event.data.usage
       clearActiveRun()
     } else {
       assistant.status = event.data.status
       assistant.errorMessage = event.data.message
+      assistant.traceId = event.data.traceId
       clearActiveRun()
     }
   }

@@ -96,7 +96,7 @@ public class ChatRunControlService {
         if (!contentReadable && metrics != null) {
             metrics = metrics.withoutQueryRewriteText();
         }
-        return new ChatRunStatusResponse(run.getId(), run.getSessionId(), messages.user().getId(),
+        return new ChatRunStatusResponse(run.getId(), run.getSessionId(), run.getTraceId(), messages.user().getId(),
                 messages.assistant().getId(), run.getStatus(), messages.assistant().getStatus(), answer,
                 contentReadable, sources, deserialize(run.getUsage(), ChatModelUsage.class),
                 metrics, run.getErrorCode(), run.getErrorDetail(),

@@ -40,6 +40,10 @@ public class ChatRunRepository {
         return chatRunMapper.selectActiveBySessionId(sessionId);
     }
 
+    public long countActiveByUserId(UUID userId) {
+        return chatRunMapper.countActiveByUserId(userId);
+    }
+
     public boolean markRunning(UUID runId, UUID sessionId, UUID userMessageId, UUID assistantMessageId,
             String question, OffsetDateTime startedAt) {
         return chatRunMapper.markRunning(runId, sessionId, userMessageId, assistantMessageId, question, startedAt) == 1;

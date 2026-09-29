@@ -27,6 +27,14 @@ public class ChatStreamProperties {
     @Max(1000)
     private int queueCapacity = 32; // 等待执行的流式问答数量
 
+    @Min(1)
+    @Max(2000)
+    private int maxQuestionLength = 2000; // 去除首尾空白后的问题字符上限
+
+    @Min(1)
+    @Max(16)
+    private int maxConcurrentRunsPerUser = 2; // 单个用户跨会话允许的活跃运行数量
+
     @NotNull
     private Duration timeout = Duration.ofSeconds(200); // SSE 连接保留时间
 

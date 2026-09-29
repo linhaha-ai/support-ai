@@ -17,10 +17,19 @@ public class ActiveAccountGuard {
     private final AppUserRepository appUserRepository;
 
     public AuthenticatedUser currentUser() {
+        return currentUser(false);
+    }
+
+    public AuthenticatedUser currentUserForUpdate() {
+        return currentUser(true);
+    }
+
+    private AuthenticatedUser currentUser(boolean lockForUpdate) {
         try {
             UUID userId = UUID.fromString(StpUtil.getLoginIdAsString());
-            AppUser user = appUserRepository.findById(userId)
-                    .filter(AppUser::isEnabled)
+            AppUser user = (lockForUpdate
+                    ? appUserRepository.findEnabledByIdForUpdate(userId)
+                    : appUserRepository.findById(userId).filter(AppUser::isEnabled))
                     .orElseThrow(AccountUnavailableException::new);
             return AuthenticatedUser.from(user);
         } catch (IllegalArgumentException exception) {
