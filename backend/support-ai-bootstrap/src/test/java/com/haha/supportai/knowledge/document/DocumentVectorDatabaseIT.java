@@ -35,7 +35,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest(properties = {
         "spring.ai.model.chat=ollama", "spring.ai.model.embedding=ollama", "spring.ai.dashscope.enabled=false",
         "spring.ai.dashscope.api-key=", "spring.ai.ollama.base-url=http://127.0.0.1:1",
-        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false"
+        "spring.ai.ollama.init.pull-model-strategy=never", "support.ai.ingestion.worker.enabled=false",
+        "support.ai.document.cleanup.enabled=false"
 })
 @Testcontainers
 class DocumentVectorDatabaseIT {
@@ -242,7 +243,7 @@ class DocumentVectorDatabaseIT {
                           'token-budget-v1', 'bge-m3', 1024, ?,
                           CAST('{"embedding":{"provider":"ollama","model":"bge-m3","dimensions":1024}}' AS JSONB), ?)
                 """, versionId, documentId, "2026/09/" + versionId + ".md", "a".repeat(64), "b".repeat(64),
-                "c".repeat(64), chunkCount);
+                chunkCount);
         jdbcTemplate.update("UPDATE document SET pending_version_id = ? WHERE id = ?", versionId, documentId);
         jdbcTemplate.update("""
                 INSERT INTO ingestion_job (

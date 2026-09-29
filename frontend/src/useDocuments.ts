@@ -22,6 +22,11 @@ function messageFor(error: unknown): string {
     : '文档信息暂时无法读取，请稍后重试。'
 }
 
+function invalidatesCachedDocument(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('kind' in error)) return false
+  return error.kind === 'unauthorized' || error.kind === 'forbidden' || error.kind === 'not-found'
+}
+
 export function useDocuments(knowledgeBaseId: () => string) {
   const documents = ref<DocumentSummary[]>([])
   const selectedDocumentId = ref<string | null>(null)
@@ -172,7 +177,11 @@ export function useDocuments(knowledgeBaseId: () => string) {
       const item = await fetchDocumentContent(documentId, versionId)
       if (!disposed && request === contentRequest && selection === `${selectedDocument.value?.documentId}:${selectedVersion.value?.versionId}`) content.value = item
     } catch (error) {
-      if (!disposed && request === contentRequest) contentError.value = messageFor(error)
+      if (!disposed && request === contentRequest
+        && selection === `${selectedDocument.value?.documentId}:${selectedVersion.value?.versionId}`) {
+        if (invalidatesCachedDocument(error)) content.value = null
+        contentError.value = messageFor(error)
+      }
     } finally {
       if (!disposed && request === contentRequest) contentLoading.value = false
     }
@@ -194,7 +203,14 @@ export function useDocuments(knowledgeBaseId: () => string) {
       chunks.value = reset ? page.items : [...chunks.value, ...page.items]
       nextChunkCursor.value = page.nextCursor
     } catch (error) {
-      if (!disposed && request === chunkRequest) chunksError.value = messageFor(error)
+      if (!disposed && request === chunkRequest
+        && selection === `${selectedDocument.value?.documentId}:${selectedVersion.value?.versionId}`) {
+        if (invalidatesCachedDocument(error)) {
+          chunks.value = []
+          nextChunkCursor.value = null
+        }
+        chunksError.value = messageFor(error)
+      }
     } finally {
       if (!disposed && request === chunkRequest) chunksLoading.value = false
     }

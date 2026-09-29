@@ -34,6 +34,85 @@ afterEach(() => {
 })
 
 describe('文档检查异步状态', () => {
+  it('权限变化导致刷新失败时清除已缓存的原文和分块', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+    const scope = effectScope()
+    const documents = scope.run(() => useDocuments(() => detail.knowledgeBaseId))
+    if (!documents) throw new Error('未能创建文档状态')
+    const selectedVersion = version(firstVersionId, 1)
+    documents.selectedDocument.value = detail
+    documents.selectedVersion.value = selectedVersion
+    documents.content.value = {
+      documentId,
+      versionId: firstVersionId,
+      versionNo: 1,
+      active: true,
+      pending: false,
+      originalFilename: 'guide.md',
+      mediaType: 'text/markdown',
+      content: '已失效的敏感原文',
+    }
+    documents.chunks.value = [{
+      chunkId: 'cached-chunk',
+      chunkIndex: 0,
+      section: null,
+      pageNo: null,
+      startOffset: 0,
+      endOffset: 9,
+      charCount: 9,
+      tokenCount: 5,
+      content: '已失效的敏感分块',
+    }]
+
+    await Promise.all([documents.loadContent(), documents.loadChunks(true)])
+
+    expect(documents.content.value).toBeNull()
+    expect(documents.chunks.value).toEqual([])
+    expect(documents.contentError.value).not.toBe('')
+    expect(documents.chunksError.value).not.toBe('')
+    scope.stop()
+  })
+
+  it('临时服务失败时保留已缓存的原文和分块', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+    const scope = effectScope()
+    const documents = scope.run(() => useDocuments(() => detail.knowledgeBaseId))
+    if (!documents) throw new Error('未能创建文档状态')
+    documents.selectedDocument.value = detail
+    documents.selectedVersion.value = version(firstVersionId, 1)
+    documents.content.value = {
+      documentId,
+      versionId: firstVersionId,
+      versionNo: 1,
+      active: true,
+      pending: false,
+      originalFilename: 'guide.md',
+      mediaType: 'text/markdown',
+      content: '可继续查看的缓存原文',
+    }
+    documents.chunks.value = [{
+      chunkId: 'cached-chunk',
+      chunkIndex: 0,
+      section: null,
+      pageNo: null,
+      startOffset: 0,
+      endOffset: 9,
+      charCount: 9,
+      tokenCount: 5,
+      content: '可继续查看的缓存分块',
+    }]
+
+    await Promise.all([documents.loadContent(), documents.loadChunks(true)])
+
+    expect(documents.content.value?.content).toBe('可继续查看的缓存原文')
+    expect(documents.chunks.value).toHaveLength(1)
+    expect(documents.contentError.value).not.toBe('')
+    expect(documents.chunksError.value).not.toBe('')
+    scope.stop()
+  })
+
   it('快速切换版本后以新版本结果收敛，不保留旧请求的加载状态', async () => {
     let resolveOldContent: ((response: Response) => void) | undefined
     let resolveOldChunks: ((response: Response) => void) | undefined
