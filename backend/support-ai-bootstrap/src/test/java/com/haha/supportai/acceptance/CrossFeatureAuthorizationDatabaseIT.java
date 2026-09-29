@@ -23,6 +23,8 @@ import com.haha.supportai.conversation.entity.vo.ChatRunStatusResponse;
 import com.haha.supportai.conversation.exception.ChatRunNotFoundException;
 import com.haha.supportai.conversation.exception.ChatSessionNotFoundException;
 import com.haha.supportai.conversation.service.rag.RagRunPersistenceService;
+import com.haha.supportai.conversation.service.rag.RagAnswerService;
+import com.haha.supportai.conversation.service.rag.ChatModelGateway;
 import com.haha.supportai.conversation.service.run.ChatRunControlService;
 import com.haha.supportai.conversation.service.run.ChatRunService;
 import com.haha.supportai.conversation.service.session.ChatSessionService;
@@ -43,11 +45,17 @@ import com.haha.supportai.knowledge.ingestion.service.IngestionJobControlService
 import com.haha.supportai.knowledge.ingestion.service.IngestionJobQueryService;
 import com.haha.supportai.knowledge.service.document.DocumentDeletionService;
 import com.haha.supportai.knowledge.service.source.DocumentSourceQueryService;
+import com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalService;
+import com.haha.supportai.knowledge.entity.dto.KnowledgeRetrievalResult;
 import com.haha.supportai.storage.PostgresFixture;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -59,6 +67,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @Testcontainers
 @SpringBootTest(properties = {
@@ -116,6 +127,76 @@ class CrossFeatureAuthorizationDatabaseIT {
 
     @MockBean
     ActiveAccountGuard activeAccountGuard;
+
+    @MockBean
+    EmbeddingModel embeddingModel;
+
+    @MockBean
+    ChatModelGateway chatModelGateway;
+
+    @SpyBean
+    KnowledgeRetrievalService knowledgeRetrievalService;
+
+    @Autowired
+    RagAnswerService ragAnswerService;
+
+    @ParameterizedTest(name = "{0} 检索后真实撤权阻断入模与来源写入")
+    @ValueSource(strings = {"DEV-019", "DEV-039"})
+    void revocationAfterRetrievalPreventsModelCallAndSourcePersistence(String caseId) {
+        AuthorizationFixture fixture = createFixture();
+        PublishedDocument document = null;
+        try {
+            useUser(fixture.writer());
+            document = publish(documentUploadService.upload(fixture.writerKnowledgeBaseId(),
+                    upload("m7-revocation.md", DOCUMENT_CONTENT), "M7 检索时序验收 " + caseId));
+            CreateChatSessionRequest request = new CreateChatSessionRequest();
+            request.setMode(ChatSessionModeEnum.RAG);
+            request.setKbIds(List.of(fixture.writerKnowledgeBaseId()));
+            UUID sessionId = chatSessionService.create(request).getSessionId();
+            String question = caseId + " 的专属处理规则是什么？";
+            PreparedChatRunResponse prepared = chatRunService.prepare(sessionId,
+                    new SubmitMessageCommand(UUID.randomUUID(), question));
+            UUID chunkId = document.chunkId();
+            when(embeddingModel.embed(question)).thenReturn(queryVector(document.dimensions()));
+
+            // 在真实检索返回之后、服务复核之前同步撤权，避免用休眠猜测竞态窗口。
+            doAnswer(invocation -> {
+                KnowledgeRetrievalResult retrieved = (KnowledgeRetrievalResult) invocation.callRealMethod();
+                assertThat(retrieved.getMatches()).extracting(evidence -> evidence.getChunkId())
+                        .containsExactly(chunkId);
+                assertThat(jdbcTemplate.queryForObject("""
+                        -- message_source：暂停点必须尚未登记本轮模型来源。
+                        SELECT count(*) FROM message_source WHERE message_id = ?
+                        """, Long.class, prepared.getAssistantMessageId())).isZero();
+                revokeWriter(fixture);
+                return retrieved;
+            }).when(knowledgeRetrievalService).retrieveReadableWithinSessionDetailed(
+                    fixture.writer().getId(), sessionId, question, 6);
+
+            var result = ragAnswerService.generate(prepared);
+
+            verify(knowledgeRetrievalService).revalidateReadableWithinSession(
+                    fixture.writer().getId(), sessionId, List.of(chunkId));
+            verifyNoInteractions(chatModelGateway);
+            assertThat(result.isNoEvidence()).isTrue();
+            assertThat(result.getContent()).contains("资料不足").doesNotContain(DOCUMENT_CONTENT);
+            assertThat(result.getCitedSourceNumbers()).isEmpty();
+            assertThat(jdbcTemplate.queryForObject("""
+                    -- message_source：真实服务收口之后仍没有新增来源。
+                    SELECT count(*) FROM message_source WHERE message_id = ?
+                    """, Long.class, prepared.getAssistantMessageId())).isZero();
+            assertThat(jdbcTemplate.queryForObject("""
+                    -- chat_run：零证据路径正常收口，不遗留活动运行。
+                    SELECT status FROM chat_run WHERE id = ?
+                    """, String.class, prepared.getRunId())).isEqualTo("COMPLETED");
+            assertThat(jdbcTemplate.queryForObject("""
+                    -- chat_message：只持久化安全拒答，不写入已撤权资料正文。
+                    SELECT content FROM chat_message WHERE id = ?
+                    """, String.class, prepared.getAssistantMessageId())).isEqualTo(result.getContent());
+        } finally {
+            deleteFixture(fixture, document);
+        }
+    }
 
     @Test
     void authorizationChangesStayConsistentAcrossDocumentsConversationsAndTools() {

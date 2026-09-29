@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+  "status": "PASSED",
+  "startedAt": "2026-09-29T15:54:55.006Z",
+  "baseUrl": "http://127.0.0.1:8088",
+  "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+  "gitCommit": "30dfcc350646471ce2f81202598ff384f454a572",
+  "scriptSha256": "3cc06819f7b8f3558e750b23a39e554b08c3966e27f5bc1c9a9317d98dfac30b",
+  "execution": "独立无头 Edge / Playwright，真实页面与后端，未模拟网络或模型响应",
+  "streamObservation": "只读克隆同一次真实 SSE Response；原响应直接交给应用，不替换数据或额外发送模型请求",
+  "checks": [
+    {
+      "name": "未登录显示登录页且写入按钮不可用",
+      "status": "PASSED",
+      "durationMs": 589,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "emptyLoginDisabled": true
+      }
+    },
+    {
+      "name": "通过真实表单登录并显示健康概览",
+      "status": "PASSED",
+      "durationMs": 283,
+      "evidence": {
+        "authenticated": true,
+        "backendHealthy": true,
+        "displayedPhase": "当前阶段 · F25"
+      }
+    },
+    {
+      "name": "已生成会话的来源身份与稳定抽屉截图复核",
+      "status": "PASSED",
+      "durationMs": 805,
+      "evidence": {
+        "sessionId": "e738dd9a-1ba7-4628-928a-3cb5ad419dba",
+        "sourcePath": "/api/chunks/3820490a-a273-3614-b630-5a417c0275f9/source",
+        "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+        "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+        "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+        "contentCharacters": 132
+      }
+    },
+    {
+      "name": "退出后返回登录页且认证会话失效",
+      "status": "PASSED",
+      "durationMs": 438,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "meStatus": 401
+      }
+    },
+    {
+      "name": "没有未捕获页面异常或非预期失败请求",
+      "status": "PASSED",
+      "durationMs": 0,
+      "evidence": {
+        "pageErrors": 0,
+        "unexpectedFailedHttp": 0,
+        "unexpectedConsoleErrors": 0,
+        "expectedNegativeHttp": 1
+      }
+    }
+  ],
+  "screenshots": [
+    "evaluation/results/m7-browser-review-source-stable.png"
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "path": "/api/auth/me"
+    }
+  ],
+  "pageErrors": [],
+  "failedHttp": [
+    {
+      "status": 401,
+      "path": "/api/auth/me",
+      "method": "GET"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "LOW",
+      "detail": "运行概览仍显示当前阶段 F25；不影响本轮业务行为，但阶段文案尚未同步到 M7。"
+    }
+  ],
+  "browserVersion": "154.0.4258.37",
+  "reviewOf": "evaluation/results/m7-browser.json",
+  "reviewScope": "已生成 RAG 会话的只读来源截图与退出复核；原助手 FAILED 结论保持不变，零模型请求",
+  "completedAt": "2026-09-29T15:54:57.787Z",
+  "durationMs": 2781,
+  "passedChecks": 5,
+  "failedChecks": 0
+}

@@ -1,4 +1,26 @@
-# F32 阶段产物目录
+# 阶段评测与验收产物目录
+
+## M7 补验
+
+本轮以 `30dfcc3` 为基线，保持线上 F32 应用镜像与原评测证据不变。完整结论见 [M7 阶段复核](../../doc/验收记录/M7阶段复核.md)：功能/工程通过项与人工质量、外部模型等未闭合项分别记录，不能把本目录的局部 PASSED 当作完整 M7 已通过。
+
+| 产物 | 内容与边界 |
+| --- | --- |
+| [M7 总索引与指纹](m7-artifact-index.json) | 完整结论 NOT_PASSED；各补验批次分开计数，归档文件与截图 SHA-256 |
+| [后端与数据库回归](m7-backend-db.json) | 普通 382/382；数据库 85/85 与单独升级兼容 1/1，共 86/86；含新增 DEV-019/039 时序，保留新报告时间及哈希 |
+| [前端与评测工具](m7-engineering.json) | 前端 97/97 与构建；评测 29/29、100 题及指纹校验；不替代浏览器与人审 |
+| [运行环境核对](m7-runtime.json) | 同一应用镜像、健康 UP、V15/16 表、11 份 F32 证据哈希；外部服务只记录配置存在性 |
+| [旧引用生命周期](m7-lifecycle.json) | 最终 r3 完整 16/16；同一旧来源在新版、停用/恢复、撤权/恢复、删除后的行为 |
+| [浏览器完整批次](m7-browser.json) | 无头 Edge 真实页面，10 项通过、助手组合 1 项失败；剩余两项未执行，不是整批通过 |
+| [助手失败诊断](m7-assistant-failure.json)、[DB 二次核对](m7-browser-failure-detail.json) | 两工具成功、3 来源，但必需工单未被引用，最终 AGENT_INVALID_CITATION / REQUIRED_TICKET_NOT_CITED；180 秒页面等待不是业务超时 |
+| [只读页面补验](m7-browser-review.json)、[稳定原文截图](m7-browser-review-source-stable.png) | 5/5，来源/稳定截图/退出/页面错误检查；零模型请求，不改原完整批次失败 |
+| [完整批次执行源码](m7-browser-executed-script.mjs) | 与 m7-browser.json 的采集脚本 SHA 严格匹配；当前脚本新增稳定截图/只读模式，对应补验报告的另一指纹 |
+| [生命周期 r1](m7-lifecycle-r1-failed.json)、[r2](m7-lifecycle-r2-failed.json) | 验收脚本 SQL 列名/202 空响应兼容错误，保留 FAILED 原件，与最终 r3 分开 |
+| [浏览器 r1](m7-browser-r1.json)、[r2](m7-browser-r2.json) | 定位器/流式调试采集失败；不混同最终批次真实助手失败 |
+
+`m7-*.json` 与评测脚本通过 `.gitattributes` 保持指纹稳定。M7 补验使用新输出文件，失败不会覆盖或改写为成功；原始 F32 批次继续独立保存。
+
+## F32 基线
 
 记录日期：2026-09-29。最终真实采集基线为 `2d929cd5038b349ef2b82328df2fcad2e06ddc22`，使用本机真实 `qwen3.5:9b` / `bge-m3:567m`；业务源码、镜像、运行环境、语料和采集脚本指纹随记录保存。
 
@@ -29,4 +51,4 @@
 
 TEST-039 的原预期同时要求旧 v1 和新 v2 证据，但新版本未保留旧值且检索仅接受 active 版本；实际回答给出了题面要求的新路径和 3 秒。保留原题及原指标，在后续独立数据集版本修订范围，不据固定题回调参数或改写本次成绩。TEST-033 的事实缺漏、TEST-031 的范围引文及其余待复核问题也保留在逐题记录中。
 
-目录中的 `f21-baseline-status.json`、`f22-comparison-status.json`、`f23-comparison-status.json`、`f24-tuning-status.json` 是早期 NOT_RUN 历史状态，不代表本次实际环境。真实云端/重排序、人工评分、特殊竞态/旧引用生命周期及部署页面检查仍待完成。复现方式见 [评测使用说明](../README.md)。
+目录中的 `f21-baseline-status.json`、`f22-comparison-status.json`、`f23-comparison-status.json`、`f24-tuning-status.json` 是早期 NOT_RUN 历史状态，不代表本次实际环境。后续 M7 已补齐记录中的检索后撤权时序、旧引用生命周期与真实页面 RAG/来源检查；助手组合页面本轮实际失败，真实云端/重排序与人工评分也尚未闭合。原特定异常引文仍按分层契约解释，不冒充新增部署贯穿记录。复现方式见 [评测使用说明](../README.md)及本页 M7 入口。

@@ -1,0 +1,150 @@
+{
+  "artifactKind": "M7_ACCEPTANCE_ARTIFACT_INDEX",
+  "recordedAt": "2026-09-29T15:58:56.321Z",
+  "baselineCommit": "30dfcc350646471ce2f81202598ff384f454a572",
+  "acceptanceStatus": "NOT_PASSED",
+  "releaseReady": false,
+  "reason": "真实助手组合问答缺少必需工单引用；人工质量与外部模型前置验收也未闭合。",
+  "verified": {
+    "backendUnit": 382,
+    "database": 85,
+    "migration": 1,
+    "frontend": 97,
+    "evaluation": 29,
+    "lifecycle": {
+      "passed": 16,
+      "total": 16
+    },
+    "browserFull": {
+      "passed": 10,
+      "failed": 1,
+      "notExecuted": 2
+    },
+    "browserReadOnly": {
+      "passed": 5,
+      "total": 5,
+      "modelRequests": 0
+    },
+    "originalF32HashCount": 11
+  },
+  "blockingRunId": "389efcb2-0c33-405c-9c2e-e42d41b017ef",
+  "blockingTraceId": "debac717-5d62-4eaf-ba2a-fc09227c2cf0",
+  "remaining": [
+    "REQUIRED_TICKET_NOT_CITED 实际失败待修复与复验",
+    "人工引用与依据质量复核",
+    "F01 云端真实接入",
+    "F23/F24 真实重排序比较"
+  ],
+  "artifacts": [
+    {
+      "file": "m7-assistant-failure.json",
+      "bytes": 2924,
+      "sha256": "6eae7ee6cae26feec6417b1948dbb900f346365bcd4065284461d7a5c10a7063"
+    },
+    {
+      "file": "m7-backend-db.json",
+      "bytes": 86025,
+      "sha256": "898103eb52af5f48927caa3d4d547b4414599d291997b5b17e77383759edbe8c"
+    },
+    {
+      "file": "m7-browser-documents.png",
+      "bytes": 214684,
+      "sha256": "f283f11c9dc7584c432c8fefc7158dade2c32f226c22faf01140a9b23e75a2ce"
+    },
+    {
+      "file": "m7-browser-executed-script.mjs",
+      "bytes": 25332,
+      "sha256": "4a63f96364527e7f3e924436850ef702d8b1d5a3fa76264032dfcbd037e80a5c"
+    },
+    {
+      "file": "m7-browser-failure-detail.json",
+      "bytes": 3263,
+      "sha256": "74c9db5350e5acb5e1edd679ddd2abbe279b8b96ecdb8679156c3a795bfe97f0"
+    },
+    {
+      "file": "m7-browser-failure.png",
+      "bytes": 107723,
+      "sha256": "512f5d662933c31d0accd2023ea9d79f95e70a790038a3bbe11b164889bd2acf"
+    },
+    {
+      "file": "m7-browser-r1-documents.png",
+      "bytes": 214647,
+      "sha256": "e06bfb12227306f2b1c822cd13693490b166801a53719b7d7f54888fd9438b7e"
+    },
+    {
+      "file": "m7-browser-r1-failure.png",
+      "bytes": 124807,
+      "sha256": "a221cc7190eade15755ee297029c742696314ff1ccd66b84901fefbed9ac0029"
+    },
+    {
+      "file": "m7-browser-r1.json",
+      "bytes": 5709,
+      "sha256": "9e91caa827f9c6ace23d6f7cf4944dd3e4b36bbf7f98b1500801b990190a70fc"
+    },
+    {
+      "file": "m7-browser-r2-documents.png",
+      "bytes": 214575,
+      "sha256": "6a07caacfa9220567e1eb05fc8374f85fb1a1324f7d135daea818a678cd92d42"
+    },
+    {
+      "file": "m7-browser-r2-failure.png",
+      "bytes": 121203,
+      "sha256": "dc869c32487f2ad8ea6a7e0ef4669593499ec48d27f23e713176d1898472b4a6"
+    },
+    {
+      "file": "m7-browser-r2.json",
+      "bytes": 4468,
+      "sha256": "6bb855741fbc41d0691173fea671f57b6c81fc6ce5357fa9f66a65a9d6d855a8"
+    },
+    {
+      "file": "m7-browser-review-source-stable.png",
+      "bytes": 93097,
+      "sha256": "736c7d11616a73936574111be156fa43f8ddb8f80024dacdd00848993afe5ea7"
+    },
+    {
+      "file": "m7-browser-review.json",
+      "bytes": 3064,
+      "sha256": "13a93bc5830e1bf2a746917eb88be2b4f77394a0120a0fddf4658c9d5098b821"
+    },
+    {
+      "file": "m7-browser-source.png",
+      "bytes": 132258,
+      "sha256": "a27f791a3a741a9d57356a494b2b908882cc7effaff2c2f4871af72cfebfc90c"
+    },
+    {
+      "file": "m7-browser.json",
+      "bytes": 14904,
+      "sha256": "0156098e8f2ba32bbaffe88df7e1c3633731cf3bd0e71c27884477388e9161e1"
+    },
+    {
+      "file": "m7-engineering.json",
+      "bytes": 2775,
+      "sha256": "23c44ef48c87dd5f1128b528bbe9934031643216382baa1be567df6b69191e39"
+    },
+    {
+      "file": "m7-lifecycle-r1-failed.json",
+      "bytes": 7446,
+      "sha256": "1681e5a2d50d297d11770f94aba49df6c76a66c098a8e31e349002ff3f2d5ab3"
+    },
+    {
+      "file": "m7-lifecycle-r2-failed.json",
+      "bytes": 15615,
+      "sha256": "0454ca19aa8088161c3863820f63cd3ce787c853a3fbcdf5f818e79ded862720"
+    },
+    {
+      "file": "m7-lifecycle.json",
+      "bytes": 17377,
+      "sha256": "6e5c651d963f152c2b84a4e928ad6ee15cbd64dbeeab135286bae14ad1fcca87"
+    },
+    {
+      "file": "m7-runtime.json",
+      "bytes": 3508,
+      "sha256": "8877227fbc863628071a94310cb2a56cfc368b8c5fe3350f4caaf21c82d84659"
+    }
+  ],
+  "notes": [
+    "完整浏览器批次保持FAILED；只读补验不合并成整批成功。",
+    "r1/r2失败原件与最终结果分开；截图和实际执行脚本快照一并保留。",
+    "原固定题、人工评分、冻结和F32原始结果均未修改。"
+  ]
+}

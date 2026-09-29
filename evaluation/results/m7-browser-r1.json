@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+  "status": "FAILED",
+  "startedAt": "2026-09-29T15:41:11.292Z",
+  "baseUrl": "http://127.0.0.1:8088",
+  "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+  "gitCommit": "30dfcc350646471ce2f81202598ff384f454a572",
+  "scriptSha256": "8ce8d1f1d36d12e7f57cc3192d094ec610eb540932aec3f2f26e669fa633c3ad",
+  "execution": "独立无头 Edge / Playwright，真实页面与后端，未模拟网络或模型响应",
+  "checks": [
+    {
+      "name": "未登录显示登录页且写入按钮不可用",
+      "status": "PASSED",
+      "durationMs": 589,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "emptyLoginDisabled": true
+      }
+    },
+    {
+      "name": "通过真实表单登录并显示健康概览",
+      "status": "PASSED",
+      "durationMs": 296,
+      "evidence": {
+        "authenticated": true,
+        "backendHealthy": true,
+        "displayedPhase": "当前阶段 · F25"
+      }
+    },
+    {
+      "name": "我的知识库列出合成验收资料且可查看文档",
+      "status": "PASSED",
+      "durationMs": 142,
+      "evidence": {
+        "knowledgeBaseName": "F32 真实评测 2026-09-29T13:21:09.313Z",
+        "documentCount": 6,
+        "documentNames": [
+          "operations-sla-guide",
+          "merchant-console-guide",
+          "reconciliation-guide",
+          "refund-guide",
+          "order-api-reference",
+          "payment-callback-guide"
+        ]
+      }
+    },
+    {
+      "name": "支付回调文档当前原文、历史版本和分块均可查看",
+      "status": "PASSED",
+      "durationMs": 376,
+      "evidence": {
+        "versionCount": 2,
+        "historicalFiveSecondContract": true,
+        "currentV2Contract": true,
+        "visibleChunkCount": 12
+      }
+    },
+    {
+      "name": "工单页面显示真实合成工单状态与查询时间",
+      "status": "PASSED",
+      "durationMs": 95,
+      "evidence": {
+        "ticketNo": "F32707894507",
+        "status": "RESOLVED",
+        "knowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+        "queriedAt": "2026-09-29T15:41:13.330283863Z"
+      }
+    },
+    {
+      "name": "不存在工单显示明确反馈而非保留旧卡片",
+      "status": "PASSED",
+      "durationMs": 60,
+      "evidence": {
+        "message": "未找到该工单，或当前账号无权查看。\n\n重试",
+        "visibleTicketCards": 0
+      }
+    },
+    {
+      "name": "选择固定知识库创建独立 RAG 会话并重命名",
+      "status": "FAILED",
+      "durationMs": 20058,
+      "error": "locator.check: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('checkbox', { name: 'F32 真实评测 2026-09-29T13:21:09.313Z 可写' })\u001b[22m\n\u001b[2m    - locator resolved to <input type=\"checkbox\" class=\"el-checkbox__original\" value=\"238cbcc3-71be-44bf-ae75-8477ae5c5a56\"/>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    38 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not visible\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    }
+  ],
+  "screenshots": [
+    "evaluation/results/m7-browser-r1-documents.png",
+    "evaluation/results/m7-browser-r1-failure.png"
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "path": "/api/auth/me"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 ()",
+      "path": "/api/tickets/M7-NOT-EXIST"
+    }
+  ],
+  "pageErrors": [],
+  "failedHttp": [
+    {
+      "status": 401,
+      "path": "/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "status": 404,
+      "path": "/api/tickets/M7-NOT-EXIST",
+      "method": "GET"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "LOW",
+      "detail": "运行概览仍显示当前阶段 F25；不影响本轮业务行为，但阶段文案尚未同步到 M7。"
+    }
+  ],
+  "browserVersion": "154.0.4258.37",
+  "error": "locator.check: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('checkbox', { name: 'F32 真实评测 2026-09-29T13:21:09.313Z 可写' })\u001b[22m\n\u001b[2m    - locator resolved to <input type=\"checkbox\" class=\"el-checkbox__original\" value=\"238cbcc3-71be-44bf-ae75-8477ae5c5a56\"/>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    38 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not visible\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+  "completedAt": "2026-09-29T15:41:33.776Z",
+  "durationMs": 22484,
+  "passedChecks": 6,
+  "failedChecks": 1
+}

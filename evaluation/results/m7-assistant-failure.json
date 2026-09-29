@@ -1,0 +1,84 @@
+{
+  "ArtifactKind": "M7_ASSISTANT_FAILURE_DIAGNOSIS",
+  "Status": "CONFIRMED_PRODUCT_FAILURE",
+  "RecordedAt": "2026-09-29T23:51:25.6529693+08:00",
+  "BaselineCommit": "30dfcc350646471ce2f81202598ff384f454a572",
+  "SourceBrowserArtifact": "m7-browser.json",
+  "Run": {
+    "runId": "389efcb2-0c33-405c-9c2e-e42d41b017ef",
+    "sessionId": "4652e9fc-a471-4a9a-a125-7fca962d4a7e",
+    "status": "FAILED",
+    "errorCode": "AGENT_INVALID_CITATION",
+    "traceId": "debac717-5d62-4eaf-ba2a-fc09227c2cf0",
+    "metrics": {
+      "totalMs": 4552,
+      "rerankMs": 0,
+      "citedCount": 0,
+      "noEvidence": false,
+      "retrievalMs": 0,
+      "firstDeltaMs": null,
+      "generationMs": null,
+      "queryRewrite": null,
+      "rerankStatus": "NOT_REACHED",
+      "evidenceCount": 3,
+      "toolCallCount": 2,
+      "toolCallLimit": 2,
+      "modelCallCount": 2,
+      "modelCallLimit": 3,
+      "rerankTotalTokens": null,
+      "evidenceTokenCount": 0,
+      "embeddingTotalTokens": null,
+      "rerankCandidateCount": 0,
+      "retrievedEvidenceCount": 3,
+      "maxObservedContextTokens": 481,
+      "scoreFilteredEvidenceCount": 0,
+      "budgetFilteredEvidenceCount": 0
+    },
+    "createdAt": "2026-09-29T23:45:41.702588+08:00",
+    "finishedAt": "2026-09-29T23:45:46.260664+08:00",
+    "errorDetail": "助手引用校验失败: REQUIRED_TICKET_NOT_CITED"
+  },
+  "ToolCalls": [
+    {
+      "callNo": 1,
+      "toolName": "getTicketStatus",
+      "status": "SUCCEEDED",
+      "errorCode": null
+    },
+    {
+      "callNo": 2,
+      "toolName": "searchKnowledge",
+      "status": "SUCCEEDED",
+      "errorCode": null
+    }
+  ],
+  "Sources": [
+    {
+      "sourceId": "4453cdbe-f4d6-4fb2-9e17-80f22455d6fa",
+      "citationNo": 1,
+      "type": "TICKET",
+      "cited": false
+    },
+    {
+      "sourceId": "15519b82-6936-4006-b713-e7e5a662e77a",
+      "citationNo": 2,
+      "type": "DOCUMENT",
+      "cited": false
+    },
+    {
+      "sourceId": "5cc1dd69-b3c0-46f1-a1fa-2f798472d395",
+      "citationNo": 3,
+      "type": "DOCUMENT",
+      "cited": false
+    }
+  ],
+  "Diagnosis": [
+    "真实助手组合请求在4552毫秒后由服务端以AGENT_INVALID_CITATION结束。",
+    "页面脚本等待已完成180秒是验收工具等待方式，不能把服务端失败误归为产品超时。",
+    "引用校验拒绝本次输出；已有工具和来源审计不证明最终答案引用合法。",
+    "持久化错误子原因为 REQUIRED_TICKET_NOT_CITED：必需工单没有出现在最终有效引用中。原始模型答复未保存，不推断具体原文或畸形字符串。",
+    "未重跑助手覆盖失败，未修改生产提示词、校验规则或原F32结果。"
+  ],
+  "AcceptanceImpact": "本轮助手完整交付检查未通过；完整M7不能勾选。",
+  "DetailVerifiedAt": "2026-09-29T15:57:28.0101724+00:00"
+}

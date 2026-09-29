@@ -1,0 +1,536 @@
+{
+  "ArtifactKind": "M7_HISTORICAL_REFERENCE_LIFECYCLE",
+  "Status": "FAILED",
+  "Stage": "DELETE_OWN_FIXTURE",
+  "StartedAt": "2026-09-29T15:35:41.5748031+00:00",
+  "FinishedAt": "2026-09-29T15:36:19.3504708+00:00",
+  "BaseUri": "http://127.0.0.1:8088/",
+  "ProjectName": "support-ai-f31-source4",
+  "CaseIds": [
+    "DEV-020",
+    "DEV-040"
+  ],
+  "Ids": {
+    "KnowledgeBaseId": "0f03eea9-42a5-417f-bea5-a63279e2f17b",
+    "ReaderId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+    "DocumentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+    "VersionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+    "JobId": "0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+    "SessionId": "c2f8a598-108d-403d-9687-fb1a0ed4b052",
+    "ClientRequestId": "d4f49470-188d-4638-9356-87d703dc4c67",
+    "RunId": "f5ee28f5-b88b-43dd-83e1-e72a72fe0349",
+    "ChunkId": "248b9b2f-7c8d-3764-89ce-040aa7f1a710",
+    "NewVersionId": "8063dcd6-1f63-4746-b2f5-fa901d6cb739"
+  },
+  "Checks": [
+    {
+      "Name": "admin 登录身份匹配",
+      "Passed": true,
+      "Evidence": {
+        "UserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b"
+      }
+    },
+    {
+      "Name": "support1 登录身份匹配",
+      "Passed": true,
+      "Evidence": {
+        "UserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e"
+      }
+    },
+    {
+      "Name": "版本一真实入库完成",
+      "Passed": true,
+      "Evidence": {
+        "documentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+        "versionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+        "jobId": "0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+        "status": "QUEUED"
+      }
+    },
+    {
+      "Name": "真实问答 SSE 正常完成",
+      "Passed": true,
+      "Evidence": [
+        "start",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "sources",
+        "done"
+      ]
+    },
+    {
+      "Name": "回答确实引用本次版本一",
+      "Passed": true,
+      "Evidence": [
+        {
+          "number": 1,
+          "type": "DOCUMENT",
+          "documentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+          "versionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+          "chunkId": "248b9b2f-7c8d-3764-89ce-040aa7f1a710",
+          "title": "M7 生命周期手册-d2aa3508e653480ab0a6c7e7dc2de21b",
+          "section": null,
+          "available": true,
+          "previewPath": "/api/chunks/248b9b2f-7c8d-3764-89ce-040aa7f1a710/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true
+        }
+      ]
+    },
+    {
+      "Name": "同一引用已真实落库且唯一",
+      "Passed": true,
+      "Evidence": {
+        "documentDeleted": false,
+        "sources": [
+          {
+            "sourceId": "ab619ad2-e597-4718-9698-61f6badd16b9",
+            "chunkId": "248b9b2f-7c8d-3764-89ce-040aa7f1a710",
+            "versionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+            "cited": true
+          }
+        ]
+      }
+    },
+    {
+      "Name": "版本二发布后同一旧引用标旧且可预览",
+      "Passed": true,
+      "Evidence": {
+        "knowledgeBaseId": "0f03eea9-42a5-417f-bea5-a63279e2f17b",
+        "documentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+        "documentName": "M7 生命周期手册-d2aa3508e653480ab0a6c7e7dc2de21b",
+        "versionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+        "versionNo": 1,
+        "chunkId": "248b9b2f-7c8d-3764-89ce-040aa7f1a710",
+        "chunkIndex": 0,
+        "section": null,
+        "pageNo": null,
+        "startOffset": 0,
+        "endOffset": 57,
+        "isCurrent": false,
+        "content": "M7 旧引用独立验收手册。故障码 M7_CALLBACK_TIMEOUT 表示回调超时，版本一规定等待五秒后重试。"
+      }
+    },
+    {
+      "Name": "知识库停用后 同一旧引用拒绝正文",
+      "Passed": true,
+      "Evidence": {
+        "StatusCode": 404,
+        "ErrorCode": "DOCUMENT_NOT_FOUND"
+      }
+    },
+    {
+      "Name": "知识库停用后 历史与运行同步隐藏内容",
+      "Passed": true,
+      "Evidence": {
+        "RunReadable": false,
+        "HistoryReadable": false
+      }
+    },
+    {
+      "Name": "重新启用后同一旧引用恢复预览",
+      "Passed": true,
+      "Evidence": {
+        "knowledgeBaseId": "0f03eea9-42a5-417f-bea5-a63279e2f17b",
+        "documentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+        "documentName": "M7 生命周期手册-d2aa3508e653480ab0a6c7e7dc2de21b",
+        "versionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+        "versionNo": 1,
+        "chunkId": "248b9b2f-7c8d-3764-89ce-040aa7f1a710",
+        "chunkIndex": 0,
+        "section": null,
+        "pageNo": null,
+        "startOffset": 0,
+        "endOffset": 57,
+        "isCurrent": false,
+        "content": "M7 旧引用独立验收手册。故障码 M7_CALLBACK_TIMEOUT 表示回调超时，版本一规定等待五秒后重试。"
+      }
+    },
+    {
+      "Name": "成员撤权后 同一旧引用拒绝正文",
+      "Passed": true,
+      "Evidence": {
+        "StatusCode": 404,
+        "ErrorCode": "DOCUMENT_NOT_FOUND"
+      }
+    },
+    {
+      "Name": "成员撤权后 历史与运行同步隐藏内容",
+      "Passed": true,
+      "Evidence": {
+        "RunReadable": false,
+        "HistoryReadable": false
+      }
+    },
+    {
+      "Name": "重新授权后同一旧引用恢复预览",
+      "Passed": true,
+      "Evidence": {
+        "knowledgeBaseId": "0f03eea9-42a5-417f-bea5-a63279e2f17b",
+        "documentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+        "documentName": "M7 生命周期手册-d2aa3508e653480ab0a6c7e7dc2de21b",
+        "versionId": "ff124172-1db8-44b5-b80a-1c3b68a2cd93",
+        "versionNo": 1,
+        "chunkId": "248b9b2f-7c8d-3764-89ce-040aa7f1a710",
+        "chunkIndex": 0,
+        "section": null,
+        "pageNo": null,
+        "startOffset": 0,
+        "endOffset": 57,
+        "isCurrent": false,
+        "content": "M7 旧引用独立验收手册。故障码 M7_CALLBACK_TIMEOUT 表示回调超时，版本一规定等待五秒后重试。"
+      }
+    },
+    {
+      "Name": "删除目标限定本轮独立夹具",
+      "Passed": true,
+      "Evidence": {
+        "KnowledgeBaseId": "0f03eea9-42a5-417f-bea5-a63279e2f17b",
+        "DocumentId": "d19086fd-1a82-455b-85f5-28d0fbcfbe3d"
+      }
+    }
+  ],
+  "HttpRequests": [
+    {
+      "Actor": "admin",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/auth/login",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/auth/login",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/knowledge-bases",
+      "Status": 201
+    },
+    {
+      "Actor": "admin",
+      "Method": "PUT",
+      "Path": "/api/knowledge-bases/0f03eea9-42a5-417f-bea5-a63279e2f17b/members/0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/knowledge-bases/0f03eea9-42a5-417f-bea5-a63279e2f17b/documents",
+      "Status": 202
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/0cbe3cc5-1fff-4b15-b961-deea1d4a83bf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/chat/sessions",
+      "Status": 201
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/chat/sessions/c2f8a598-108d-403d-9687-fb1a0ed4b052/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/runs/f5ee28f5-b88b-43dd-83e1-e72a72fe0349",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/documents/d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/documents/d19086fd-1a82-455b-85f5-28d0fbcfbe3d/versions",
+      "Status": 202
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/7b05b949-ad8d-44d8-8162-bcfcea7deb59",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chunks/248b9b2f-7c8d-3764-89ce-040aa7f1a710/source",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/runs/f5ee28f5-b88b-43dd-83e1-e72a72fe0349",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "PATCH",
+      "Path": "/api/knowledge-bases/0f03eea9-42a5-417f-bea5-a63279e2f17b",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chunks/248b9b2f-7c8d-3764-89ce-040aa7f1a710/source",
+      "Status": 404
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/sessions/c2f8a598-108d-403d-9687-fb1a0ed4b052/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/runs/f5ee28f5-b88b-43dd-83e1-e72a72fe0349",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "PATCH",
+      "Path": "/api/knowledge-bases/0f03eea9-42a5-417f-bea5-a63279e2f17b",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chunks/248b9b2f-7c8d-3764-89ce-040aa7f1a710/source",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "DELETE",
+      "Path": "/api/knowledge-bases/0f03eea9-42a5-417f-bea5-a63279e2f17b/members/0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "Status": 204
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chunks/248b9b2f-7c8d-3764-89ce-040aa7f1a710/source",
+      "Status": 404
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/sessions/c2f8a598-108d-403d-9687-fb1a0ed4b052/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/runs/f5ee28f5-b88b-43dd-83e1-e72a72fe0349",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "PUT",
+      "Path": "/api/knowledge-bases/0f03eea9-42a5-417f-bea5-a63279e2f17b/members/0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chunks/248b9b2f-7c8d-3764-89ce-040aa7f1a710/source",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/documents/d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "DELETE",
+      "Path": "/api/documents/d19086fd-1a82-455b-85f5-28d0fbcfbe3d",
+      "Status": 202
+    }
+  ],
+  "Answer": "根据提供的资料，M7_CALLBACK_TIMEOUT 表示**回调超时**。按照手册规定，应等待**五秒**后重试 [1]。",
+  "RunnerStatus": "NOT_RUN",
+  "HumanReview": null,
+  "Limitations": [
+    "两个改写题映射同一次生命周期，不重复计数模型运行。",
+    "真实 HTTP、SSE 与数据库证据，不包含浏览器点击；不修改 F32 原始数据及人工评分。",
+    "删除只针对本次新建夹具文档，逻辑删除后正文将由正常清理任务回收。"
+  ]
+}

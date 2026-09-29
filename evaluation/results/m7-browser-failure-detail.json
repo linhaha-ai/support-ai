@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "M7_BROWSER_FAILURE_DATABASE_REVIEW",
+  "capturedAt": "2026-09-29T15:52:31.7726786Z",
+  "browserArtifact": "m7-browser.json",
+  "status": "CONFIRMED_PRODUCT_FAILURE",
+  "run": {
+    "id": "389efcb2-0c33-405c-9c2e-e42d41b017ef",
+    "session_id": "4652e9fc-a471-4a9a-a125-7fca962d4a7e",
+    "status": "FAILED",
+    "error_code": "AGENT_INVALID_CITATION",
+    "error_detail": "助手引用校验失败: REQUIRED_TICKET_NOT_CITED",
+    "trace_id": "debac717-5d62-4eaf-ba2a-fc09227c2cf0",
+    "started_at": "2026-09-29T23:45:41.70625+08:00",
+    "finished_at": "2026-09-29T23:45:46.260664+08:00",
+    "metrics": {
+      "totalMs": 4552,
+      "rerankMs": 0,
+      "citedCount": 0,
+      "noEvidence": false,
+      "retrievalMs": 0,
+      "firstDeltaMs": null,
+      "generationMs": null,
+      "queryRewrite": null,
+      "rerankStatus": "NOT_REACHED",
+      "evidenceCount": 3,
+      "toolCallCount": 2,
+      "toolCallLimit": 2,
+      "modelCallCount": 2,
+      "modelCallLimit": 3,
+      "rerankTotalTokens": null,
+      "evidenceTokenCount": 0,
+      "embeddingTotalTokens": null,
+      "rerankCandidateCount": 0,
+      "retrievedEvidenceCount": 3,
+      "maxObservedContextTokens": 481,
+      "scoreFilteredEvidenceCount": 0,
+      "budgetFilteredEvidenceCount": 0
+    },
+    "usage": null,
+    "chat": {
+      "model": "qwen3.5:9b",
+      "think": false,
+      "numCtx": 16384,
+      "provider": "ollama"
+    }
+  },
+  "tools": [
+    {
+      "call_no": 1,
+      "tool_name": "getTicketStatus",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "started_at": "2026-09-29T23:45:42.990883+08:00",
+      "finished_at": "2026-09-29T23:45:42.998226+08:00",
+      "result_summary": {
+        "status": "RESOLVED",
+        "citation": "[[source:4453cdbe-f4d6-4fb2-9e17-80f22455d6fa]]",
+        "ticketNo": "F32707894507",
+        "queriedAt": "2026-09-29T15:45:42.994946966Z",
+        "updatedAt": "2026-09-29T14:44:28.744107Z",
+        "sourceHandle": "4453cdbe-f4d6-4fb2-9e17-80f22455d6fa"
+      }
+    },
+    {
+      "call_no": 2,
+      "tool_name": "searchKnowledge",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "started_at": "2026-09-29T23:45:43.006091+08:00",
+      "finished_at": "2026-09-29T23:45:43.044497+08:00",
+      "result_summary": {
+        "sources": [
+          {
+            "pageNo": null,
+            "section": null,
+            "citation": "[[source:15519b82-6936-4006-b713-e7e5a662e77a]]",
+            "documentName": "F32 任务控制夹具",
+            "sourceHandle": "15519b82-6936-4006-b713-e7e5a662e77a"
+          },
+          {
+            "pageNo": null,
+            "section": null,
+            "citation": "[[source:5cc1dd69-b3c0-46f1-a1fa-2f798472d395]]",
+            "documentName": "F32 故障处理手册-9b580eff62e5",
+            "sourceHandle": "5cc1dd69-b3c0-46f1-a1fa-2f798472d395"
+          }
+        ]
+      }
+    }
+  ],
+  "note": "只读数据库复核。两个工具已成功，本次答案遗漏必需工单引用而被严格校验拒绝；浏览器等待完成标签超时是采集器后果，不是服务端根因。没有重放本次助手问答。"
+}

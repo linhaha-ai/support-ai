@@ -1,0 +1,1797 @@
+{
+  "ArtifactKind": "M7_BACKEND_DATABASE_REGRESSION",
+  "Status": "PASSED",
+  "CaptureStartedAt": "2026-09-29T23:33:50+08:00",
+  "FullBatchFinishedAt": "2026-09-29T23:35:50+08:00",
+  "MigrationBatchFinishedAt": "2026-09-29T23:39:20+08:00",
+  "GitCommit": "30dfcc350646471ce2f81202598ff384f454a572",
+  "Commands": [
+    "mvn -f backend/pom.xml -Dmaven.repo.local=E:/mvnrepository -Pdb-it verify",
+    "mvn -f backend/pom.xml -Dmaven.repo.local=E:/mvnrepository -Pdb-it -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=FlywayMigrationCompatibilityIT -Dfailsafe.failIfNoSpecifiedTests=false verify"
+  ],
+  "BaselineUnitCount": 382,
+  "BaselineDatabaseWithMigrationCount": 84,
+  "AddedDatabaseCases": [
+    "DEV-019",
+    "DEV-039"
+  ],
+  "AddedTestSourceSha256": "69dbb2868621ed1188b27d9e9cfc54c7020ced256f3a1b8034a3c42465474350",
+  "Summaries": [
+    {
+      "Type": "DATABASE",
+      "Suites": 18,
+      "Tests": 85.0,
+      "Failures": 0.0,
+      "Errors": 0.0,
+      "Skipped": 0.0
+    },
+    {
+      "Type": "MIGRATION",
+      "Suites": 1,
+      "Tests": 1.0,
+      "Failures": 0.0,
+      "Errors": 0.0,
+      "Skipped": 0.0
+    },
+    {
+      "Type": "UNIT",
+      "Suites": 79,
+      "Tests": 382.0,
+      "Failures": 0.0,
+      "Errors": 0.0,
+      "Skipped": 0.0
+    }
+  ],
+  "Suites": [
+    {
+      "Name": "com.haha.supportai.ai.model.DashScopeEmbeddingContractTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:02.2509645+08:00",
+      "ReportPath": "backend/support-ai-ai/target/surefire-reports/TEST-com.haha.supportai.ai.model.DashScopeEmbeddingContractTest.xml",
+      "ReportSha256": "ff36ba10b2012e77ee668a4373de5b6586496776b6b890da870a8ed0a28b59f3",
+      "TestNames": [
+        "actualSdkSendsDistinctPurposesAndExplicitDimension"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.ai.model.ValidatedEmbeddingModelTest",
+      "Type": "UNIT",
+      "Tests": 9,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:02.7578350+08:00",
+      "ReportPath": "backend/support-ai-ai/target/surefire-reports/TEST-com.haha.supportai.ai.model.ValidatedEmbeddingModelTest.xml",
+      "ReportSha256": "cdc4466c77204adfb022632606f6b9fd60376ccaac490384351c4b4f8279c523",
+      "TestNames": [
+        "dimensionsDoesNotCallProvider",
+        "rejectsCountMismatch",
+        "rejectsUnexpectedIndices",
+        "setsDocumentAndQueryPurposeWithoutDuplicatingEmbedding",
+        "rejectsBlankInputBeforeCallingProvider",
+        "rejectsNonFiniteValues(float)[1]",
+        "rejectsNonFiniteValues(float)[2]",
+        "rejectsNonFiniteValues(float)[3]",
+        "rejectsWrongDimension"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.ai.rerank.DashScopeQwenRerankAdapterTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:03.1592576+08:00",
+      "ReportPath": "backend/support-ai-ai/target/surefire-reports/TEST-com.haha.supportai.ai.rerank.DashScopeQwenRerankAdapterTest.xml",
+      "ReportSha256": "74cb7d0710357e685e74e15e3e79d39315d2e3b5d1059dbfe64f2abb9e681422",
+      "TestNames": [
+        "rejectsMalformedJsonAsInvalidResponse",
+        "rejectsMalformedRankingNumbersAndOrdering",
+        "rejectsOverLimitInputBeforeNetworkCall",
+        "callsConfiguredQwenEndpointAndParsesStableIndices",
+        "convertsProviderFailureAndTimeoutToUnavailableException"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.service.AssistantHistoryServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:11.1394909+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.service.AssistantHistoryServiceTest.xml",
+      "ReportSha256": "1750b5aadca09fda30952ecc05ecfb5e216c4701dcc389d678ca0253054cda5e",
+      "TestNames": [
+        "rejectsSourceLostBetweenSelectionAndRegistration",
+        "dropsWholeTurnWhenEvenUncitedEvidenceIsRevoked",
+        "skipsOversizedWholeTurnAndKeepsOlderUsableTurn",
+        "rejectsScopeRevocationAndRevalidatesAllRegisteredSources",
+        "inheritsAllEvidenceIncludingUncitedSourcesAndFlattensRoots"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.service.ReactAgentRunnerTest",
+      "Type": "UNIT",
+      "Tests": 8,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:11.8651027+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.service.ReactAgentRunnerTest.xml",
+      "ReportSha256": "fe1f513df22e58e07d00a577a7f73ccafa23a3f4971125015fc427233dcdc616",
+      "TestNames": [
+        "twoToolsRequestedTogetherStillAllowFinalAnswerWithinTwoModelCalls",
+        "actualReactAgentInjectsHistoryOnceAndExecutesFreshTicketTool",
+        "twoSequentialToolsStillAllowFinalAnswerWithinThreeModelCalls",
+        "malformedToolArgumentsCannotTurnUnfinishedToolMessageIntoFinalAnswer",
+        "rejectsFourthModelCallBeforeInvokingProvider",
+        "stopsBeforeModelReceivesRevokedHistory",
+        "toolFailureCannotBecomeSuccessfulAnswerOrTriggerAnotherModelCall",
+        "rejectsThirdToolBeforeExecutingItsAdapter"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.service.SupportAssistantAnswerServiceTest",
+      "Type": "UNIT",
+      "Tests": 8,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:11.9834380+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.service.SupportAssistantAnswerServiceTest.xml",
+      "ReportSha256": "b83a7b38c6bd94bf405f82d822f02cdb9751b64818b8ee708b94713a8a72eef9",
+      "TestNames": [
+        "rejectsCurrentTicketAnswerWithoutTicketCitation",
+        "rejectsFreshLookupForWrongTicket",
+        "rejectsCurrentTicketAnswerWithoutFreshLookup",
+        "rejectsInheritedTicketEvenWhenAgentClaimsItCalledTheTool",
+        "implicitFollowUpRequiresFreshLookupForAuthorizedHistoryTicket",
+        "completesCurrentTicketAnswerWithFreshToolSourceAndMetrics",
+        "doesNotPersistOrSendAnswerWhenEvidenceIsRevokedAfterModelCall",
+        "unfinishedExecutionKeepsMetricsUnknownInsteadOfClaimingZeroCalls"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.support.AssistantAgentBudgetTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:11.9864577+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.support.AssistantAgentBudgetTest.xml",
+      "ReportSha256": "c368dfdd0ec712aba276cd3c060db1bc3f947dd5fcd11e461c9fb4f6eec8f63e",
+      "TestNames": [
+        "stopsToolCallsAtConfiguredLimit",
+        "stopsModelCallsAtConfiguredLimit",
+        "stopsOversizedModelContext"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.support.AssistantCitationParserTest",
+      "Type": "UNIT",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:11.9934632+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.support.AssistantCitationParserTest.xml",
+      "ReportSha256": "1c667402e7f4e65a90bb913fd79345b271c1a184ddaa45e7bde031fd813f8902",
+      "TestNames": [
+        "convertsRegisteredHandlesAndKeepsFirstCitationOrder",
+        "identifiesEmptyAnswer",
+        "rejectsModelGeneratedNumericCitation",
+        "identifiesMalformedHandleWithoutIncludingRawAnswer",
+        "rejectsDuplicateCitationNumbers",
+        "rejectsUnknownSourceHandle"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.support.AssistantPromptFactoryTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:11.9969884+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.support.AssistantPromptFactoryTest.xml",
+      "ReportSha256": "1598bd5449105eee00f31840e5c03b8fd3fdff92889777a95a574b98a94a9b4a",
+      "TestNames": [
+        "historyProvidesCitationForCurrentRegisteredHandleAndRetainsFreshLookupRequirement"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.support.AssistantTicketFreshnessPolicyTest",
+      "Type": "UNIT",
+      "Tests": 7,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:12.0029877+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.support.AssistantTicketFreshnessPolicyTest.xml",
+      "ReportSha256": "dca5745b5b9a549c95a18ea1c7736dc33f6db85f7ccbbd400d1a88a8fd9e44c9",
+      "TestNames": [
+        "missingOrInvalidHistoryRequiresClarificationForBareCurrentQuestion",
+        "referenceToEarlierTicketDoesNotTurnResolutionQuestionIntoHistoricalQuery",
+        "ambiguousHistoryRequiresExplicitTicketNumber",
+        "resolvesImplicitCurrentQuestionFromLatestValidTurn",
+        "knowledgeQuestionWithoutTicketContextDoesNotInventTarget",
+        "historicalQuestionMayUseSnapshotButComparisonMustRefresh",
+        "explicitTargetOverridesHistoryAndSupportsBusinessTicketNumbers"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.tool.service.SearchKnowledgeToolAdapterTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:12.0646905+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.tool.service.SearchKnowledgeToolAdapterTest.xml",
+      "ReportSha256": "cc8eccc613d8891573d84facaf88be2a99b9c989a4f009476256b12496386fd6",
+      "TestNames": [
+        "returnsOnlyEvidenceAndServerGeneratedSourceHandleAfterAuditSucceeds",
+        "recordsScopeOrRetrievalFailureWithoutReturningInventedEvidence",
+        "recordsInvalidArgumentsAsFailedCallWithoutInvokingRetrieval"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.tool.service.TicketStatusToolAdapterTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:12.0862387+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.tool.service.TicketStatusToolAdapterTest.xml",
+      "ReportSha256": "4131c472ed834d3a21b137d9eacdd514c1f7d702982736a77b450f4d60032c6b",
+      "TestNames": [
+        "returnsFreshTicketResultWithServerGeneratedSourceHandle",
+        "recordsInvalidTicketNumberAsFailedCall",
+        "missingAndOutOfScopeTicketsUseTheSameFailureCode"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.agent.tool.service.ToolCallPersistenceServiceTest",
+      "Type": "UNIT",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:12.1017891+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.agent.tool.service.ToolCallPersistenceServiceTest.xml",
+      "ReportSha256": "c8365847be3a16568221a253fce319cdcbeeffb1a07751fcfcb4f6faae586a72",
+      "TestNames": [
+        "completesResultAndSourcesTogetherAfterAllocatingServerCitationNumbers",
+        "startsOnlyWhitelistedToolWithServerContextAndObjectArguments",
+        "recordsFailedCallsWithStableErrorCode",
+        "rejectsForgedToolNameBeforeWritingAuditData",
+        "persistenceTransitionsAlwaysUseIndependentTransactions",
+        "rejectsSourceHandleMappedToAnotherToolCall"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.ticket.service.TicketQueryServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:12.1476063+08:00",
+      "ReportPath": "backend/support-ai-assistant/target/surefire-reports/TEST-com.haha.supportai.assistant.ticket.service.TicketQueryServiceTest.xml",
+      "ReportSha256": "1ae672d34b2b9a904a1532595409dffc1ff054cd60118d353e5a9d7a72c0fb7d",
+      "TestNames": [
+        "mapsMissingAndUnauthorizedTicketsToTheSameException",
+        "queriesTicketWithinTrustedSessionScopeWithoutRequestThreadIdentity",
+        "rejectsInvalidTicketNumberBeforeReadingTheDatabase",
+        "normalizesTicketNumberAndReturnsCurrentDatabaseValues",
+        "hidesMissingAndOutOfScopeTicketsInTrustedSessionQuery"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.acceptance.CrossFeatureAuthorizationDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:30.9895440+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.acceptance.CrossFeatureAuthorizationDatabaseIT.xml",
+      "ReportSha256": "1558fee701574d1d00fe54862d893badde2891c09275f0e521b2dd90174905fb",
+      "TestNames": [
+        "authorizationChangesStayConsistentAcrossDocumentsConversationsAndTools",
+        "revocationAfterRetrievalPreventsModelCallAndSourcePersistence(String)[1]",
+        "revocationAfterRetrievalPreventsModelCallAndSourcePersistence(String)[2]"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.history.AssistantHistoryDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:34.0966027+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.assistant.history.AssistantHistoryDatabaseIT.xml",
+      "ReportSha256": "51809296ebb96bc73c264225d37a71c9576b0b06721433239d8cf177dd3059eb",
+      "TestNames": [
+        "revocationHidesHistorySnapshotsAndPreventsNextModelCall",
+        "rejectsCrossSessionAndCrossUserRootsAndRollsBackMixedBatch",
+        "threeTurnsRetainRootAuditAndRequeryChangedTicketForImplicitCurrentQuestion",
+        "excludesWholeMixedTurnWhenDocumentIsReplacedOrDeletedEvenIfUncited"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.ticket.TicketDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:37.2329302+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.assistant.ticket.TicketDatabaseIT.xml",
+      "ReportSha256": "3728eb2c41e86aa38a4121273209af658d940581501e2ad9ac33330924cc31a5",
+      "TestNames": [
+        "seededMemberReadsCurrentStatusAndSeesSubsequentDatabaseChange",
+        "missingTicketAndUnauthorizedAdministratorReturnTheSameNotFoundResponse",
+        "disabledKnowledgeBaseIsHiddenAndTicketSeedIsIdempotent"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.assistant.tool.AssistantToolDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:39.4528733+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.assistant.tool.AssistantToolDatabaseIT.xml",
+      "ReportSha256": "a1be03c2f0e04db7bf3e713e5c87f326eefd5ced1c44d8b546400125a91c0017",
+      "TestNames": [
+        "rejectsForgedUserToolAndSourceRelationshipsAtThePersistenceBoundary",
+        "persistsFreshTicketResultsWithMatchingToolSourcesAndSequentialCalls",
+        "recordsInvalidMissingAndOutOfSessionCallsWithoutLeakingTicketData"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.ChatConversationDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:42.0007930+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.conversation.ChatConversationDatabaseIT.xml",
+      "ReportSha256": "5cdb7c498289b71fc9bfe6f4e5fb5533c965dbfa2207ddf4ef69d6d04ad26395",
+      "TestNames": [
+        "enforcesIdempotencyAndOneActiveRunPerSession",
+        "enforcesMessageOrderingRoleAndRunSessionOwnership",
+        "concurrentTransactionsAllowOnlyOneQueuedRunPerSession",
+        "enforcesDocumentSourceCitationTypeAndJsonConstraints",
+        "acceptsOnlyJsonObjectsForRunSnapshotsAndMetrics",
+        "migratesConversationTablesIdempotentlyAndRetainsDescriptions"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.ChatConversationMapperDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:44.3626567+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.conversation.ChatConversationMapperDatabaseIT.xml",
+      "ReportSha256": "4f4fd7baaa78a6e2dd2540b9d3dc0c5685f6248b27424f0b141547109cd7894c",
+      "TestNames": [
+        "roundTripsAuthorizedSessionRunAndMessagesThroughProductionMappers",
+        "selectsCompletedHistoryAndOnlyAcceptsSameSessionDirectRootInheritance",
+        "completionAndCancellationCompeteForExactlyOneDatabaseTerminalState",
+        "startupRecoveryOnlyInterruptsRunsCreatedBeforeBoundary",
+        "rejectsWholeEvidenceBatchAfterProductionRunClaimWhenAnySourceIsOutsideSessionScope",
+        "persistsPartialAssistantAndOptionalFailureTelemetryAtomically"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.ChatConversationServiceDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:46.5987940+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.conversation.ChatConversationServiceDatabaseIT.xml",
+      "ReportSha256": "f7f672c5f7c95e7228f029aa9d2e0585dbd3d955b1181962088f53d79eb906a6",
+      "TestNames": [
+        "concurrentPreparationAndDeletionNeverLeaveAnActiveRunInDeletedSession",
+        "preparesIdempotentRunsAndRejectsDifferentConcurrentRequestsThroughProductionTransactions",
+        "managesOnlyOwnedHistoryAndHidesContentAfterScopeRevocation",
+        "persistsRequestTraceAndRejectsRunsBeyondPerUserLimit"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.identity.AppUserMapperDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:49.0344953+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.data.identity.AppUserMapperDatabaseIT.xml",
+      "ReportSha256": "1b7bc7719a379a8b8cc0a7977bc83667a01c6052e8d095992f80daf2f61c84a3",
+      "TestNames": [
+        "roundTripsUuidRoleTimestampsAndRepositoryQueries(UserRoleEnum)[1]",
+        "roundTripsUuidRoleTimestampsAndRepositoryQueries(UserRoleEnum)[2]",
+        "enabledUserLockSerializesPerUserQuotaChecks",
+        "rollsBackMapperInsertAndUpdateInTheSharedSpringTransaction"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.identity.AuthDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:53.1599116+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.identity.AuthDatabaseIT.xml",
+      "ReportSha256": "0749c5a4f5416c20e385d3a985d5ceba782e2350e85138421c0bea48c99d1320",
+      "TestNames": [
+        "logsInRotatesSessionRefreshesCsrfAndLogsOut",
+        "rejectsInvalidCsrfWithoutCreatingOrEndingTheLoginSession",
+        "initializesThreeHashedUsersAndRejectsInvalidCredentials",
+        "repeatedLoginReplacesTheCurrentBrowserToken",
+        "enforcesAuthenticationCsrfAndImmediateAccountDisablement",
+        "rerunningDefaultAdminMigrationAndAccountSeedPreservesExistingAccountChanges"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.DocumentChunkDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:55.4042504+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.document.DocumentChunkDatabaseIT.xml",
+      "ReportSha256": "fa08fdaecb670eaaaa70f4f49653b0060b9312881598e4120990bc1fd8b65d5c",
+      "TestNames": [
+        "deletedDocumentCannotWriteDocumentChunks",
+        "batchUpsertKeepsExistingChunkIdAndV8ConstraintsRejectInvalidChunk",
+        "expiredLeaseCannotWriteDocumentChunks",
+        "activeLeaseCreatesIdempotentChunksAndBuildsVersion",
+        "replacedPendingVersionCannotWriteDocumentChunks"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.DocumentDeletionDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:58.6909488+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.document.DocumentDeletionDatabaseIT.xml",
+      "ReportSha256": "ea27d82c149fdc90ca614791f57674c457a00d03f92b8a28a3ccb37e61513ca7",
+      "TestNames": [
+        "repeatedWriteDeleteIsIdempotentAndCreatesOnlyOneCleanupJob",
+        "writeMemberSoftDeletesDocumentCancelsWorkAndInvalidatesIngestionLease",
+        "readMemberCannotDeleteDocument",
+        "cleanupDeletesOnlyTargetFilesAndVectorsWhileKeepingHistoricalLocators",
+        "expiredCleanupLeaseCannotMoveRunningJobToRetryWait"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.DocumentQueryDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:00.9662797+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.document.DocumentQueryDatabaseIT.xml",
+      "ReportSha256": "7d890e99465e7bf05125836537087161f543075883cb7ad785091f493b175e25",
+      "TestNames": [
+        "inaccessibleOrDeletedDocumentAndCrossDocumentVersionAreNotReturned",
+        "enabledAdminWithoutKnowledgeBaseMembershipCannotReadDocumentsOrVersions",
+        "readMemberListsDocumentsAndVersionsInDescendingCursorOrder",
+        "chunkContentUsesLeftJoinAndBatchJobQueryMapsPersistedFields"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.DocumentUploadDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 10,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:05.8512635+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.document.DocumentUploadDatabaseIT.xml",
+      "ReportSha256": "092b7b77e41a12449a2bcf9784bd5e6729c82321633ceb68107f5099d430e5ee",
+      "TestNames": [
+        "readMemberCannotUploadAndInvalidFilesReturnExplicitErrors",
+        "writeMemberUploadsDocumentThroughApiAndCreatesPendingVersionAndQueuedJob",
+        "simultaneousUpdatesWithSameRevisionCreateOnlyOnePendingVersion",
+        "newVersionCommitFailureKeepsActiveVersionAndCompensatesStoredFile",
+        "sameContentAndConfigurationReuseActiveVersionWithoutCreatingFileVersionOrJob",
+        "missingExpectedRevisionReturnsBadRequest",
+        "newVersionKeepsActiveVersionSearchableAndRejectsPendingOrStaleRequests",
+        "commitFailureRollsBackDatabaseAndRemovesStoredFile",
+        "compositeForeignKeyRejectsVersionPointerFromAnotherDocument",
+        "readMemberCannotUploadDocumentVersion"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.DocumentVectorDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:08.6184807+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.document.DocumentVectorDatabaseIT.xml",
+      "ReportSha256": "1b16f57289ea8e255792ae7e7644aae0265f83c644ef6e9371fb04ec589ce6ea",
+      "TestNames": [
+        "vectorStoreHasFourColumnsAndIdempotentlyPersists1024DimensionBatch",
+        "incompleteIndexDoesNotPublishPendingVersionAfterMiddleBatchFailure",
+        "expiredLeaseCannotWriteVectorBatch",
+        "wrongLeaseTokenCannotPublishCompleteIndex",
+        "failedFinalJobTransitionRollsBackReadyAndActiveVersion",
+        "completePublishActivatesVersionAndSucceedsJobAtomically"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.ingestion.IngestionJobDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 7,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:11.4734510+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.ingestion.IngestionJobDatabaseIT.xml",
+      "ReportSha256": "2af55293556a4bbf5fc08c3db2b1f377097c48be042334e759cc07b394724daa",
+      "TestNames": [
+        "nonMemberGetsNotFoundForAnotherKnowledgeBaseJob",
+        "manualRetryRejectsOtherPendingHigherActiveAndExhaustedAttempt",
+        "concurrentClaimLetsOnlyOneWorkerAcquireTheSameJob",
+        "retryEndpointRestoresFailedVersionWithoutResettingAttempt",
+        "expiredWorkerCannotAdvanceButNewLeaseCanAdvanceAndResetAttempt",
+        "terminalFailureClearsPendingWhileAutomaticRetryKeepsIt",
+        "cancelEndpointInvalidatesLeaseAndCannotBeClaimedAgain"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.KnowledgeBaseDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:15.2112228+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.KnowledgeBaseDatabaseIT.xml",
+      "ReportSha256": "21b35b66a399ed1b7ef61cfa976fa8bc602945257d48689577216e1900dca32b",
+      "TestNames": [
+        "memberGrantChangeAndRevocationKeepManagementSeparateFromDataAccess",
+        "administratorCreatesKnowledgeBaseAndCreatorReceivesWriteMembership",
+        "authorizationDisableRestoreAndRevisionConflictFollowF03Boundaries",
+        "invalidManagementStatusUsesUniformValidationError"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.retrieval.AuthorizedRetrievalDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:17.6044125+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.knowledge.retrieval.AuthorizedRetrievalDatabaseIT.xml",
+      "ReportSha256": "e25271781f66af7e52c65a486169d6a145b4fbd22870ca9979494310dc4b74e0",
+      "TestNames": [
+        "filtersAuthorizationAndPublicationStateBeforeVectorTopK",
+        "returnsNoHitForDisabledMemberOrDifferentProcessingConfiguration",
+        "keywordRoutesUseExactMatchingAndTheSameAuthorizationBoundary",
+        "revalidatesOnlyCurrentEvidenceButAllowsAuthorizedHistoricalSourcePreview"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.storage.FlywayMigrationCompatibilityIT",
+      "Type": "MIGRATION",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:39:19.6540703+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.storage.FlywayMigrationCompatibilityIT.xml",
+      "ReportSha256": "68b099cd1d4ab96532a172890c54de9c64a6c3899fa00482194163fac6f43efc",
+      "TestNames": [
+        "upgradesExistingV14SchemaWithoutRepairingMigrationHistory"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.storage.PgVectorDatabaseIT",
+      "Type": "DATABASE",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:35:19.6453096+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/failsafe-reports/TEST-com.haha.supportai.storage.PgVectorDatabaseIT.xml",
+      "ReportSha256": "4569bc24459b06342ee81fa9cd6626c86ae3c27ac59ef1d3d4d0a4b0b13fc469",
+      "TestNames": [
+        "migratesEmptyDatabaseIdempotentlyAndStoresOnlyValidated1024Vectors"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.ai.config.AiConfigurationTest",
+      "Type": "UNIT",
+      "Tests": 17,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:16.8536724+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.ai.config.AiConfigurationTest.xml",
+      "ReportSha256": "900b088f2c0363d95c6fbb162a4325450e8d50310704276e9a6161908d974001",
+      "TestNames": [
+        "rejectsEnabledRerankWithoutSecureEndpoint",
+        "rejectsCloudSelectionWithDisabledConfiguration",
+        "acceptsEnabledRerankWithIndependentCloudConfiguration",
+        "permitsExplicitLocalThinkingAndContextOverride",
+        "unusedLocalThinkingOptionDoesNotPolluteCloudModels",
+        "rejectsInvalidLocalThinkingOption(String)[1]",
+        "rejectsInvalidLocalThinkingOption(String)[2]",
+        "rejectsInvalidLocalThinkingOption(String)[3]",
+        "bindsLocalThinkingAndContextOptionsToActualModel",
+        "selectsExactlyOneModelForEachRoleWithoutCallingIt(String, String)[1]",
+        "selectsExactlyOneModelForEachRoleWithoutCallingIt(String, String)[2]",
+        "selectsExactlyOneModelForEachRoleWithoutCallingIt(String, String)[3]",
+        "selectsExactlyOneModelForEachRoleWithoutCallingIt(String, String)[4]",
+        "rejectsMissingCloudKey",
+        "rejectsEnabledRerankWithoutCloudKey",
+        "rejectsUnknownProvider",
+        "defaultLocalConfigurationDoesNotNeedCloudCredentials"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.common.handler.ApiExceptionHandlerTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:16.8596972+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.common.handler.ApiExceptionHandlerTest.xml",
+      "ReportSha256": "9df9e13154fb4ae90766ed80f8764703279db3fb9528a5ea81ec2defc4408aa1",
+      "TestNames": [
+        "databaseFailureReturnsSanitizedStructuredError"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.config.HealthSecurityTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:20.1259492+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.config.HealthSecurityTest.xml",
+      "ReportSha256": "f5e91adb423663245d83c4cca1bd6d2f4cc45c29cacf945c3c9119b3015db154",
+      "TestNames": [
+        "publicHealthShowsOnlyStatus",
+        "malformedLoginJsonUsesUniformErrorResponse",
+        "anonymousBusinessEntriesRequireAuthenticationAndWritesRequireCsrf",
+        "databaseFailureHealthDoesNotExposeSensitiveDetails",
+        "identityAdviceHandlesInvalidCredentialsBeforeCommonFallback"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.config.OpenApiDocumentationTest",
+      "Type": "UNIT",
+      "Tests": 9,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.3210600+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.config.OpenApiDocumentationTest.xml",
+      "ReportSha256": "d7c5b3db0013ab223b53d9d16b42f481ee387c51ebff6260d33ffeda76d04f09",
+      "TestNames": [
+        "authenticatedOwnerCanQueryAndCancelPersistedRun",
+        "authenticatedMemberCanReadDocumentSourceWithoutCsrf",
+        "retrievalTestUnavailableErrorDoesNotExposeModelFailureCause",
+        "repeatedMessageSubmissionReturnsJsonWithoutOpeningAnotherStream",
+        "authenticatedUserCanReadCompleteCurrentApiContract",
+        "retrievalTestMapsAccessDeniedAndUnknownFieldsToClientErrors",
+        "authenticatedWriterWithCsrfCanRunKnowledgeRetrievalTest",
+        "authenticatedUserCanCreateFixedRagSession",
+        "runNotFoundUsesConversationErrorContractWithoutExposingOwnership"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.controller.conversation.ChatMessageControllerTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.4087084+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.controller.conversation.ChatMessageControllerTest.xml",
+      "ReportSha256": "1feb9a36dd5982b7e6a4139c8aa9aee76776c636425df620837c52b973c5efc9",
+      "TestNames": [
+        "newRunReturnsNonBufferedEventStream"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.controller.conversation.ChatSessionControllerTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.4117084+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.controller.conversation.ChatSessionControllerTest.xml",
+      "ReportSha256": "b5dcae65a5fc28c68a08e09632f92c5763264b38a49b4313b229c604bbf31eb1",
+      "TestNames": [
+        "listAndMessageHistoryKeepServicePaginationContract",
+        "updateAndDeleteDelegateOnlySessionManagementFields",
+        "f15OperationsExposeStableOpenApiOperationIds"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.access.AccessPolicyTest",
+      "Type": "UNIT",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.4872902+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.knowledge.access.AccessPolicyTest.xml",
+      "ReportSha256": "9972c6edf68a3407c475b90e25df52c8737af7814355b1d87695bd9619354296",
+      "TestNames": [
+        "writeMemberPassesReadAndWriteChecks",
+        "administratorWithoutMembershipCannotDiscoverDataResource",
+        "administratorCanManageExistingKnowledgeBaseWithoutMembership",
+        "readMemberCannotPassWriteCheck",
+        "transactionalWriteCheckLocksMembershipBeforeAcceptingUpload",
+        "transactionalWriteCheckRejectsReadMemberAfterLock"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.DocumentUploadServiceTest",
+      "Type": "UNIT",
+      "Tests": 11,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.5899776+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.DocumentUploadServiceTest.xml",
+      "ReportSha256": "2e1238b46bd3e03f6e4b6d48d7a66791b3a6daee63d6470b386c38e2e1c462a1",
+      "TestNames": [
+        "rejectsFileLargerThanConfiguredLimit",
+        "removesStoredFileWhenPersistenceFails",
+        "removesNewVersionFileWhenRegistrationFails",
+        "acceptsUtf8MarkdownAndReturnsQueuedReceipt",
+        "rejectsInvalidUtf8Content",
+        "reusesCurrentVersionWithoutWritingFileOrCreatingJob",
+        "rejectsUnsupportedMediaType",
+        "rejectsVersionConflictBeforeWritingFile",
+        "keepsOnlyBasenameWhenOriginalFilenameContainsPathTraversal",
+        "createsPendingVersionWhenCurrentVersionCannotBeReused",
+        "rejectsReadOnlyMemberBeforeWritingFile"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.handler.DocumentExceptionHandlerTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.6126821+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.handler.DocumentExceptionHandlerTest.xml",
+      "ReportSha256": "b91c8e8e0513c770236f01d4074f531c13631e0fc355d58744f12bd6cf66c0e1",
+      "TestNames": [
+        "documentReadFailureMapsTo503WithSanitizedMessageAndTraceId",
+        "documentVersionConflictMapsTo409WithStableErrorCode"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.ingestion.IngestionJobControlServiceTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.6186991+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.knowledge.ingestion.IngestionJobControlServiceTest.xml",
+      "ReportSha256": "b9871f25dee686d8cfdd8410ab9326b51d5e6ffe2e04d4094995ad3c16310ab9",
+      "TestNames": [
+        "repeatedCancelReturnsExistingCancelledState",
+        "rejectsReadMemberBeforeTaskMutation",
+        "retriesOnlyThroughAtomicRepositoryTransition",
+        "reportsConflictWhenFailedTaskCannotReacquirePendingVersion"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.ingestion.IngestionJobQueryServiceTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.6226996+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.knowledge.ingestion.IngestionJobQueryServiceTest.xml",
+      "ReportSha256": "11c6f5c685c242215f1c272f54fa43b3df54df28eb1b854e9aafe539535795f3",
+      "TestNames": [
+        "queriesOnlyWithCurrentUserAndDoesNotExposeInternalFailureDetail",
+        "capsProgressWithinUserVisibleRange",
+        "allowsEmptyProgressWhenRunningTaskHasNoFailure",
+        "hidesTaskActionsFromReadOnlyMember"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.ingestion.IngestionTaskCoordinatorTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:21.6317267+08:00",
+      "ReportPath": "backend/support-ai-bootstrap/target/surefire-reports/TEST-com.haha.supportai.knowledge.ingestion.IngestionTaskCoordinatorTest.xml",
+      "ReportSha256": "e4aef0f19281803ffbcb01ac7183926278863257b24b5c9cd3ca52ec12513331",
+      "TestNames": [
+        "exhaustedAttemptMovesTaskToFailed",
+        "rejectsSkippedStageBeforeWritingProgress",
+        "retryableAttemptMovesTaskToRetryWait",
+        "rejectsPublishCompletionOutsideVersionPublishTransaction",
+        "terminalFailureStopsBeforeAutomaticRetryLimit"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.entity.dto.AgentMetricsTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:08.1230976+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.entity.dto.AgentMetricsTest.xml",
+      "ReportSha256": "bf2bed634d4e535e8a173aa705f3ed4d1f9918c0ff0a1f28e0d50ec07bbd0378",
+      "TestNames": [
+        "preservesAgentFieldsAcrossPersistenceRoundTrip"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.handler.ConversationExceptionHandlerTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:08.6963245+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.handler.ConversationExceptionHandlerTest.xml",
+      "ReportSha256": "f09875c0d77ec51767faf9ad7f6bc61181682ab6c78b2b28ab689c69cc5df2a3",
+      "TestNames": [
+        "userConcurrencyLimitUsesStructuredRateLimitResponse",
+        "activeRunPreventsSessionDeletionWithConflictResponse"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.context.ConversationContextServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:08.7844248+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.context.ConversationContextServiceTest.xml",
+      "ReportSha256": "05b54936886183ccebf47b98e3667ccfeb6caef1aa7aa68428771841925d55ea",
+      "TestNames": [
+        "excludesWholeTurnWhenAnySourceIsNotCurrent",
+        "rejectsInvalidLineageBeforeReadingDocumentContent",
+        "excludesOversizedTurnWithoutTruncatingAndCanUseAnOlderCompleteTurn",
+        "restoresChronologicalTurnsAndPreservesDistinctRootsForTheSameChunk",
+        "continuesPagingWhenTheNewestCandidatePageContainsNoValidTurn"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.rag.RagAnswerServiceTest",
+      "Type": "UNIT",
+      "Tests": 23,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.3211760+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.rag.RagAnswerServiceTest.xml",
+      "ReportSha256": "d6746eb17dd05102dfe6cb00a06998db692e3e5abf8296accb9eb1c16082ff52",
+      "TestNames": [
+        "hidesCachedSourceWhenPermissionIsRevokedImmediatelyBeforeDelivery",
+        "completesWithExplicitInsufficientInformationWithoutCallingModelWhenNoEvidenceExists",
+        "persistsSanitizedFailedStateWhenModelCallFails",
+        "answersFromVerifiedHistoryAndRegistersInheritedRootSource",
+        "doesNotCallModelWhenEvidenceRegistrationFails",
+        "revalidatesEvidenceAndRegistersEveryModelInputBeforeCallingModel",
+        "rejectsPreparedRunWithoutCanonicalPersistedQuestion",
+        "doesNotCallModelWhenSourceIsRevokedImmediatelyAfterRegistration",
+        "recordsRerankAsNotReachedWhenBaseRetrievalFails",
+        "appliesVectorThresholdAfterAuthorizationRevalidation",
+        "marksDeletedCitedSourceUnavailableWithoutPreviewPath",
+        "fallsBackToOriginalQuestionWhenRewriteServiceFailsUnexpectedly",
+        "persistsDeltaBeforeNotifyingStreamObserver",
+        "reusesInheritedCitationWhenCurrentRetrievalReturnsTheSameChunk",
+        "cancellationDuringInitialStateTransitionDoesNotBecomeModelFailure",
+        "keepsRankedPrefixWithinEvidenceTokenBudget",
+        "hidesCitedSourceWhenReadPermissionWasRevokedDuringGeneration",
+        "keepsUntrustedDocumentInstructionsOutOfSystemPrompt",
+        "keepsPartialContentAndKnownUsageWhenModelFailsMidStream",
+        "preservesDistinctHistoricalRootsEvenWhenTheyReferenceTheSameChunk",
+        "marksOnlyRegisteredCitationsAndRetainsUncitedModelInputs",
+        "rejectsBlankModelResponseInsteadOfCompletingEmptyAnswer",
+        "usesRewrittenQuestionOnlyForRetrievalAndKeepsOriginalQuestionInAnswerPrompt"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.rag.RagRunPersistenceServiceTest",
+      "Type": "UNIT",
+      "Tests": 13,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.3872441+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.rag.RagRunPersistenceServiceTest.xml",
+      "ReportSha256": "5a5a63c0bb3022a74dd14652328e8290b0cf59b2e64d3bdeb9a49a190afb6f55",
+      "TestNames": [
+        "completesAssistantCitationsAndRunTogether",
+        "startsRunInItsOwnStateTransition",
+        "rejectsPartiallyRegisteredEvidenceAfterRunStartedSoTransactionCanRollBack",
+        "abortsCompletionWhenCitationStateCannotBeSaved",
+        "appendsOneAssistantDeltaAtomically",
+        "savesUsageOnlyWhenAssistantCitationsAndRunCompleteTogether",
+        "failsAssistantAndRunWithPartialContentUsageAndMetricsTogether",
+        "cancellationWonByAnotherRequestTurnsFailureIntoCancellationSignal",
+        "persistenceBoundariesAlwaysUseIndependentTransactions",
+        "marksAssistantAndRunFailedWithSanitizedDetails",
+        "cancellationWonByAnotherRequestTurnsCompletionIntoCancellationSignal",
+        "timeoutWonBySchedulerTurnsLaterFailureIntoTimeoutSignal",
+        "registersEvidenceAfterRunHasAlreadyStarted"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.rag.SpringAiChatModelGatewayTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.5266731+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.rag.SpringAiChatModelGatewayTest.xml",
+      "ReportSha256": "17a630ca98c0cf4cbbdb7df37e8163a47421ecadfff8f03f6208d030f1f50e76",
+      "TestNames": [
+        "streamsChatResponseTextAndReportedUsage",
+        "generatesWithNonStreamingCall",
+        "keepsUsageUnknownWhenProviderReturnsEmptyUsage"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.rewrite.RetrievalQueryRewriteServiceTest",
+      "Type": "UNIT",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.5370424+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.rewrite.RetrievalQueryRewriteServiceTest.xml",
+      "ReportSha256": "03a5e418e554afb9d68c1646e66d645b77f38b68678ec85bb937e27f4248c716",
+      "TestNames": [
+        "returnsNoHistoryWithoutCallingModel",
+        "parsesStrictSingleQueryJson",
+        "skipsSelfContainedErrorCodeApiAndExceptionQuestions",
+        "fallsBackWhenModelFailsAndCanBeDisabled",
+        "fallsBackForInvalidJsonBlankOrOverlongResult",
+        "rewritesShortFollowUpWithoutExplicitReference"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.run.ChatRunControlPersistenceServiceTest",
+      "Type": "UNIT",
+      "Tests": 6,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.5470753+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.run.ChatRunControlPersistenceServiceTest.xml",
+      "ReportSha256": "494464d6aa97e04c48144de4d6db9c79132515331f0816a2f2675c90e212ab39",
+      "TestNames": [
+        "cancellationRejectsRunOutsideOwnerScope",
+        "recoveryFailsTransactionWhenRunAndAssistantCountsDiffer",
+        "recoveryMarksOnlyPersistedActiveRunsBeforeStartupBoundary",
+        "ownerCancellationPersistsRunBeforeInterruptingAssistantMessage",
+        "controlPersistenceUsesIndependentTransactions",
+        "completedRunCannotBeRewrittenAsCancelled"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.run.ChatRunControlServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.6152224+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.run.ChatRunControlServiceTest.xml",
+      "ReportSha256": "88e169b836c24b10b53ccbb993903d33d554c0f3b7184f50f487261d0292d86b",
+      "TestNames": [
+        "readableKnowledgeScopeKeepsDeletedSourceMetadataAsUnavailable",
+        "runOutsideCurrentOwnerScopeIsReportedAsNotFound",
+        "readableKnowledgeScopeReturnsPersistedQueryRewriteDiagnostics",
+        "revokedKnowledgeScopeHidesAnswerAndSourcesButReturnsPersistedStatus",
+        "cancellationIsAllowedWithoutKnowledgeScopeCheckAndStopsRegisteredTaskAfterPersistence"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.run.ChatRunExecutionRegistryTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.6187340+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.run.ChatRunExecutionRegistryTest.xml",
+      "ReportSha256": "4c617eabc7cf324e8a5b564ef8d2ab07edd6d22bac31849c4ae00eeaf7029163",
+      "TestNames": [
+        "cancellationInterruptsTaskRunsCallbackAndRemovesExecution",
+        "sameRunCannotRegisterTwoLiveExecutions",
+        "timeoutCanReplaceUserCancellationCallback",
+        "staleCompletionCannotRemoveNewExecution"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.run.ChatRunRecoveryRunnerTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.6274170+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.run.ChatRunRecoveryRunnerTest.xml",
+      "ReportSha256": "dd3bebb4db582eb93e83c59aab6703b265be3e8b195559db0d505af95605fc2b",
+      "TestNames": [
+        "startupRecoveryDelegatesUsingCapturedStartupBoundary"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.run.ChatRunServiceTest",
+      "Type": "UNIT",
+      "Tests": 9,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.7882974+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.run.ChatRunServiceTest.xml",
+      "ReportSha256": "8cc9e050d638f4e05b68d57038e0526ea023888f14b03d4e39990ae2beb31d29",
+      "TestNames": [
+        "preparesOneQueuedRunWithCompletedUserAndStreamingAssistantMessages",
+        "persistsCurrentTraceIdWithPreparedRun",
+        "rejectsNewMessageWhileAnotherRunIsActive",
+        "rejectsNewRunWhenUserConcurrencyLimitIsReachedAcrossSessions",
+        "prepareAlwaysCommitsBeforeRagExecutionStarts",
+        "reusesRunWhenClientRequestAndNormalizedPayloadMatch",
+        "rejectsOverlongQuestionBeforeLoadingCurrentUserOrCreatingRun",
+        "rejectsRunWhenFixedKnowledgeScopeHasBeenRevoked",
+        "rejectsSameClientRequestIdWhenPayloadHashDiffers"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.session.ChatSessionServiceTest",
+      "Type": "UNIT",
+      "Tests": 14,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.8783962+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.session.ChatSessionServiceTest.xml",
+      "ReportSha256": "ec45bb0e81371d595bf2d49802619f5ee616ed9dc671923fdada66a770346b27",
+      "TestNames": [
+        "hidesEveryMessageBodyAndSourceWhenAnyFixedKnowledgeBaseIsRevoked",
+        "nullSessionIdentifierUsesUniformNotFoundResult",
+        "rejectsInvalidLimitsAndTamperedCursorsBeforeQueryingData",
+        "rejectsEmptyDuplicateOrMissingModeKnowledgeBaseScope",
+        "rejectsKnowledgeBaseOutsideCurrentUsersReadableScope",
+        "createsAssistantSessionWithTheSameFixedReadableScope",
+        "softDeletesOwnedIdleSessionAfterLockingIt",
+        "keepsDeletedCitedSourceMetadataButMarksItUnavailable",
+        "trimsTitleWithoutChangingFixedScope",
+        "messageCursorContinuesAfterLastSequenceOfPreviousPage",
+        "refusesToDeleteSessionWithActiveRun",
+        "returnsCitedSourcesWithCurrentAuthorizationState",
+        "createsRagSessionWithSortedFixedKnowledgeBaseScope",
+        "listsOwnedSessionsWithOpaqueStableCursorAndScopeState"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.service.stream.ChatMessageStreamServiceTest",
+      "Type": "UNIT",
+      "Tests": 11,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.8813962+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.service.stream.ChatMessageStreamServiceTest.xml",
+      "ReportSha256": "37bcf2ff4a9e621b03f25765913f8cc99168ab0d8e7f756b65aa4805154bf726",
+      "TestNames": [
+        "generationFailureSendsErrorWithoutDoneEvent",
+        "totalTimeoutPersistsFailureBeforeInterruptingExecution",
+        "revalidatesCachedSourcesImmediatelyBeforeDelivery",
+        "acceptedTaskUsesConfiguredTimeoutAndRunsGenerationOnce",
+        "queueRejectionFailsPreparedRunAndReturnsFlowPreCapacityException",
+        "cancelledRegisteredTaskSendsOnlyCancelledTerminalEvent",
+        "revokedScopeRedactsQueryRewriteDiagnosticsBeforeDone",
+        "runningTaskTimeoutAlwaysSendsTimeoutTerminal",
+        "assistantRunEmitsWhitelistedToolProgressAndReusesTerminalProtocol",
+        "reusedRunCannotOpenAnotherGenerationStream",
+        "unexpectedFailurePersistsSanitizedTerminalAndSendsOnlyError"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.ChatRunConfigurationSnapshotFactoryTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.8945779+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.ChatRunConfigurationSnapshotFactoryTest.xml",
+      "ReportSha256": "93e97a815b50f2393199b096d6ca180037751310f9a3a9c24d890cb07024bffb",
+      "TestNames": [
+        "rejectsUnsupportedProviderAndInvalidDimensions",
+        "snapshotsChatPromptRetrievalAndEmbeddingIndexWithoutCredentials",
+        "snapshotsAssistantWhitelistAndExecutionBudgets"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.CitationParserTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.8971036+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.CitationParserTest.xml",
+      "ReportSha256": "d5502fad22810e22509c37f6e7971793b51ef4ebf47d9cfa58beff806c82d49c",
+      "TestNames": [
+        "ignoresUnknownAndNonCanonicalCitationNumbers",
+        "keepsRegisteredCitationsInFirstOccurrenceOrderWithoutDuplicates"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.RagConfigurationSnapshotFactoryTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.9022337+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.RagConfigurationSnapshotFactoryTest.xml",
+      "ReportSha256": "96f780576cdc2a8aadacf44e5ce3bb4c5c39c344446d299788d951e0477db1e8",
+      "TestNames": [
+        "recordsModelRetrievalAndPromptConfigurationWithoutSecrets",
+        "rejectsUnsupportedProviderBeforeCreatingSnapshot"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.RagEvidenceSelectorTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.9042529+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.RagEvidenceSelectorTest.xml",
+      "ReportSha256": "51229b58ce519367177fc2343ea65c34f511be04c396e349af2846431120f505",
+      "TestNames": [
+        "usesScoreThresholdForActualFinalRankingType",
+        "keepsRankedPrefixAndReportsBudgetFiltering"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.RagPromptFactoryTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.9093493+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.RagPromptFactoryTest.xml",
+      "ReportSha256": "a040fdfcd1fc436b40b1a767d3bf6d2b4f8f6ac3daf0a2eabe0d7575651e970c",
+      "TestNames": [
+        "injectsVerifiedHistoryExactlyOnceBeforeCurrentEvidence",
+        "omitsHistoryBlockWhenNoHistoryWasSelected"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.RetrievalQueryPromptFactoryTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.9108682+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.RetrievalQueryPromptFactoryTest.xml",
+      "ReportSha256": "ac6a104e208bfaeac7fc187e67dbf3cc2d93dd87a610f9224f90725ad0416ddf",
+      "TestNames": [
+        "keepsOnlyProvidedSessionHistoryInsideUntrustedUserData"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.conversation.support.StoredMessageSourceResponseFactoryTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:09.9272663+08:00",
+      "ReportPath": "backend/support-ai-conversation/target/surefire-reports/TEST-com.haha.supportai.conversation.support.StoredMessageSourceResponseFactoryTest.xml",
+      "ReportSha256": "89777c5952965c44043c20d7796a3fbe08bd01c3fb58531004a95b2a1510db46",
+      "TestNames": [
+        "hidesAuditedSnapshotWhenMembershipOrLineageIsNoLongerReadable",
+        "preservesHistoricalQueryTimeAndMarksInheritedTicketAsHistorical",
+        "hidesTicketSourceWhenAuditSnapshotIsIncomplete",
+        "rebuildsTicketSourceFromAuditedSnapshot",
+        "rebuildsDocumentSourceWithCurrentAuthorization"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.conversation.mapper.ChatMessageMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:57.8564492+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.conversation.mapper.ChatMessageMapperSqlTest.xml",
+      "ReportSha256": "4f7b6e1e8e4db1606625ce56720ae4e049c39cc030eb3ff978caf767c3e6266f",
+      "TestNames": [
+        "cancelKeepsContentAndTargetsOnlyStreamingAssistant",
+        "completedTurnsOnlyReadSuccessfulPairsBeforeCurrentUserMessage",
+        "completionAndFailureUpdatesKeepStrictMessageConditionsWithoutRunActiveDependency",
+        "recoveryOnlyFinishesStreamingAssistantsOfThisInterruptedRecoveryBatch",
+        "historyPageJoinsOwnedUndeletedSessionAndOrdersBySequence"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.conversation.mapper.ChatRunMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:57.8967408+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.conversation.mapper.ChatRunMapperSqlTest.xml",
+      "ReportSha256": "fbbb47e62048d84689cac0f04d4525cac8c0d49cddb3df1514eb5f57375da408",
+      "TestNames": [
+        "recoveryOnlyInterruptsRunsCreatedBeforeStartupBoundary",
+        "userActiveRunCountUsesSessionOwnerAndActiveStatuses",
+        "cancelOnlyChangesActiveRunsToCancelledWithSanitizedReason",
+        "ownerQueriesJoinOnlyUndeletedSessionAndLockRunWhenRequested"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.conversation.mapper.ChatSessionMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:57.9194284+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.conversation.mapper.ChatSessionMapperSqlTest.xml",
+      "ReportSha256": "562be10c4570a592f9981f430c02aac6820d7b251e119fd9e72f627b446042d6",
+      "TestNames": [
+        "titleAndDeleteUpdatesKeepOwnerAndUndeletedConditions",
+        "pageQueryRestrictsOwnerAndUsesStableKeysetOrder"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.conversation.mapper.MessageSourceMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:57.9511392+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.conversation.mapper.MessageSourceMapperSqlTest.xml",
+      "ReportSha256": "5414b6ac889870b0eef02efe8df52e8083ca3628f94f020b20d4284296d8ee71",
+      "TestNames": [
+        "inheritedSourceMustPointToEarlierDirectRootInSameOwnedSession",
+        "historicalSourceQueryReturnsAllRowsAndMarksInvalidLineage"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.conversation.repository.ChatMessageRepositoryTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:58.7305666+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.conversation.repository.ChatMessageRepositoryTest.xml",
+      "ReportSha256": "a5d3976a0cf1fbd167e13bc1bfa70c5e130b7830d48f257cdabe23e8f49153d1",
+      "TestNames": [
+        "delegatesCancellationAndInterruptedAssistantRecoveryToMapper"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.conversation.repository.ChatRunRepositoryTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:58.7794179+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.conversation.repository.ChatRunRepositoryTest.xml",
+      "ReportSha256": "118ecd161047fbafa73e97543affa7e210e6307809c876338a2396d796d7b981",
+      "TestNames": [
+        "mapsRecoveryAffectedCountWithoutTreatingItAsSingleRowUpdate",
+        "delegatesOwnedLookupAndCancellationToMapper"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.knowledge.mapper.AuthorizedDocumentSourceMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:58.7889424+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.knowledge.mapper.AuthorizedDocumentSourceMapperSqlTest.xml",
+      "ReportSha256": "d339b80e57fddeb6247e710c2f18d57b33fda8d846b940bc99946ce290561631",
+      "TestNames": [
+        "authorizedSourceQueryKeepsDeletedMetadataButNeverReturnsDeletedBody"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.knowledge.mapper.DocumentCleanupJobMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:58.8517826+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.knowledge.mapper.DocumentCleanupJobMapperSqlTest.xml",
+      "ReportSha256": "c84038fb4182ec55eed67a3e3ac0e7353e245fd39b017f909505f03a66b2c99a",
+      "TestNames": [
+        "retryWriteRequiresCurrentUnexpiredLease",
+        "completionRequiresCurrentUnexpiredLease",
+        "claimOnlySelectsDeletedDocumentsAndReclaimsExpiredLeaseAtomically"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.knowledge.mapper.DocumentDeletionMapperSqlTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:58.9710355+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.knowledge.mapper.DocumentDeletionMapperSqlTest.xml",
+      "ReportSha256": "48a0503231a2ea96924f029d5229728a339f9f6248a6cb946917a86796521ca1",
+      "TestNames": [
+        "physicalCleanupPreservesHistoryRowsAndDeletesOnlyVectors",
+        "deleteCancelsWorkAndRevokesEveryIngestionLease",
+        "workerClaimRequiresUndeletedDocumentAndMatchingPendingVersion",
+        "writableLockIncludesDeletedDocumentButRequiresCurrentWriteMembership",
+        "logicalDeleteClearsPublishedAndPendingPointers"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepositoryTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:59.0441700+08:00",
+      "ReportPath": "backend/support-ai-data/target/surefire-reports/TEST-com.haha.supportai.data.knowledge.repository.AuthorizedDocumentSourceRepositoryTest.xml",
+      "ReportSha256": "215bf1e21ec41646a26a9a71092603bb97c61d4feb631a9e8e66a94417b977d3",
+      "TestNames": [
+        "readableLookupFiltersUnavailableDeletedSourceButAuthorizedLookupRetainsMetadata"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.identity.security.PasswordHasherTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:00.7386584+08:00",
+      "ReportPath": "backend/support-ai-identity/target/surefire-reports/TEST-com.haha.supportai.identity.security.PasswordHasherTest.xml",
+      "ReportSha256": "383525c66575b7679dc09061fadd021adf97bf6cc783dcf4aad871360d561984",
+      "TestNames": [
+        "rejectsPasswordsBeyondBcryptByteLimit",
+        "hashesAndVerifiesPasswordWithoutStoringPlainText"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.identity.service.UserDirectoryServiceTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:01.2590782+08:00",
+      "ReportPath": "backend/support-ai-identity/target/surefire-reports/TEST-com.haha.supportai.identity.service.UserDirectoryServiceTest.xml",
+      "ReportSha256": "90b4b694b65b4a84ba470b16a28933cca83bdbf326d56e9b0d1b4500b1db9dc8",
+      "TestNames": [
+        "onlyReturnsEnabledUserForMemberAuthorization",
+        "listsAllUsersWithoutExposingPasswordHashes"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.embedding.service.DocumentEmbeddingConfigurationValidatorTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:05.4513331+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.embedding.service.DocumentEmbeddingConfigurationValidatorTest.xml",
+      "ReportSha256": "d2a0b622417eb1d8841b95823d7a0e150b12fa2d82cd72ee986357595365ab0d",
+      "TestNames": [
+        "semanticallyEqualJsonSnapshotWithDifferentWhitespaceAndKeyOrderPasses",
+        "changedProviderModelOrDimensionsFailsConfigurationValidation"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.embedding.service.DocumentEmbeddingServiceTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.1297646+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.embedding.service.DocumentEmbeddingServiceTest.xml",
+      "ReportSha256": "77ad10c3e6e0fbe944f875739fa597007a346bc76b1b0802f353d050c4867cac",
+      "TestNames": [
+        "embedsOnlyMissingContinuousSuffixWithValidated1024DimensionVectors",
+        "invalidEmbeddingResponseCountDoesNotPersistBatch",
+        "completeContinuousPrefixDoesNotCallEmbeddingModelAgain",
+        "lostLeaseBeforeModelCallDoesNotCallEmbeddingModel"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.embedding.service.DocumentIndexPublicationServiceTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.1715016+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.embedding.service.DocumentIndexPublicationServiceTest.xml",
+      "ReportSha256": "a836616954c2b0063f80e67a00c98456e32b37e498c38210a95e649e3465983a",
+      "TestNames": [
+        "completeIndexPublishesReadyVersionAndSucceedsJobInOrder",
+        "incompleteIndexDoesNotActivatePendingVersion"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.embedding.service.DocumentVectorPersistenceServiceTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.1896710+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.embedding.service.DocumentVectorPersistenceServiceTest.xml",
+      "ReportSha256": "68b880fd070751cde22810fd7c1583e7de45d6e6b95bd8270f1f8ba8fd7a1861",
+      "TestNames": [
+        "expiredLeaseCannotWriteVectorBatch",
+        "invalidDimensionOrNonFiniteVectorDoesNotPersistBatch"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.parsing.service.DocumentChunkPersistenceServiceTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.2061899+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.parsing.service.DocumentChunkPersistenceServiceTest.xml",
+      "ReportSha256": "d017c108fe73d9a0f202e5593c852f67b7e237c747b906fb0ab4bce843d026a5",
+      "TestNames": [
+        "activeChunkLeaseUpsertsStableChunksAndMarksVersionBuilding",
+        "missingOrExpiredLeaseDoesNotWriteChunks",
+        "mismatchedContentHashDoesNotWriteChunks",
+        "activeParseLeaseMarksVersionBuildingWithoutWritingChunks"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.parsing.service.DocumentSourceParsingServiceTest",
+      "Type": "UNIT",
+      "Tests": 7,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.3359940+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.parsing.service.DocumentSourceParsingServiceTest.xml",
+      "ReportSha256": "fb081fd1811a95b2168eb8210e63f92398278507e342d87fb2e24fdc54bae484",
+      "TestNames": [
+        "rejectsSourceWhenActualSizeDoesNotMatchVersionRecord",
+        "rejectsIncompatibleConfigurationSnapshotAndEmptyDocument",
+        "readsOnlyVerifiedUtf8SourceFromControlledStorage",
+        "rejectsMalformedUtf8BeforeTextParsing",
+        "rejectsSourceThatExceedsConfiguredReadLimit",
+        "rejectsSourceWhenActualSizeOrHashDoesNotMatchVersionRecord",
+        "rejectsSnapshotWithoutReproducibleChunkerSettings"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.parsing.service.DocumentTextParserTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.3424139+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.parsing.service.DocumentTextParserTest.xml",
+      "ReportSha256": "256a7c8898499fd1ddd828dd9f79b3a599508311fac7ab5703e7606d4934a875",
+      "TestNames": [
+        "rejectsContentThatIsEmptyAfterNormalization",
+        "preservesMarkdownHeadingHierarchyAndSourceOffsets",
+        "normalizesBomNewlinesAndTrailingWhitespaceForPlainText"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.parsing.service.TokenBudgetChunkerTest",
+      "Type": "UNIT",
+      "Tests": 7,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.6593612+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.parsing.service.TokenBudgetChunkerTest.xml",
+      "ReportSha256": "bb8486b2586f10173fd9d76c0f1ad52a63d2668a4bca1ddf46ad0d13459e74d8",
+      "TestNames": [
+        "keepsEveryLongParagraphChunkWithinTokenBudget",
+        "treatsTokenizerSpecialMarkersAsOrdinaryDocumentText",
+        "neverSplitsUtf16SurrogatePairs",
+        "doesNotCreateChunksForLeadingWhitespaceOnlyRanges",
+        "prefersNaturalBoundariesAndCarriesHeadingPath",
+        "producesStableChunksForTheSameInputAndConfiguration",
+        "rejectsDocumentsThatExceedTheConfiguredChunkLimit"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.document.service.DocumentQueryServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.7688378+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.document.service.DocumentQueryServiceTest.xml",
+      "ReportSha256": "8251feed614b0cef1c2b2eb849d33cf8cb77ca40028d09322930212f18f1845e",
+      "TestNames": [
+        "returnsChunkLocationAndNullContentWithNextCursor",
+        "listsOnlyAfterKnowledgeBaseMembershipHasBeenValidated",
+        "hidesMissingOrInaccessibleDocument",
+        "rejectsInvalidLimitAndOpaqueCursor",
+        "readsVerifiedSourceOnlyAfterDocumentAndVersionAuthorization"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.ingestion.worker.DocumentIngestionStageProcessorTest",
+      "Type": "UNIT",
+      "Tests": 4,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.8396313+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.ingestion.worker.DocumentIngestionStageProcessorTest.xml",
+      "ReportSha256": "e102d960fb62fc5a37cab97e4eea37f94caa1a15bf99eef1c31e98f90b65bcf9",
+      "TestNames": [
+        "embeddingProcessorAdvancesToPublishAfterReturningCompleteChunkCount",
+        "publishProcessorReturnsTerminalResultAfterAtomicPublication",
+        "parseProcessorOnlyAdvancesFromParseToChunk",
+        "chunkProcessorPersistsDraftsAndAdvancesToEmbedWithZeroProgress"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.ingestion.worker.IngestionWorkerTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.9415078+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.ingestion.worker.IngestionWorkerTest.xml",
+      "ReportSha256": "8c24ee97ac3c3c90dcc9635a55cce608482a4c800b44ab75f5a4fdbde534ef53",
+      "TestNames": [
+        "restoresTaskTraceIdWhileExecutingClaimedStage"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.document.DocumentCleanupPersistenceServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:06.9951511+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.document.DocumentCleanupPersistenceServiceTest.xml",
+      "ReportSha256": "f97adedca41a12f9e0b70cd9d8e9705b0f4ec58de88c876effade2debdf7273c",
+      "TestNames": [
+        "claimReturnsEmptyWhenNoTaskIsDue",
+        "expiredLeaseCannotWriteRetryState",
+        "failureUsesStableSanitizedReasonAndRetryDelay",
+        "expiredLeaseCannotDeleteVectorsOrCommitSuccess",
+        "completesOnlyAfterActiveLeaseWasLocked"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.document.DocumentCleanupSchedulerTest",
+      "Type": "UNIT",
+      "Tests": 1,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.0675049+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.document.DocumentCleanupSchedulerTest.xml",
+      "ReportSha256": "a8dc7d4537775f77ddf1574b4188691c657c1ae59175004728bd63b1bc13270c",
+      "TestNames": [
+        "disabledSchedulerDoesNotPollDatabaseBackedService"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.document.DocumentCleanupServiceTest",
+      "Type": "UNIT",
+      "Tests": 2,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.0870698+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.document.DocumentCleanupServiceTest.xml",
+      "ReportSha256": "5495dbb7b266e596d8915249979e1fc05877b6265a8473f612171c1fd4c53720",
+      "TestNames": [
+        "fileFailureMovesLeaseToAutomaticRetry",
+        "deletesAllFilesBeforeCompletingDatabaseCleanup"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.document.DocumentDeletionServiceTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.1010941+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.document.DocumentDeletionServiceTest.xml",
+      "ReportSha256": "6840b06eb3ac8df259240cf1de0b011d487e99a13c5f409b2910cef72389bc05",
+      "TestNames": [
+        "repeatedDeleteKeepsCleanupRegistrationIdempotent",
+        "hidesMissingOrNonWritableDocument",
+        "deletesDocumentAndInvalidatesPendingWorkInOneApplicationOperation"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.KnowledgeScopeAccessServiceTest",
+      "Type": "UNIT",
+      "Tests": 3,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.1061064+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.KnowledgeScopeAccessServiceTest.xml",
+      "ReportSha256": "b1b5fb5f94dde835e71252a9213329076b12f0a927c05ce69dc07aaddbef5524",
+      "TestNames": [
+        "allReadableRejectsEmptyScopeWithoutQueryingDatabase",
+        "allReadableRejectsPartiallyRevokedScope",
+        "allReadableRequiresEveryKnowledgeBaseToRemainAuthorized"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalServiceTest",
+      "Type": "UNIT",
+      "Tests": 21,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.3126518+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.retrieval.KnowledgeRetrievalServiceTest.xml",
+      "ReportSha256": "79761aa2761fd410dca1fd2c82983903d27d0b6108fe25f3c1e73a07c0310407",
+      "TestNames": [
+        "backgroundRetrievalUsesTrustedUserWithoutReadingRequestContext",
+        "rejectedWritePermissionDoesNotCallEmbeddingModelOrRepository",
+        "revalidatesCandidatesWithoutEmbeddingAndKeepsFirstCandidateOrder",
+        "writableTestChecksWritePermissionBeforeCreatingOneQueryEmbedding",
+        "nullSessionIsRejectedBeforeEmbeddingModel",
+        "emptyCandidatesSkipRerankCall",
+        "backgroundRevalidationUsesTrustedUserWithoutReadingRequestContext",
+        "unavailableRerankRestoresOriginalFusionOrderInsteadOfExpandedCandidateOrder",
+        "emptyRevalidationDoesNotLoadUserOrModelConfiguration",
+        "invalidRequestAndModelFailuresUseExplicitExceptions",
+        "overLimitRerankFallsBackWithoutLosingCandidates",
+        "fusionWithoutExplicitKeywordKeepsSemanticRankingAndSkipsKeywordQuery",
+        "invalidRevalidationCandidatesAreRejectedBeforeRepositoryAccess",
+        "fusionUsesExpandedCandidatesAndDeduplicatesByRrf",
+        "enabledRerankExpandsCandidatesAndOnlyReordersAuthorizedHits",
+        "invalidTopKIsRejectedBeforeAuthorizationOrEmbedding",
+        "acceptsKnownStrategyButRejectsClientSuppliedScopeOrFilterFieldsDuringDeserialization",
+        "readableSessionRetrievalUsesOnlyServerSideSessionIdentifierAndCurrentUser",
+        "emptyAuthorizedResultReturnsSuccessfulEmptyMatches",
+        "unavailableRerankFallsBackToBaseOrder",
+        "malformedRerankOutputFallsBackToBaseOrder"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.service.source.DocumentSourceQueryServiceTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.3557670+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.service.source.DocumentSourceQueryServiceTest.xml",
+      "ReportSha256": "7f42c075ea64b407060924f582365071d1443de20b43ddd0ecba2838feb3c333",
+      "TestNames": [
+        "backgroundLookupUsesTrustedUserWithoutReadingRequestContext",
+        "hidesMissingRevokedOrDeletedSource",
+        "nullChunkIsHiddenBeforeLoadingCurrentUser",
+        "keepsDeletedSourceMetadataForAuthorizedHistoryButHidesPreview",
+        "returnsAuthorizedHistoricalReadySourceWithCurrentMarker"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.knowledge.support.RetrievalKeywordExtractorTest",
+      "Type": "UNIT",
+      "Tests": 5,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:34:07.3610508+08:00",
+      "ReportPath": "backend/support-ai-knowledge/target/surefire-reports/TEST-com.haha.supportai.knowledge.support.RetrievalKeywordExtractorTest.xml",
+      "ReportSha256": "e6a153939268fab7a060c6f6ca358869befbaaf818031e1618a6ac63ff8efffd",
+      "TestNames": [
+        "limitsKeywordCountAndEscapesRegexCharacters",
+        "pathPatternDoesNotTreatLongerApiAsExactPath",
+        "keepsNaturalLanguageOnSemanticRouteUnlessTermIsExplicitlyQuoted",
+        "extractsExactErrorCodeApiPathAndBusinessIdentifier",
+        "methodAndPathPatternDistinguishesTheSamePathWithAnotherMethod"
+      ]
+    },
+    {
+      "Name": "com.haha.supportai.storage.service.LocalFileStoreTest",
+      "Type": "UNIT",
+      "Tests": 8,
+      "Failures": 0,
+      "Errors": 0,
+      "Skipped": 0,
+      "ReportGeneratedAt": "2026-09-29T23:33:59.6191189+08:00",
+      "ReportPath": "backend/support-ai-storage/target/surefire-reports/TEST-com.haha.supportai.storage.service.LocalFileStoreTest.xml",
+      "ReportSha256": "f6a634b363c6ae74b259a93bb73427be23b25c8d1f8a264d038bf61f3abf4848",
+      "TestNames": [
+        "deleteIsIdempotent",
+        "wrapsMissingFileWithoutExposingItsPath",
+        "rejectsInvalidStorageKeyWhenOpening",
+        "clearsTemporaryFileWhenUploadStreamFails",
+        "opensStoredContentByStorageKey",
+        "storesContentWithServerGeneratedKey",
+        "rejectsMaliciousKeyWithoutDeletingOutsideRoot",
+        "generatesDifferentKeysForDifferentUploads"
+      ]
+    }
+  ],
+  "Notes": [
+    "只汇总本轮生成的报告，排除2026-09-29 14:03遗留在surefire中的IngestionJobDatabaseIT以及此前ProviderLiveAiIT。",
+    "新增两个参数化测试验证现有生产代码；线上镜像没有重建。",
+    "真实PostgreSQL检索和持久化，Embedding为受控替身，断言Chat网关零调用。",
+    "完整db-it按DatabaseIT名称匹配，历史升级兼容测试随后单独执行一次。",
+    "不包含live-ai，不等于真实云端模型或人工评分。",
+    "db-it收尾仍出现测试容器连接关闭后的清理轮询日志及fork退出超时提示；报告85/85通过、Maven退出码0和BUILD SUCCESS，不能描述为日志完全无告警。"
+  ]
+}

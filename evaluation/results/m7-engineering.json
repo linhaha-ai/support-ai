@@ -1,0 +1,104 @@
+{
+  "ArtifactKind": "M7_FRONTEND_EVALUATION_VERIFICATION",
+  "Status": "PASSED",
+  "RecordedAt": "2026-09-29T15:33:38.0469532+00:00",
+  "BaselineCommit": "30dfcc350646471ce2f81202598ff384f454a572",
+  "Frontend": {
+    "Tests": 97,
+    "Passed": 97,
+    "Failed": 0,
+    "Skipped": 0,
+    "StartedAt": "2026-09-29T15:31:50.6410000+00:00",
+    "BuildExitCode": 0,
+    "Files": [
+      {
+        "File": "App.test.ts",
+        "Status": "passed",
+        "Tests": 15
+      },
+      {
+        "File": "chatSession.test.ts",
+        "Status": "passed",
+        "Tests": 18
+      },
+      {
+        "File": "ChatSessionView.test.ts",
+        "Status": "passed",
+        "Tests": 10
+      },
+      {
+        "File": "document.test.ts",
+        "Status": "passed",
+        "Tests": 5
+      },
+      {
+        "File": "DocumentManagementView.test.ts",
+        "Status": "passed",
+        "Tests": 5
+      },
+      {
+        "File": "KnowledgeBaseView.test.ts",
+        "Status": "passed",
+        "Tests": 14
+      },
+      {
+        "File": "TicketQueryView.test.ts",
+        "Status": "passed",
+        "Tests": 4
+      },
+      {
+        "File": "useAuth.test.ts",
+        "Status": "passed",
+        "Tests": 6
+      },
+      {
+        "File": "useChatSessions.test.ts",
+        "Status": "passed",
+        "Tests": 11
+      },
+      {
+        "File": "useDocuments.test.ts",
+        "Status": "passed",
+        "Tests": 6
+      },
+      {
+        "File": "useDocumentUpload.test.ts",
+        "Status": "passed",
+        "Tests": 3
+      }
+    ]
+  },
+  "Evaluation": {
+    "Tests": 29,
+    "Passed": 29,
+    "Failed": 0,
+    "Dataset": {
+      "datasetVersion": "f21-2026-09-23-v1",
+      "totalCount": 100,
+      "developmentCount": 60,
+      "testCount": 40,
+      "developmentSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+      "testSha256": "b367d40354c66f69e59a64c4e52cf7d43b16e72c66bc5af976b3b0e8ea372239",
+      "evidenceCount": 66,
+      "categoryCounts": {
+        "ERROR_CODE": 8,
+        "API_NAME": 19,
+        "CHINESE_PARAPHRASE": 40,
+        "CROSS_DOCUMENT": 25,
+        "INSUFFICIENT": 11,
+        "PERMISSION": 23,
+        "VERSION_CHANGE": 8
+      }
+    }
+  },
+  "Commands": [
+    "npm.cmd --prefix frontend test -- --run --reporter=json --outputFile=../.local/evaluation/m7-frontend-tests.json",
+    "npm.cmd --prefix frontend run build",
+    "npm.cmd --prefix evaluation test",
+    "npm.cmd --prefix evaluation run validate"
+  ],
+  "Limitations": [
+    "组件测试和生产构建不替代真实部署浏览器验收。",
+    "本文件只记录本轮前端与评测工具；后端及真实业务证据分别归档。"
+  ]
+}

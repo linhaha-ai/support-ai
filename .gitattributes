@@ -1,5 +1,11 @@
 # F32 证据使用原始字节计算指纹，跨平台检出时不得转换换行。
 evaluation/results/f32-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# M7 补验结果同样保存原始字节，便于在复核记录中验证摘要。
+evaluation/results/m7-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+evaluation/results/m7-*.mjs text eol=lf
 
 # 冻结记录与汇总产物包含评测脚本指纹，固定脚本换行以便复核。
 evaluation/scripts/*.mjs text eol=lf
+deploy/scripts/verify-m7-* text eol=lf
+# 新增竞态用例的源文件指纹随 M7 回归报告归档。
+backend/support-ai-bootstrap/src/test/java/com/haha/supportai/acceptance/CrossFeatureAuthorizationDatabaseIT.java text eol=lf
