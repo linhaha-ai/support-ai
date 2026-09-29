@@ -1,0 +1,96 @@
+name: support-ai
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      POSTGRES_DB: supportai
+      POSTGRES_USER: supportai
+      POSTGRES_PASSWORD: ${SUPPORT_AI_DB_PASSWORD:?请在 deploy/.env 中设置数据库密码}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/app/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/supportai
+      SPRING_DATASOURCE_USERNAME: supportai
+      SPRING_DATASOURCE_PASSWORD: ${SUPPORT_AI_DB_PASSWORD:?请在 deploy/.env 中设置数据库密码}
+      SPRING_AI_OLLAMA_BASE_URL: ${SUPPORT_AI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL: ${SUPPORT_AI_CHAT_MODEL:-qwen2.5:3b}
+      SPRING_AI_OLLAMA_EMBEDDING_OPTIONS_MODEL: ${SUPPORT_AI_EMBEDDING_MODEL:-bge-m3}
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: ${SUPPORT_AI_COOKIE_SECURE:-false}
+      SA_TOKEN_COOKIE_SECURE: ${SUPPORT_AI_COOKIE_SECURE:-false}
+      SUPPORT_AI_STORAGE_ROOT: /var/lib/support-ai/storage
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - document-data:/var/lib/support-ai
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web/Dockerfile
+    ports:
+      - "${SUPPORT_AI_BIND_ADDRESS:-127.0.0.1}:${SUPPORT_AI_HTTP_PORT:-8088}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  maintenance:
+    image: pgvector/pgvector:0.8.6-pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    profiles:
+      - maintenance
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: supportai
+      PGUSER: supportai
+      PGPASSWORD: ${SUPPORT_AI_DB_PASSWORD:?请在 deploy/.env 中设置数据库密码}
+    entrypoint:
+      - /bin/bash
+      - /maintenance/maintenance.sh
+    volumes:
+      - document-data:/data
+      - ./backups:/backups
+      - ./maintenance:/maintenance:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres-data:
+  document-data:

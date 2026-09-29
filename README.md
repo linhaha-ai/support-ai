@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F28 已实现待完整验收，F29—F30 自动化验收已通过**
+**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F28 已实现待完整验收，F29—F31 已按任务范围验收通过**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 业务页面和 PostgreSQL 开发配置。F03—F20 已形成知识授权、文档入库、可追溯 RAG、多轮会话、版本更新、删除和任务恢复链路；F21—F24 已加入固定评测题集、关键词融合、可关闭重排序与配置冻结；F25—F28 已加入实时只读工单、工具调用审计、受预算约束的 ReactAgent 助手及有限多轮历史。ASSISTANT 会话只能调用服务端注册的知识检索与工单查询工具，复用既有 run、SSE、取消、状态查询和来源协议；当前工单问题要求本轮重新查询，不接受模型编造的来源编号。F29 已完成跨功能授权一致性回归，F30 已补齐持久 traceId、单用户并发配额、异常脱敏、健康状态和用户诊断反馈；数据库迁移当前为 V15。真实模型、真实 API、浏览器及前置任务仍待验收，因此完成状态以[开发计划](doc/开发计划.md)和[阶段验收记录](doc/验收记录/)为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 业务页面、PostgreSQL 开发配置和 Docker Compose 交付配置。F03—F20 已形成知识授权、文档入库、可追溯 RAG、多轮会话、版本更新、删除和任务恢复链路；F21—F24 已加入固定评测题集、关键词融合、可关闭重排序与配置冻结；F25—F28 已加入实时只读工单、工具调用审计、受预算约束的 ReactAgent 助手及有限多轮历史。ASSISTANT 会话只能调用服务端注册的知识检索与工单查询工具，复用既有 run、SSE、取消、状态查询和来源协议；当前工单问题要求本轮重新查询，不接受模型编造的来源编号。F29 已完成跨功能授权一致性回归，F30 已补齐持久 traceId、单用户并发配额、异常脱敏、健康状态和用户诊断反馈；F31 已完成 web、app、postgres 同源部署以及数据库与原文件的一致性备份、隔离恢复演练。数据库迁移当前为 V15。真实外部模型、真实质量比较及 F32 全业务验收仍待完成，因此完成状态以[开发计划](doc/开发计划.md)和[阶段验收记录](doc/验收记录/)为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -35,6 +35,8 @@ F28 已把有限历史与完整来源校验用于 ASSISTANT：默认最多 3 个
 F29 已完成跨功能授权与数据一致性自动化回归：新增两个普通用户、无成员权管理员、READ/WRITE 变更、撤权和知识库停用的贯穿数据库场景，并确保前端权限刷新失败后立即清除缓存原文与分块。后端普通测试 361/361、13 组真实 PostgreSQL 场景 58/58、前端 95/95 及生产构建均通过；M7 仍需继续完成 F30—F32，详见 [F29 验收记录](doc/验收记录/F29验收记录.md)。
 
 F30 已将入口 traceId 持久化到 `chat_run` 和 `ingestion_job`，异步问答、入库阶段与心跳会恢复同一日志上下文；运行/任务状态接口及失败页面可显示对应追踪号。问题长度、流式执行器容量和单用户跨会话并发数由配置控制，用户并发配额通过账号行锁串行判断，超限返回结构化 429。模型 Token 未返回时页面明确显示“未知”，通用异常和 DOWN 健康响应不返回 SQL、密码或内部组件详情。自动化验收结果与边界见 [F30 验收记录](doc/验收记录/F30验收记录.md)。
+
+F31 新增固定镜像摘要的 app/web 构建、Nginx 同源 `/api` 和文档代理、关闭 SSE 缓冲的超时配置，以及 PostgreSQL 与原文件持久卷。维护脚本在停止 app 写入后生成数据库归档、原文件归档、Flyway 版本清单和 SHA-256 校验，再在临时数据库与临时目录完整校验后恢复目标环境。空卷启动、容器重建、浏览器逐步输出、Session 重启失效、隔离恢复、遗留问答 `RUN_INTERRUPTED` 且不重放模型均已验证，详见 [F31 验收记录](doc/验收记录/F31验收记录.md)。
 
 ## 业务场景
 
@@ -197,7 +199,7 @@ support-ai/
 ├── frontend/                   # Vue 登录、运行状态、知识库、问答与工单查询页面
 ├── evaluation/                 # 100 题评测集、契约、校验脚本与结果状态
 ├── data/demo/knowledge/f21/    # F21 可上传的脱敏模拟知识语料
-├── deploy/                     # 开发数据库 Compose，完整部署在 F31
+├── deploy/                     # 开发数据库与 F31 完整部署、维护及验收脚本
 ├── doc/
 │   ├── 技术设计大纲.md
 │   ├── 开发计划.md
@@ -295,6 +297,36 @@ npm --prefix frontend run dev
 
 本机 HTTP 开发配置的 Sa-Token 登录 Cookie 与 CSRF Session Cookie 均使用 `HttpOnly`、`SameSite=Lax`，并显式设置 `Secure=false`。部署到 HTTPS 时必须将 `sa-token.cookie.secure` 和 `server.servlet.session.cookie.secure` 都覆盖为 `true`。Sa-Token 当前使用单实例内存存储登录态，应用重启后需要重新登录。
 
+## Docker Compose 部署（F31）
+
+完整部署包含 `web`、`app`、`postgres` 三个常驻服务。Nginx 在同一入口提供 Vue 页面、`/api`、`/v3/api-docs` 和 `/doc.html`，对 SSE 关闭响应缓冲与缓存；数据库和原文件分别保存在命名卷。先复制环境变量模板并填写独立强密码，`deploy/.env` 已被 Git 忽略：
+
+```powershell
+Copy-Item deploy/.env.example deploy/.env
+# 编辑 deploy/.env，至少设置 SUPPORT_AI_DB_PASSWORD。
+docker compose -p support-ai -f deploy/compose.yml --env-file deploy/.env up -d --build --wait
+```
+
+默认仅监听 <http://127.0.0.1:8088>。Flyway 首次启动自动迁移到 V15 并补齐默认管理员；演示用户和工单仍按上一节的顺序手动导入，不会自动污染部署数据。部署在 HTTPS 入口后必须把 `SUPPORT_AI_COOKIE_SECURE` 设为 `true`；本机 HTTP 验证保持 `false`。
+
+备份脚本先停止 app，避免数据库与原文件继续写入，再通过一次性维护容器生成 `database.dump`、`storage.tar`、`MANIFEST` 和 `SHA256SUMS`。仅在维护命令成功且 app/web 重新达到健康状态后脚本才返回成功：
+
+```powershell
+pwsh -File deploy/scripts/backup.ps1 -ProjectName support-ai -EnvFile deploy/.env
+pwsh -File deploy/scripts/restore.ps1 -ProjectName support-ai -EnvFile deploy/.env -BackupName <备份目录名>
+```
+
+恢复会先核对固定文件集、SHA-256、归档路径和 Flyway 版本，在临时数据库中验证所有未删除文档的 `storage_key`、大小、摘要及 active/pending 指针，再以单事务恢复目标数据库并切换文件目录。任一步失败都会保留 app 停止状态，维护者应先查看实际容器状态和错误原因，不能绕过校验强行启动。
+
+恢复演练必须使用不同项目名、端口和空数据卷，例如将 `deploy/.env.example` 复制为被忽略的 `deploy/.env.restore`，设置不同的 `SUPPORT_AI_HTTP_PORT` 后执行：
+
+```powershell
+docker compose -p support-ai-restore -f deploy/compose.yml --env-file deploy/.env.restore up -d --wait postgres
+pwsh -File deploy/scripts/restore.ps1 -ProjectName support-ai-restore -EnvFile deploy/.env.restore -BackupName <备份目录名>
+```
+
+`deploy/acceptance/mock-ollama.mjs` 只用于确定性部署验收，可复现 1024 维 Embedding、JSON 查询改写和分三次输出的 Chat 流；它不代表真实模型质量。完整 F31 演练可先运行该协议桩，再执行 `deploy/scripts/verify-f31.ps1`。生产或真实验收必须改用明确配置并已准备模型的 Ollama/DashScope，不能使用协议桩。
+
 ### 接口文档
 
 接口文档本身属于受保护资源。先在 <http://127.0.0.1:5173> 登录，再访问 Knife4j 页面 <http://127.0.0.1:8080/doc.html>；前后端必须使用相同主机名，不能混用 `localhost` 与 `127.0.0.1`。OpenAPI 3.0 JSON 位于 <http://127.0.0.1:8080/v3/api-docs>，Actuator 健康接口位于 `actuator` 文档分组。当前生成内容覆盖已实现的认证、知识库、文档、导入任务、检索、会话、运行控制和工单接口；运行与任务状态模型包含可空 traceId，问答并发超限使用 429 `REQUEST_LIMITED`。
@@ -377,6 +409,8 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 2026-09-24 修复复验：普通测试已恢复 361/361，六类定向数据库测试 21/21 通过，包含共享 RAG Mapper 6/6、助手工单/工具/历史 10/10、授权检索 4/4、迁移兼容 1/1。OpenAPI 与文档页面已通过登录访问和匿名拒绝检查；Knife4j 可选增强关闭以兼容当前 springdoc。该批次不等同于重跑全部历史数据库测试，详细边界见阶段验收记录。
 
 2026-09-29 F30 验收：后端普通测试 78 个报告、368/368 通过；19 类完整 Testcontainers 数据库回归 84/84 通过，覆盖 V1→V15、V14→V15、账号行锁、run/job traceId 和既有业务链路；前端 11 个文件 95/95 通过，生产构建通过。模型、数据库、队列和并发故障使用确定性自动化场景模拟，未执行真实外部模型或浏览器人工操作，详细证据与边界见 [F30 验收记录](doc/验收记录/F30验收记录.md)。
+
+2026-09-29 F31 验收：从空命名卷构建并启动 `web/app/postgres`，经 Nginx 完成登录、上传、入库、RAG、历史来源和工单查询；app/web 强制重建后数据库与原文件仍可用，旧 Session 返回 401，过期 `RUNNING` 入库任务由新实例接管并完成。备份 `20260929T062331Z-02da9ca6` 经 SHA-256 和临时数据库校验后在独立项目恢复，恢复后的文档、来源与工单一致；遗留问答收口为 `RUN_INTERRUPTED` 且恢复过程模型调用为 0。源环境与隔离恢复环境的 SSE 均收到 3 次增量，浏览器也观察到回答分批增长。F31 后端定向测试 38/38、摄取数据库集成测试 7/7、前端 95/95 及容器生产构建通过；模型调用使用本地确定性 Ollama 协议桩，不等同于真实模型质量验收。详细证据见 [F31 验收记录](doc/验收记录/F31验收记录.md)。
 
 MyBatis-Plus 接入后需重点核对 UUID、字符串枚举、JSON/JSONB、pgvector 和带时区时间映射，以及知识库、成员、文档版本、分块、任务、会话与来源事务的回滚行为。F04 仍需验证成员幂等授权、撤权即时生效及 ADMIN 与成员读取权分离；F05 还需验证复合版本外键、事务失败文件补偿、READ/WRITE 上传边界和路径穿越防护；F06 还需验证任务查询授权、并发领取唯一性、过期租约隔离、attempt 持久化和重启恢复；F07 还需验证严格 UTF-8/完整性失败、标题层级、token 预算和稳定分块 ID；F08 还需验证批量模型调用、断点续作、失效租约拒绝写入以及 READY/active/SUCCEEDED 原子一致性；F10 还需验证会话范围锁、完整配置快照、幂等 run 与单活跃 run 的并发行为；F11 还需验证真实 1024 维查询向量、授权后 TopK、向量空间隔离和 WRITE 调试接口边界；F12 还需验证模型前来源提交、引用标记、历史来源预览、撤权、资料不足及模型失败终态；F13 还需验证真实流式模型、逐增量落库、事件顺序、部分回答、来源发送前即时复核、线程池过载和模型用量未知场景；F14 还需验证任务总超时、断线回查、撤权隐藏、完成/取消/超时竞争、任务中断和重启收口；F19 还需验证删除与发布并发、过期清理租约、目标隔离及历史来源失效。上述及下方条目为阶段收口要求，部分已有自动化证据；开发库迁移兼容通过保持 V12—V14 不变并新增 V15 诊断迁移继续前向演进，Testcontainers 空库与 V14→V15 增量测试均已通过。依赖树、真实模型、完整 HTTP 或浏览器检查尚未执行，各项已通过范围与待办以对应验收记录为准。
 F15 还需验证列表与消息游标边界、标题仅更新、活跃运行删除 409、同库不同用户隔离、固定范围撤权隐藏历史正文，以及来源逐条实时复核。F15 复用 V10/V11，不新增迁移；在后端、数据库、接口和浏览器场景完成前，F15 继续待完整验收。

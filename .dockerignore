@@ -1,0 +1,15 @@
+.git
+.idea
+.local
+.omo
+.codegraph
+.env*
+**/.env*
+**/target
+**/node_modules
+**/dist
+deploy/backups
+data
+doc
+evaluation
+*.log

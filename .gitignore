@@ -5,6 +5,7 @@
 *.log
 .local/
 .omo/
+deploy/backups/
 
 # Java / Maven
 **/target/
