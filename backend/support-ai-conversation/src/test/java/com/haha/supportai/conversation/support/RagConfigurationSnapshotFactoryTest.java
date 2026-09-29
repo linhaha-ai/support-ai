@@ -24,7 +24,7 @@ class RagConfigurationSnapshotFactoryTest {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.model.chat", "ollama")
                 .withProperty("spring.ai.model.embedding", "dashscope")
-                .withProperty("spring.ai.ollama.chat.options.model", "qwen2.5:3b")
+                .withProperty("spring.ai.ollama.chat.options.model", "qwen3.5:9b")
                 .withProperty("spring.ai.ollama.chat.options.temperature", "0.0")
                 .withProperty("spring.ai.dashscope.embedding.options.model", "text-embedding-v4")
                 .withProperty("spring.ai.dashscope.api-key", "不应进入快照")
@@ -65,7 +65,7 @@ class RagConfigurationSnapshotFactoryTest {
         assertThat(snapshot.path("rerank").path("timeoutMs").asLong()).isEqualTo(5000L);
         assertThat(snapshot.path("chat").path("provider").asText()).isEqualTo("ollama");
         assertThat(snapshot.path("chat").path("role").asText()).isEqualTo("CHAT");
-        assertThat(snapshot.path("chat").path("model").asText()).isEqualTo("qwen2.5:3b");
+        assertThat(snapshot.path("chat").path("model").asText()).isEqualTo("qwen3.5:9b");
         assertThat(snapshot.path("chat").path("temperature").asDouble()).isZero();
         assertThat(snapshot.path("embedding").path("provider").asText()).isEqualTo("dashscope");
         assertThat(snapshot.path("embedding").path("role").asText()).isEqualTo("EMBEDDING");

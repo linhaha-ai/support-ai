@@ -56,10 +56,10 @@ spring:
         pull-model-strategy: never
       chat:
         options:
-          model: qwen2.5:3b
+          model: qwen3.5:9b
       embedding:
         options:
-          model: bge-m3
+          model: bge-m3:567m
     retry:
       max-attempts: 1
 management:

@@ -4,9 +4,9 @@
 
 SupportAI 面向研发与技术支持人员，将业务文档、故障处理经验和工单查询整合到同一个问答入口。通过检索增强生成（RAG）提供带原文依据的回答，通过受控工具查询工单当前状态，让每次回答都能核对来源。
 
-**目标版本：V1.0.0 · 当前阶段：F01 真实模型待验收，F02—F28 已实现待完整验收，F29—F31 已按任务范围验收通过**
+**目标版本：V1.0.0 · 当前阶段：Ollama 真实接入已验证，F01 云端模型及 F02—F28 完整验收待收口，F29—F31 已按任务范围验收通过**
 
-当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 业务页面、PostgreSQL 开发配置和 Docker Compose 交付配置。F03—F20 已形成知识授权、文档入库、可追溯 RAG、多轮会话、版本更新、删除和任务恢复链路；F21—F24 已加入固定评测题集、关键词融合、可关闭重排序与配置冻结；F25—F28 已加入实时只读工单、工具调用审计、受预算约束的 ReactAgent 助手及有限多轮历史。ASSISTANT 会话只能调用服务端注册的知识检索与工单查询工具，复用既有 run、SSE、取消、状态查询和来源协议；当前工单问题要求本轮重新查询，不接受模型编造的来源编号。F29 已完成跨功能授权一致性回归，F30 已补齐持久 traceId、单用户并发配额、异常脱敏、健康状态和用户诊断反馈；F31 已完成 web、app、postgres 同源部署以及数据库与原文件的一致性备份、隔离恢复演练。数据库迁移当前为 V15。真实外部模型、真实质量比较及 F32 全业务验收仍待完成，因此完成状态以[开发计划](doc/开发计划.md)和[阶段验收记录](doc/验收记录/)为准。
+当前仓库包含 Maven 多模块 Spring Boot 后端、Vue 业务页面、PostgreSQL 开发配置和 Docker Compose 交付配置。F03—F20 已形成知识授权、文档入库、可追溯 RAG、多轮会话、版本更新、删除和任务恢复链路；F21—F24 已加入固定评测题集、关键词融合、可关闭重排序与配置冻结；F25—F28 已加入实时只读工单、工具调用审计、受预算约束的 ReactAgent 助手及有限多轮历史。ASSISTANT 会话只能调用服务端注册的知识检索与工单查询工具，复用既有 run、SSE、取消、状态查询和来源协议；当前工单问题要求本轮重新查询，不接受模型编造的来源编号。F29 已完成跨功能授权一致性回归，F30 已补齐持久 traceId、单用户并发配额、异常脱敏、健康状态和用户诊断反馈；F31 已完成 web、app、postgres 同源部署以及数据库与原文件的一致性备份、隔离恢复演练。数据库迁移当前为 V15。2026-09-29 已将默认模型切换为 `qwen3.5:9b` 与 `bge-m3:567m`，Ollama 真实接入四项测试通过；云端模型、真实质量比较及 F32 全业务验收仍待完成，因此完成状态以[开发计划](doc/开发计划.md)和[阶段验收记录](doc/验收记录/)为准。
 
 [技术设计大纲](doc/技术设计大纲.md) · [功能开发计划](doc/开发计划.md) · [后端模块结构](doc/后端模块结构.md)
 
@@ -85,8 +85,8 @@ V1.0.0 聚焦文本知识与只读业务查询。PDF/OCR、图片问答、多租
 | Java | JDK 21 |
 | Web 服务 | Spring Boot 3.5.x、Spring MVC；初始验证基线为 3.5.8 |
 | AI 框架 | Spring AI Alibaba 1.1.2.2、Spring AI 1.1.2、SAA Extensions 1.1.2.2 |
-| 生成模型 | 默认本机 Ollama `qwen2.5:3b`；可切换北京地域 DashScope `qwen-plus` |
-| 向量模型 | 默认 Ollama `bge-m3`；可切换 DashScope `text-embedding-v4`，统一校验 1024 维 |
+| 生成模型 | 默认本机 Ollama `qwen3.5:9b`；可切换北京地域 DashScope `qwen-plus` |
+| 向量模型 | 默认 Ollama `bge-m3:567m`；可切换 DashScope `text-embedding-v4`，统一校验 1024 维 |
 | 重排序 | qwen3-rerank，独立适配、支持关闭与失败回退 |
 | 数据存储 | PostgreSQL 16 + pgvector 0.8.x |
 | 数据访问与迁移 | MyBatis-Plus 3.5.17（Spring Boot 3 专用 Starter）、Flyway |
@@ -362,12 +362,12 @@ F06 已建立 PostgreSQL 持久任务的有界执行器、`FOR UPDATE SKIP LOCKE
 默认无需云端密钥，连接本机独立 Ollama。先安装并启动 Ollama，再显式准备模型：
 
 ```powershell
-ollama pull qwen2.5:3b
-ollama pull bge-m3
+ollama pull qwen3.5:9b
+ollama pull bge-m3:567m
 ollama list
 ```
 
-应用启动不会拉取模型或发起生成请求。Ollama 地址直接配置为 `http://localhost:11434`，Chat 模型为 `qwen2.5:3b`，Embedding 模型为 `bge-m3`；连接超时为 10 秒，读取超时为 180 秒。需要调整时修改对应 profile，或使用 Spring Boot 标准外部配置覆盖具体属性。
+应用启动不会拉取模型或发起生成请求。Ollama 地址直接配置为 `http://localhost:11434`，Chat 模型为 `qwen3.5:9b`，Embedding 模型为 `bge-m3:567m`；连接超时为 10 秒，读取超时为 180 秒。模型名称应与 `ollama list` 中的完整标签一致；仅安装 `bge-m3:567m` 时，未带标签的 `bge-m3` 会请求尚未安装的 `latest`。需要调整时修改对应 profile，或使用 Spring Boot 标准外部配置覆盖具体属性。Compose 容器通过 `http://host.docker.internal:11434` 访问宿主机模型服务，已有 `deploy/.env` 需要同步修改模型变量并重建 app 才能生效。
 
 需要北京地域 DashScope 时，在启动终端配置密钥并启用对应 profile：
 
@@ -379,7 +379,7 @@ mvn -f backend/support-ai-bootstrap/pom.xml spring-boot:run '-Dspring-boot.run.p
 
 云端 profile 直接配置 Chat 为 `qwen-plus`，Embedding 为 `text-embedding-v4 / 1024`。混合模式仍启用 `dashscope` profile，再通过 `SPRING_AI_MODEL_CHAT`、`SPRING_AI_MODEL_EMBEDDING` 临时覆盖其中一个角色。两个角色独立选择，均只接受 `ollama` 或 `dashscope`；全本地直接使用 `ollama` profile。
 
-同为 1024 维不代表向量兼容。更换 Embedding 提供方或模型后必须重建独立索引，不能用新模型查询旧向量。F01 的向量表仅存在于隔离测试环境；正式业务向量表在 F08 创建。
+同为 1024 维不代表向量兼容。更换 Embedding 提供方或模型后必须重建独立索引，不能用新模型查询旧向量。配置哈希包含完整 Embedding 模型名，因此从 `bge-m3` 改为 `bge-m3:567m` 后，旧配置的文档需要重新导入才能参与检索；只更换 Chat 模型不影响索引哈希。F31 协议桩生成的向量只用于历史部署验收，不可复用为真实模型质量评测数据。F01 的向量表仅存在于隔离测试环境；正式业务向量表在 F08 创建。
 
 ### 自动化检查
 
@@ -403,6 +403,8 @@ mvn -f backend/pom.xml -Plive-ai '-Dspring.profiles.active=dashscope' verify
 ```
 
 真实测试发送少量固定样本文本，分别检查 Chat、流式增量、实际向量长度和 PgVectorStore 相似查询。云端调用会产生相应模型费用；没有执行成功的测试不计入验收通过。
+
+2026-09-29 模型切换复核：使用项目默认 `qwen3.5:9b` / `bge-m3:567m`，配置定向测试 16/16、真实 `ProviderLiveAiIT` 4/4 通过；覆盖普通 Chat、流式 Chat、1024 维有限向量和隔离 PostgreSQL 中的真实相似检索。模型接入与部署核验记录见 [F32 阶段验收记录](doc/验收记录/F32验收记录.md)，不将四项接入检查等同于固定题集质量验收。
 
 以上编译、测试和验收命令从父 POM 执行整个 reactor；AI 与身份纯单元测试跟随各自模块，应用集成和 OpenAPI 测试位于 bootstrap。普通测试报告在各模块的 `target/surefire-reports/`，数据库与真实模型报告在 `backend/support-ai-bootstrap/target/failsafe-reports/`。此前合并复核的局部结果为普通测试 275/275、6 类数据库测试 31/31 通过。2026-09-23 23:34—23:42 的 M3/M4 扩大复核基于 `443deb5` 加本地合并修复：包含 bootstrap 的普通测试 339 项中 338 项通过，1 项 OpenAPI 测试失败；8 类数据库测试 47 项中 38 项通过，2 项断言失败、7 项错误，涉及来源 SQL、范围排序及向量测试夹具；空库 V1—V14 迁移通过。前端 89 项测试和生产构建通过。不同批次数字不累加，已知失败与真实模型、HTTP、浏览器验收仍待收口，逐项证据见 [验收记录](doc/验收记录/)。
 
