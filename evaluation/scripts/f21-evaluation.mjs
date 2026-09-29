@@ -455,10 +455,10 @@ function nonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function validateObjectFields(value, fields, name) {
+function validateObjectFields(value, fields, name, optionalFields = []) {
   ensure(value && typeof value === "object" && !Array.isArray(value),
     `运行记录的 ${name} 必须为对象`);
-  const allowedFields = new Set(fields);
+  const allowedFields = new Set([...fields, ...optionalFields]);
   ensure(fields.every((field) => Object.hasOwn(value, field)),
     `运行记录的 ${name} 缺少必需字段`);
   ensure(Object.keys(value).every((field) => allowedFields.has(field)),
@@ -474,31 +474,43 @@ function validateScore(value, minimum, name) {
     `运行记录的 ${name} 无效`);
 }
 
-function validateF24Configuration(config) {
+export function validateF24Configuration(config) {
   validateObjectFields(config,
     ["schemaVersion", "mode", "retrieval", "rerank", "answer", "chat", "embedding", "index", "prompt"],
     "配置快照");
   ensure(config.schemaVersion === "f24-v1", "运行记录必须使用 f24-v1 配置快照");
   ensure(config.mode === "RAG", "运行记录的配置快照模式必须为 RAG");
-  validateObjectFields(config.chat, ["role", "provider", "model", "temperature"], "Chat 配置");
+  validateObjectFields(config.chat, ["role", "provider", "model", "temperature"], "Chat 配置", ["numCtx", "think"]);
   ensure(config.chat?.role === "CHAT" && nonEmptyString(config.chat?.provider)
       && nonEmptyString(config.chat?.model),
     "运行记录缺少 Chat 角色、提供方或模型");
   ensure(config.chat.temperature == null || Number.isFinite(config.chat.temperature),
     "运行记录的 Chat temperature 无效");
+  if (config.chat.numCtx != null) {
+    ensure(config.chat.provider === "ollama", "numCtx 仅适用于 Ollama 配置");
+    validatePositiveInteger(config.chat.numCtx, "Ollama 上下文长度");
+  }
+  if (config.chat.think != null) ensure(config.chat.provider === "ollama" && typeof config.chat.think === "boolean",
+    "运行记录的 Ollama think 必须为布尔值");
   validateObjectFields(config.embedding, ["role", "provider", "model", "dimensions"], "Embedding 配置");
   ensure(config.embedding?.role === "EMBEDDING" && nonEmptyString(config.embedding?.provider)
       && nonEmptyString(config.embedding?.model) && Number.isInteger(config.embedding?.dimensions)
       && config.embedding.dimensions > 0,
     "运行记录缺少 Embedding 角色、提供方、模型或维度");
   validateObjectFields(config.retrieval,
-    ["strategy", "topK", "candidateMultiplier", "rrfK", "maxKeywords"], "检索配置");
+    ["strategy", "topK", "candidateMultiplier", "rrfK", "maxKeywords"], "检索配置", ["queryRewrite"]);
   ensure(["VECTOR", "FUSION"].includes(config.retrieval?.strategy)
       && Number.isInteger(config.retrieval?.topK) && config.retrieval.topK > 0,
     "运行记录缺少有效的检索策略或 TopK");
   validatePositiveInteger(config.retrieval.candidateMultiplier, "检索候选倍数");
   validatePositiveInteger(config.retrieval.rrfK, "RRF 常量");
   validatePositiveInteger(config.retrieval.maxKeywords, "最大关键词数");
+  if (config.retrieval.queryRewrite != null) {
+    validateObjectFields(config.retrieval.queryRewrite, ["enabled", "version", "maxCharacters"], "检索改写配置");
+    ensure(typeof config.retrieval.queryRewrite.enabled === "boolean"
+      && nonEmptyString(config.retrieval.queryRewrite.version), "检索改写配置缺少开关或版本");
+    validatePositiveInteger(config.retrieval.queryRewrite.maxCharacters, "检索改写字符预算");
+  }
   validateObjectFields(config.rerank,
     ["role", "enabled", "provider", "model", "candidateMultiplier", "maxCandidates",
       "maxEstimatedItemTokens", "maxEstimatedRequestTokens", "timeoutMs", "instruction"],
@@ -534,8 +546,12 @@ function validateF24Configuration(config) {
     model: config.embedding.model,
     dimensions: config.embedding.dimensions,
   }), "运行记录的查询 Embedding 与索引 Embedding 不一致");
-  validateObjectFields(config.prompt, ["version"], "提示词配置");
+  validateObjectFields(config.prompt, ["version"], "提示词配置", ["historyInjection", "historyMaxRounds", "historyMaxCharacters"]);
   ensure(nonEmptyString(config.prompt?.version), "运行记录缺少提示词版本");
+  if (config.prompt.historyInjection != null) ensure(config.prompt.historyInjection === "business-prompt-once",
+    "历史注入方式不支持");
+  if (config.prompt.historyMaxRounds != null) validatePositiveInteger(config.prompt.historyMaxRounds, "历史轮数");
+  if (config.prompt.historyMaxCharacters != null) validatePositiveInteger(config.prompt.historyMaxCharacters, "历史字符预算");
 }
 
 export function compareTuningConfigurations(factor, baselineConfig, candidateConfig) {
@@ -626,7 +642,7 @@ export function validateF24Metrics(result, maximumEvidenceTokens) {
       "budgetFilteredEvidenceCount", "evidenceTokenCount", "citedCount", "noEvidence", "retrievalMs",
       "embeddingTotalTokens", "rerankStatus", "rerankCandidateCount", "rerankMs", "rerankTotalTokens",
       "generationMs", "totalMs", "firstDeltaMs"],
-    `${result.caseId} 的 RAG 指标`);
+    `${result.caseId} 的 RAG 指标`, ["queryRewrite"]);
   const countFields = [
     "evidenceCount",
     "retrievedEvidenceCount",
@@ -643,10 +659,16 @@ export function validateF24Metrics(result, maximumEvidenceTokens) {
   `${result.caseId} 的证据筛选数量无法守恒`);
   ensure(result.metrics.evidenceTokenCount <= maximumEvidenceTokens,
     `${result.caseId} 的证据 Token 数超过配置预算`);
-  ensure(result.metrics.evidenceCount === result.retrievedEvidenceIds.length,
-    `${result.caseId} 的入模证据数量与证据列表不一致`);
-  ensure(result.metrics.citedCount === result.citedEvidenceIds.length,
-    `${result.caseId} 的引用数量与引用列表不一致`);
+  // evidenceIds 是语料事实段标识，一块可能覆盖多段，数量必须由真实分块来源核对。
+  ensure(Array.isArray(result.sources), `${result.caseId} 缺少实际来源分块记录，不能用证据段数替代分块数`);
+  ensure(new Set(result.sources.map((source) => source.chunkId)).size === result.sources.length,
+    `${result.caseId} 的来源分块重复`);
+  for (const source of result.sources) ensure(typeof source.chunkId === "string" && source.chunkId.length > 0
+    && typeof source.cited === "boolean", `${result.caseId} 的来源分块缺少标识或引用状态`);
+  ensure(result.metrics.evidenceCount === result.sources.length,
+    `${result.caseId} 的入模证据数量与分块来源列表不一致`);
+  ensure(result.metrics.citedCount === result.sources.filter((source) => source.cited).length,
+    `${result.caseId} 的引用数量与分块来源列表不一致`);
   ensure(result.noEvidence === (result.metrics.evidenceCount === 0),
     `${result.caseId} 的 noEvidence 与实际入模证据数量不一致`);
   ensure(result.metrics.evidenceCount > 0 || result.metrics.evidenceTokenCount === 0,
@@ -679,6 +701,14 @@ export function validateF24Metrics(result, maximumEvidenceTokens) {
   ensure(result.metrics.firstDeltaMs == null
       || (Number.isInteger(result.metrics.firstDeltaMs) && result.metrics.firstDeltaMs >= 0),
     `${result.caseId} 的首增量耗时无效`);
+  if (result.metrics.queryRewrite != null) {
+    validateObjectFields(result.metrics.queryRewrite, ["originalQuestion", "retrievalQuestion", "status"],
+      `${result.caseId} 的检索改写诊断`);
+    for (const key of ["originalQuestion", "retrievalQuestion"]) ensure(result.metrics.queryRewrite[key] == null
+      || typeof result.metrics.queryRewrite[key] === "string", `${result.caseId} 的检索改写问题类型无效`);
+    ensure(["NOT_ATTEMPTED", "NO_HISTORY", "SELF_CONTAINED", "REWRITTEN", "UNCHANGED", "FALLBACK"]
+      .includes(result.metrics.queryRewrite.status), `${result.caseId} 的检索改写状态无效`);
+  }
 }
 
 function validateChatUsage(result) {
@@ -915,7 +945,7 @@ async function loadValidatedRun(runFile) {
     ensure(!resultIds.has(result.caseId), `运行记录题目重复 ${result.caseId}`);
     ensure(!JSON.stringify(result).includes("\"modelScore\""),
       `${result.caseId} 不得使用模型自评分`);
-    ensure(["COMPLETED", "DENIED", "FAILED", "CONTRACT_PASSED", "CONTRACT_FAILED"].includes(result.status),
+    ensure(["COMPLETED", "DENIED", "FAILED", "CANCELLED", "CONTRACT_PASSED", "CONTRACT_FAILED"].includes(result.status),
       `${result.caseId} 的运行状态无效`);
     ensure(Array.isArray(result.retrievedEvidenceIds) && Array.isArray(result.citedEvidenceIds),
       `${result.caseId} 缺少检索或引用证据列表`);
@@ -926,6 +956,8 @@ async function loadValidatedRun(runFile) {
     ensure(result.humanReview && typeof result.humanReview === "object",
       `${result.caseId} 缺少人工复核记录`);
     ensure(typeof result.humanReview.notes === "string", `${result.caseId} 缺少人工复核说明`);
+    if (result.configSnapshot != null) ensure(canonicalJson(result.configSnapshot) === canonicalJson(metadata.configSnapshot),
+      `${result.caseId} 的配置快照与运行基线不一致`);
     validateChatUsage(result);
     const testCase = caseById.get(result.caseId);
     if (testCase.executionMode === "CONTRACT_TEST") {

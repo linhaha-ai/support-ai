@@ -142,12 +142,12 @@ class SupportAssistantAnswerServiceTest {
                                 .isEqualTo("AGENT_REQUIRED_TOOL_NOT_CALLED"));
 
         verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
-                eq("AGENT_REQUIRED_TOOL_NOT_CALLED"), eq("当前工单状态必须实时查询"), isNull(), anyString());
+                eq("AGENT_REQUIRED_TOOL_NOT_CALLED"), eq("当前工单状态必须实时查询"), isNull(), isNull());
         verify(messageSourceRepository, never()).listByMessageId(ASSISTANT_MESSAGE_ID);
     }
 
     @Test
-    void rejectsCurrentTicketAnswerWithoutTicketCitation() {
+    void rejectsCurrentTicketAnswerWithoutTicketCitation() throws Exception {
         PreparedChatRunResponse preparedRun = preparedRun();
         when(agentRunner.run(eq(preparedRun), any(), anySet(), eq(observer))).thenReturn(new AssistantAgentRunResult(
                 "工单仍在处理中", 2, 1, 120, Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)));
@@ -157,8 +157,15 @@ class SupportAssistantAnswerServiceTest {
                 .isInstanceOfSatisfying(AssistantGenerationException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
 
+        ArgumentCaptor<String> metricsCaptor = ArgumentCaptor.forClass(String.class);
         verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
-                eq("AGENT_INVALID_CITATION"), eq("模型返回了未知或不可信的来源引用"), isNull(), anyString());
+                eq("AGENT_INVALID_CITATION"), eq("助手引用校验失败: REQUIRED_TICKET_NOT_CITED"), isNull(), metricsCaptor.capture());
+        JsonNode metrics = objectMapper.readTree(metricsCaptor.getValue());
+        assertThat(metrics.path("modelCallCount").asInt()).isEqualTo(2);
+        assertThat(metrics.path("toolCallCount").asInt()).isEqualTo(1);
+        assertThat(metrics.path("maxObservedContextTokens").asInt()).isEqualTo(120);
+        assertThat(metrics.path("evidenceCount").asInt()).isEqualTo(1);
+        assertThat(metrics.path("noEvidence").asBoolean()).isFalse();
         verify(persistenceService, never()).complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID),
                 anyString(), eq(List.of()), isNull(), anyString());
     }
@@ -190,6 +197,20 @@ class SupportAssistantAnswerServiceTest {
         assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
                 .isInstanceOfSatisfying(AssistantGenerationException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
+    }
+
+    @Test
+    void unfinishedExecutionKeepsMetricsUnknownInsteadOfClaimingZeroCalls() {
+        when(agentRunner.run(any(), any(), anySet(), eq(observer))).thenThrow(
+                new AssistantAgentBudgetException("AGENT_TOOL_CALL_LIMIT", "助手工具调用次数已达到上限"));
+
+        assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_TOOL_CALL_LIMIT"));
+
+        verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
+                eq("AGENT_TOOL_CALL_LIMIT"), eq("助手工具调用次数已达到上限"), isNull(), isNull());
+        verify(observer, never()).onDelta(anyString());
     }
 
     @Test

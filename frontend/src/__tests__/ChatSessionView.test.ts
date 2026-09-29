@@ -43,6 +43,64 @@ function mountView() {
   return wrapper
 }
 
+function registeredDocumentSource() {
+  return {
+    number: 1,
+    type: 'DOCUMENT',
+    documentId: 'bf5cf7b1-1a5c-4e60-a22a-6e7736e19a2e',
+    versionId: 'cf5cf7b1-1a5c-4e60-a22a-6e7736e19a2f',
+    chunkId,
+    title: '支付排查手册',
+    section: '状态更新',
+    available: true,
+    isCurrent: true,
+    previewPath: `/api/chunks/${chunkId}/source`,
+  }
+}
+
+async function startRagCitationStream() {
+  const stream = pendingStream()
+  fetchMock.mockResolvedValueOnce(ok(knowledgeBases()))
+    .mockResolvedValueOnce(ok({ items: [], nextCursor: null }))
+    .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+    .mockResolvedValueOnce(ok({
+      sessionId, title: '产品支持会话', mode: 'RAG', knowledgeBaseIds: [knowledgeBaseId],
+      createdAt: '2026-09-21T10:00:00+08:00', updatedAt: '2026-09-21T10:00:00+08:00',
+    }, 201))
+    .mockResolvedValueOnce(ok({ token: 'csrf-token', headerName: 'X-CSRF-TOKEN' }))
+    .mockResolvedValueOnce(stream.response)
+  const view = mountView()
+  await flushPromises()
+  await view.get('input[type="checkbox"]').setValue(true)
+  await view.get('.chat-session-form').trigger('submit')
+  await flushPromises()
+  await view.get('textarea').setValue('支付状态如何排查？')
+  await view.get('.chat-composer').trigger('submit')
+  await flushPromises()
+  return { view, stream, encoder: new TextEncoder() }
+}
+
+async function openRegisteredCitation(view: VueWrapper) {
+  const source = registeredDocumentSource()
+  fetchMock.mockResolvedValueOnce(ok({
+    knowledgeBaseId,
+    documentId: source.documentId,
+    documentName: source.title,
+    versionId: source.versionId,
+    versionNo: 1,
+    chunkId,
+    chunkIndex: 0,
+    section: source.section,
+    pageNo: null,
+    startOffset: 0,
+    endOffset: 12,
+    isCurrent: true,
+    content: '订单状态更新日志正文。',
+  }))
+  await view.get('.chat-source-button').trigger('click')
+  await flushPromises()
+}
+
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
 afterEach(() => {
   wrapper?.unmount()
@@ -217,6 +275,68 @@ describe('会话创建页面', () => {
     expect(fetchMock).toHaveBeenLastCalledWith(`/api/chunks/${chunkId}/source`, expect.objectContaining({
       method: 'GET', credentials: 'same-origin',
     }))
+  })
+
+  it('未登记引用 [99] 保留为正文，不生成可点击来源且不改变已登记来源', async () => {
+    const { view, stream, encoder } = await startRagCitationStream()
+    const answer = '先检查已登记的回调日志。[1] 另有未登记的引用编号。[99]'
+    stream.controller().enqueue(encoder.encode(
+      sseEvent('start', { runId, assistantMessageId })
+      + sseEvent('delta', { text: answer }),
+    ))
+    await flushPromises()
+
+    expect(view.get('.chat-message-assistant .chat-message-content').text()).toBe(answer)
+    expect(view.findAll('.chat-source-button')).toHaveLength(0)
+    stream.controller().enqueue(encoder.encode(
+      sseEvent('sources', { sources: [registeredDocumentSource()] })
+      + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+    ))
+    stream.controller().close()
+    await flushPromises()
+
+    const buttons = view.findAll('.chat-source-button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]?.text()).toBe('[1] 支付排查手册')
+    expect(buttons.some((button) => button.text().includes('[99]'))).toBe(false)
+    expect(view.get('.chat-message-assistant .chat-message-content').findAll('button, a')).toHaveLength(0)
+    await openRegisteredCitation(view)
+
+    expect(view.get('.chat-source-content').text()).toBe('订单状态更新日志正文。')
+    const previewRequests = fetchMock.mock.calls.filter(([url]) => String(url).includes('/source'))
+    expect(previewRequests).toHaveLength(1)
+    expect(previewRequests[0]).toEqual([`/api/chunks/${chunkId}/source`, expect.objectContaining({
+      method: 'GET', credentials: 'same-origin',
+    })])
+    expect(view.get('.chat-message-assistant .chat-message-content').text()).toBe(answer)
+  })
+
+  it('正文重复引用 [1][1] 时仅显示一个已登记来源入口，点击只请求该分块一次', async () => {
+    const { view, stream, encoder } = await startRagCitationStream()
+    stream.controller().enqueue(encoder.encode(
+      sseEvent('start', { runId, assistantMessageId })
+      + sseEvent('delta', { text: '按回调记录核对。[1]' }),
+    ))
+    await flushPromises()
+    stream.controller().enqueue(encoder.encode(
+      sseEvent('delta', { text: '[1]' })
+      + sseEvent('sources', { sources: [registeredDocumentSource()] })
+      + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+    ))
+    stream.controller().close()
+    await flushPromises()
+
+    expect(view.get('.chat-message-assistant .chat-message-content').text()).toBe('按回调记录核对。[1][1]')
+    expect(view.findAll('.chat-source-button')).toHaveLength(1)
+    expect(view.get('.chat-source-button').text()).toBe('[1] 支付排查手册')
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/source'))).toHaveLength(0)
+    await openRegisteredCitation(view)
+
+    expect(view.findAll('.chat-source-button')).toHaveLength(1)
+    expect(view.get('.chat-source-content').text()).toBe('订单状态更新日志正文。')
+    const previewRequests = fetchMock.mock.calls.filter(([url]) => String(url).includes('/source'))
+    expect(previewRequests).toHaveLength(1)
+    expect(previewRequests[0]?.[0]).toBe(`/api/chunks/${chunkId}/source`)
   })
 
   it('流内失败时保留部分回答并显示未完整状态', async () => {

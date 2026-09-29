@@ -44,6 +44,11 @@ public class RagConfigurationSnapshotFactory {
 
         Map<String, Object> chat = modelSnapshot(chatProvider, "chat");
         chat.put("temperature", optionalDouble("spring.ai." + chatProvider + ".chat.options.temperature"));
+        if ("ollama".equals(chatProvider)) {
+            // 上下文窗口与思考模式会影响正文输出及用量，必须随每次运行固化。
+            chat.put("numCtx", environment.getProperty("spring.ai.ollama.chat.options.num-ctx", Integer.class));
+            chat.put("think", environment.getProperty("spring.ai.ollama.chat.options.think-option", Boolean.class));
+        }
 
         Map<String, Object> embedding = modelSnapshot(embeddingProvider, "embedding");
         embedding.put("dimensions", requiredPositiveInteger("support.ai.dimensions"));

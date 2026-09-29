@@ -63,15 +63,17 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
         validate(preparedRun);
         AssistantStreamObserver safeObserver = observer == null ? AssistantStreamObserver.NONE : observer;
         long startedNanos = System.nanoTime();
+        AssistantAgentRunResult runResult = null;
+        List<MessageSource> registeredSources = null;
         try {
             persistenceService.start(preparedRun);
             notifyStarted(safeObserver);
             AssistantConversationContext history = historyService.load(preparedRun);
             Set<String> requiredTickets = freshnessPolicy.requiredTickets(preparedRun.getQuestion(), history);
             historyService.register(preparedRun, history);
-            AssistantAgentRunResult runResult = agentRunner.run(preparedRun, history, requiredTickets, safeObserver);
+            runResult = agentRunner.run(preparedRun, history, requiredTickets, safeObserver);
             ensureRequiredTicketLookup(requiredTickets, runResult.getCalledToolNames());
-            List<MessageSource> registeredSources = messageSourceRepository
+            registeredSources = messageSourceRepository
                     .listByMessageId(preparedRun.getAssistantMessageId());
             AssistantCitationResult citation = citationParser.parse(runResult.getAnswer(), registeredSources);
             ensureRequiredTicketCitation(requiredTickets, registeredSources,
@@ -81,7 +83,7 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
             List<RagSourceResponse> sources = readableSources(preparedRun.getUserId(), registeredSources,
                     citation.getCitationNumbers());
             if (sources.size() != citation.getCitationNumbers().size()) {
-                throw new AssistantCitationException();
+                throw new AssistantCitationException(AssistantCitationException.Reason.SOURCE_UNAVAILABLE);
             }
             long firstDeltaMs = elapsedMillis(startedNanos);
             persistenceService.append(preparedRun.getRunId(), preparedRun.getAssistantMessageId(),
@@ -96,7 +98,7 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
         } catch (ChatRunCancelledException | RagGenerationException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            throw fail(preparedRun, exception, startedNanos);
+            throw fail(preparedRun, exception, startedNanos, runResult, registeredSources);
         }
     }
 
@@ -116,7 +118,7 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
                             && source.getOriginSourceId() == null && source.getToolCallId() != null
                             && citedNumbers.contains(source.getCitationNo()) && matchesTicket(source, ticketNo));
             if (!citedTicket) {
-                throw new AssistantCitationException();
+                throw new AssistantCitationException(AssistantCitationException.Reason.REQUIRED_TICKET_NOT_CITED);
             }
         }
     }
@@ -159,13 +161,14 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
     }
 
     private RuntimeException fail(PreparedChatRunResponse preparedRun, RuntimeException exception,
-            long startedNanos) {
+            long startedNanos, AssistantAgentRunResult runResult, List<MessageSource> registeredSources) {
         if (isCausedBy(exception, ChatRunCancelledException.class)
                 || persistenceService.isCancelled(preparedRun.getRunId())) {
             return new ChatRunCancelledException();
         }
         AssistantAgentBudgetException budgetException = cause(exception, AssistantAgentBudgetException.class);
         AssistantToolException toolException = cause(exception, AssistantToolException.class);
+        AssistantCitationException citationException = cause(exception, AssistantCitationException.class);
         String errorCode;
         String errorDetail;
         String publicMessage = PUBLIC_FAILURE_MESSAGE;
@@ -177,18 +180,23 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
             errorCode = "AGENT_TOOL_FAILED";
             errorDetail = "白名单工具执行失败: " + toolException.getErrorCode();
             publicMessage = toolException.getMessage();
-        } else if (isCausedBy(exception, AssistantCitationException.class)) {
+        } else if (citationException != null) {
             errorCode = "AGENT_INVALID_CITATION";
-            errorDetail = "模型返回了未知或不可信的来源引用";
+            errorDetail = "助手引用校验失败: " + citationException.getReason().name();
         } else {
             errorCode = "ASSISTANT_GENERATION_FAILED";
             errorDetail = "ReactAgent 执行失败";
         }
         try {
-            AgentMetrics metrics = new AgentMetrics(0, 0, true, elapsedMillis(startedNanos), null,
-                    0, 0, 0, properties.getMaxToolCalls(), properties.getMaxModelCalls());
+            // 校验失败仍保留已完成的实际调用及证据数量；执行未返回时保持指标未知，不伪写为零。
+            AgentMetrics metrics = runResult != null && registeredSources != null
+                    ? new AgentMetrics(registeredSources.size(), 0, registeredSources.isEmpty(),
+                            elapsedMillis(startedNanos), null, runResult.getModelCallCount(),
+                            runResult.getToolCallCount(), runResult.getMaxObservedContextTokens(),
+                            properties.getMaxToolCalls(), properties.getMaxModelCalls())
+                    : null;
             persistenceService.fail(preparedRun.getRunId(), preparedRun.getAssistantMessageId(), null,
-                    errorCode, errorDetail, null, serialize(metrics));
+                    errorCode, errorDetail, null, metrics == null ? null : serialize(metrics));
         } catch (ChatRunCancelledException | RagGenerationException terminalException) {
             return terminalException;
         } catch (RuntimeException ignored) {

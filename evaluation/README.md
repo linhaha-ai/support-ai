@@ -10,6 +10,7 @@
 - `schemas/f21-case.schema.json`：单题字段契约。
 - `schemas/f21-run.schema.json`：真实运行记录契约。
 - `scripts/f21-evaluation.mjs`：结构校验和结果汇总工具。
+- `scripts/f32-runner.mjs`：真实语料导入、HTTP/SSE 采集、断点恢复、配置冻结和待复核报告。
 - `results/f21-baseline-status.json`：最近一次基础结果执行状态，不保存伪造分数。
 - `results/f22-comparison-status.json`：关键词融合对比执行状态，不保存伪造分数。
 - `results/f23-comparison-status.json`：重排序开启/关闭对比执行状态，不保存伪造分数。
@@ -86,10 +87,38 @@ node evaluation/scripts/f21-evaluation.mjs compare-factor `
 
 分块或 Embedding 配置改变后，应重新执行文档版本导入和向量构建，不能将旧索引结果标记为新配置。固定测试集不允许参与参数选择，只在开发集冻结默认配置后用于完整产品验收。
 
-## 当前限制
+## F32 真实采集与阶段归档
+
+在运行中的 Compose 部署上，通过环境变量 `F32_USERNAME` / `F32_PASSWORD` 提供验收账号。执行器只向指定入口提交固定脱敏语料，数据库读取用于核对持久化运行快照和实际入模来源；要求本机可访问 Docker，`--project` 必须对应该入口的部署项目。
+
+```powershell
+node evaluation/scripts/f32-runner.mjs prepare --base-url http://127.0.0.1:8088 --project support-ai-f31-source4 --state .local/evaluation/f32-binding.json
+node evaluation/scripts/f32-runner.mjs run --split development --project support-ai-f31-source4 --binding .local/evaluation/f32-binding.json --out .local/evaluation/f32-development-vector.json --environment "本机 Docker/Ollama"
+node evaluation/scripts/f32-runner.mjs report --run .local/evaluation/f32-development-vector.json --out .local/evaluation/f32-development-report.json
+```
+
+`run` 可用 `--limit 3` 先验证少量开发题，再去掉该参数续跑相同输出文件。每题在提交前持久化 `sessionId/clientRequestId`，中断后只收集原运行；已提交但无法确认的请求不会盲目重放。文件锁防止同时写入同一批次。来源按原文偏移映射稳定证据编号，必须覆盖证据的完整事实正文，单独出现标记不算命中。HTTP、数据库和会话历史的引用集合及来源预览身份均需一致。
+
+普通执行器将契约和特殊权限夹具题明确记录为 `NOT_RUN`，不得用普通问答代替；对应证据与缺口见 [特殊场景映射](../doc/验收记录/F32特殊场景映射.md)。开发集全 60 题必须有记录后才能冻结，其中普通 RAG 题必须有真实终态。冻结保存题集、Git、业务源码、镜像/环境、语料绑定及实际配置指纹；固定测试拒绝漂移。先完成开发集比较，再恢复选择的部署配置并冻结：
+
+```powershell
+node evaluation/scripts/f32-runner.mjs compare --baseline .local/evaluation/f32-development-vector.json --candidate .local/evaluation/f32-development-fusion.json --out .local/evaluation/f32-comparison.json
+node evaluation/scripts/f32-runner.mjs freeze --run .local/evaluation/f32-development-vector.json --out .local/evaluation/f32-freeze.json --reason "记录开发集取舍依据及尚待复核的限制"
+node evaluation/scripts/f32-runner.mjs run --split test --project support-ai-f31-source4 --binding .local/evaluation/f32-binding.json --freeze .local/evaluation/f32-freeze.json --out .local/evaluation/f32-test.json --environment "本机 Docker/Ollama"
+node evaluation/scripts/f32-runner.mjs report --run .local/evaluation/f32-test.json --out .local/evaluation/f32-test-report.json
+node evaluation/scripts/f32-runner.mjs export --run .local/evaluation/f32-test.json --out evaluation/results/f32-test.json
+```
+
+`compare` 仅允许完整开发集之间改变检索策略，其余配置、源码、应用镜像、采集脚本和语料必须一致。运行环境另计算 `runtimeWithoutStrategyHash`，只排除 `SUPPORT_AI_RETRIEVAL_STRATEGY`，JVM 参数、其他环境变量和启动命令仍参与校验。冻结及断点续跑同时锁定 `runnerSha256`；修改脚本后必须重新采集，不得拼接不同执行器生成的记录。
+
+`export` 去除恢复检查点，保留逐题回答、来源、配置、用量和耗时，不能用导出件续跑。已引用来源必须与预览集合完全一致，预览还须匹配分块、文档、版本并包含正文；缺失预览不能通过完整性校验。绑定和原始检查点保留在忽略目录，精简后的脱敏语料结果可以提交。早期 `f32-preflight.json` 保留修复前空回答的历史证据，不具备最终执行器要求的新指纹字段，不能用于最终策略比较或冻结。
+
+F32 自动采集的 `humanReview` 始终为 `null`；`report/compare` 输出 `DRAFT_PENDING_HUMAN_REVIEW`，不能称为人工引用正确率或依据充分性验收通过。旧 `f21-evaluation.mjs summarize/compare` 的严格人工复核门槛保持不变，不应直接用于这些待复核记录。`refusalCorrect` 沿用零证据/权限自动口径：看到无关资料后仍正确拒答的语义质量需另行核对。来源命中统计基于经过分数和 Token 预算筛选后的实际入模材料，不代表原始候选召回。
+
+## 历史状态与当前限制
 
 2026-09-24 复核及修复：F18/F19 的文档版本更新与删除能力已经实现，F20 和 M4 的真实场景仍未完整验收。共享 RAG 批量来源登记的 UUID 类型错误已修复，Mapper 数据库 6/6 覆盖多来源登记、非法批次回滚和根来源继承；聚合普通测试 361/361、选定数据库测试 21/21 通过。下一步仍需统一提交基线、补齐实际语料绑定和模型环境，再建立真实评测基线。
 
-本轮题集结构与指纹校验、7 项比较/汇总脚本测试均通过；四份 `results/*-status.json` 仍为 `NOT_RUN`，尚无可复核的真实基础、三策略或单因素比较结果。`.local/evaluation` 目录不存在，语料实际标识尚未按本项目约定归档。本轮只读探测中后端健康入口返回 200，Ollama 模型清单接口请求未成功；当前工具进程未见非空的重排序地址和 DashScope 密钥环境变量，但不据此推断其他进程的配置来源或真实模型可用性。
+2026-09-24 的题集结构与指纹校验、7 项比较/汇总脚本测试通过；当时四份 `results/*-status.json` 为 `NOT_RUN`，尚无真实运行绑定。这些状态文件保留历史事实，不用于代表当前环境。2026-09-29 已完成本地真实 qwen3.5:9b / bge-m3:567m 接入，并新增 F32 执行器；最新运行数量、质量边界及产物见 [F32 验收记录](../doc/验收记录/F32验收记录.md)。真实云端/重排序服务与人工复核仍须独立完成。
 
 状态 JSON 保留 2026-09-23 的 `recordedAt` 和历史事实，其中前置“未实现”及环境不可连接的描述不代表当前状态。最新证据、工作区与纯提交的区别及收口顺序见 [M5 阶段复核](../doc/验收记录/M5阶段复核.md)。默认仍为 `VECTOR` 且关闭重排序，真实开发集比较完成前不声明质量或成本收益。

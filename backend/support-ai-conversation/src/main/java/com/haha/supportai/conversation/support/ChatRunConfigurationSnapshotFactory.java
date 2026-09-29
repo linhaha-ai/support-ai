@@ -72,6 +72,11 @@ public class ChatRunConfigurationSnapshotFactory {
         Map<String, Object> chat = new LinkedHashMap<>();
         chat.put("provider", chatProvider);
         chat.put("model", chatModel);
+        if ("ollama".equals(chatProvider)) {
+            // 助手多次调用同一模型，保留影响上下文容量和生成代价的实际配置。
+            chat.put("numCtx", environment.getProperty("spring.ai.ollama.chat.options.num-ctx", Integer.class));
+            chat.put("think", environment.getProperty("spring.ai.ollama.chat.options.think-option", Boolean.class));
+        }
         Map<String, Object> embedding = new LinkedHashMap<>();
         embedding.put("provider", embeddingProvider);
         embedding.put("model", embeddingModel);
@@ -110,7 +115,7 @@ public class ChatRunConfigurationSnapshotFactory {
     private Map<String, Object> assistantAgentSnapshot() {
         Map<String, Object> agent = new LinkedHashMap<>();
         agent.put("framework", "spring-ai-alibaba-react-agent");
-        agent.put("promptVersion", "assistant-agent-v2");
+        agent.put("promptVersion", "assistant-agent-v4");
         agent.put("historyInjection", "authorized-history-once");
         agent.put("historyMaxRounds", assistantAgentProperties.getHistoryMaxRounds());
         agent.put("historyMaxCharacters", assistantAgentProperties.getHistoryMaxCharacters());

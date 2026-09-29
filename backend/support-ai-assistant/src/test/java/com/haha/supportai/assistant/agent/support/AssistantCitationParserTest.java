@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.haha.supportai.assistant.agent.exception.AssistantCitationException;
+import com.haha.supportai.assistant.agent.exception.AssistantCitationException.Reason;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,8 @@ class AssistantCitationParserTest {
     @Test
     void rejectsModelGeneratedNumericCitation() {
         assertThatThrownBy(() -> parser.parse("未经登记的结论[1]", List.of(source(FIRST_SOURCE_ID, 1))))
-                .isInstanceOf(AssistantCitationException.class);
+                .isInstanceOfSatisfying(AssistantCitationException.class,
+                        exception -> assertThat(exception.getReason()).isEqualTo(Reason.UNTRUSTED_NUMBER));
     }
 
     @Test
@@ -41,7 +43,8 @@ class AssistantCitationParserTest {
         String answer = "未知来源[[source:" + SECOND_SOURCE_ID + "]]";
 
         assertThatThrownBy(() -> parser.parse(answer, List.of(source(FIRST_SOURCE_ID, 1))))
-                .isInstanceOf(AssistantCitationException.class);
+                .isInstanceOfSatisfying(AssistantCitationException.class,
+                        exception -> assertThat(exception.getReason()).isEqualTo(Reason.UNKNOWN_HANDLE));
     }
 
     @Test
@@ -50,7 +53,24 @@ class AssistantCitationParserTest {
 
         assertThatThrownBy(() -> parser.parse(answer,
                 List.of(source(FIRST_SOURCE_ID, 1), source(SECOND_SOURCE_ID, 1))))
-                .isInstanceOf(AssistantCitationException.class);
+                .isInstanceOfSatisfying(AssistantCitationException.class,
+                        exception -> assertThat(exception.getReason()).isEqualTo(Reason.INVALID_REGISTRY));
+    }
+
+    @Test
+    void identifiesMalformedHandleWithoutIncludingRawAnswer() {
+        assertThatThrownBy(() -> parser.parse("敏感正文[[source:not-a-uuid]]", List.of()))
+                .isInstanceOfSatisfying(AssistantCitationException.class, exception -> {
+                    assertThat(exception.getReason()).isEqualTo(Reason.MALFORMED_HANDLE);
+                    assertThat(exception.getMessage()).doesNotContain("敏感正文", "not-a-uuid");
+                });
+    }
+
+    @Test
+    void identifiesEmptyAnswer() {
+        assertThatThrownBy(() -> parser.parse(" ", List.of()))
+                .isInstanceOfSatisfying(AssistantCitationException.class,
+                        exception -> assertThat(exception.getReason()).isEqualTo(Reason.EMPTY_ANSWER));
     }
 
     private MessageSource source(UUID id, int citationNo) {

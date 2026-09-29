@@ -26,4 +26,9 @@ public class TicketStatusToolResult {
     private final OffsetDateTime updatedAt; // 工单最近状态更新时间
 
     private final OffsetDateTime queriedAt; // 本次实时查询时间
+
+    // 与知识来源使用相同的完整引用标记，避免模型重新拼装句柄。
+    public String getCitation() {
+        return "[[source:" + sourceHandle + "]]";
+    }
 }

@@ -34,7 +34,10 @@ param(
     [switch]$SkipBuild,
 
     [Parameter()]
-    [switch]$SkipLiveAi
+    [switch]$SkipLiveAi,
+
+    [Parameter()]
+    [switch]$SkipSeedImport
 )
 
 Set-StrictMode -Version Latest
@@ -42,6 +45,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 
 . (Join-Path $PSScriptRoot 'common.ps1')
+. (Join-Path $PSScriptRoot 'acceptance-storage.ps1')
 
 function Join-ApiUri {
     [CmdletBinding()]
@@ -616,8 +620,10 @@ try {
     }
     $summary.Checks.SourceDocumentContent = '通过'
 
-    Import-SeedSql -Context $sourceContext -SqlPath $identitySeedPath -SeedName '演示账号种子'
-    Import-SeedSql -Context $sourceContext -SqlPath $ticketSeedPath -SeedName '模拟工单种子'
+    if (-not $SkipSeedImport) {
+        Import-SeedSql -Context $sourceContext -SqlPath $identitySeedPath -SeedName '演示账号种子'
+        Import-SeedSql -Context $sourceContext -SqlPath $ticketSeedPath -SeedName '模拟工单种子'
+    }
     $supportClient = New-AuthenticatedClient -BaseUri $SourceBaseUri -Username 'support1' -Password 'support1'
     $sourceTicketEnvelope = Invoke-JsonApi `
         -Uri (Join-ApiUri -BaseUri $SourceBaseUri -Path '/api/tickets/T10086') `
@@ -666,6 +672,10 @@ try {
         $summary.Checks.SourceChatHistoryAndSources = '通过'
     }
 
+    $recoverySourceStorageKey = Invoke-PostgresScalar -Context $sourceContext `
+        -Sql "SELECT storage_key FROM document_version WHERE id='$versionId'::uuid;" `
+        -Operation '读取恢复夹具源文件路径'
+    $recoveryStorageKey = Copy-AcceptanceStorageFile -Context $sourceContext -SourceStorageKey $recoverySourceStorageKey
     # app 停止后写入过期租约夹具，确保只有重建后的新实例能够取得执行权。
     Stop-SupportAiApp -Context $sourceContext
     $recoveryDocumentId = [guid]::NewGuid().ToString()
@@ -705,7 +715,7 @@ WITH source_document AS (
     )
     SELECT
         '$recoveryVersionId'::UUID, inserted_document.id, 1,
-        source_version.storage_key, source_version.file_hash, source_version.file_size,
+        '$recoveryStorageKey', source_version.file_hash, source_version.file_size,
         source_version.media_type, source_version.original_filename, 'QUEUED',
         source_version.parser_version, source_version.chunker_version,
         source_version.embedding_model, source_version.dimensions,

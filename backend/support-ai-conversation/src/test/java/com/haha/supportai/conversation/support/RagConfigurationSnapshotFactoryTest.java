@@ -26,6 +26,8 @@ class RagConfigurationSnapshotFactoryTest {
                 .withProperty("spring.ai.model.embedding", "dashscope")
                 .withProperty("spring.ai.ollama.chat.options.model", "qwen3.5:9b")
                 .withProperty("spring.ai.ollama.chat.options.temperature", "0.0")
+                .withProperty("spring.ai.ollama.chat.options.num-ctx", "16384")
+                .withProperty("spring.ai.ollama.chat.options.think-option", "false")
                 .withProperty("spring.ai.dashscope.embedding.options.model", "text-embedding-v4")
                 .withProperty("spring.ai.dashscope.api-key", "不应进入快照")
                 .withProperty("support.ai.dimensions", "1024");
@@ -67,6 +69,9 @@ class RagConfigurationSnapshotFactoryTest {
         assertThat(snapshot.path("chat").path("role").asText()).isEqualTo("CHAT");
         assertThat(snapshot.path("chat").path("model").asText()).isEqualTo("qwen3.5:9b");
         assertThat(snapshot.path("chat").path("temperature").asDouble()).isZero();
+        assertThat(snapshot.path("chat").path("numCtx").asInt()).isEqualTo(16384);
+        assertThat(snapshot.path("chat").path("think").isBoolean()).isTrue();
+        assertThat(snapshot.path("chat").path("think").asBoolean()).isFalse();
         assertThat(snapshot.path("embedding").path("provider").asText()).isEqualTo("dashscope");
         assertThat(snapshot.path("embedding").path("role").asText()).isEqualTo("EMBEDDING");
         assertThat(snapshot.path("embedding").path("dimensions").asInt()).isEqualTo(1024);

@@ -3,25 +3,58 @@ package com.haha.supportai.ai.config;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Set;
 
 import com.haha.supportai.ai.model.ValidatedEmbeddingModel;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.ollama.api.ThinkOption;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
 import org.springframework.boot.convert.DurationStyle;
+import org.springframework.boot.context.properties.ConfigurationPropertiesBinding;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.client.reactive.JdkClientHttpConnector;
 import org.springframework.util.StringUtils;
 
 @Configuration(proxyBeanMethods = false)
 public class AiConfiguration {
+
+    @Bean
+    @ConfigurationPropertiesBinding
+    static Converter<String, ThinkOption> ollamaThinkOptionConverter() {
+        // Spring AI 的 ThinkOption 是接口，配置绑定需要显式转换，避免 false 被忽略或无法实例化。
+        return new Converter<>() {
+            @Override
+            public ThinkOption convert(String source) {
+                return switch (source.trim().toLowerCase(Locale.ROOT)) {
+                    case "true" -> ThinkOption.ThinkBoolean.ENABLED;
+                    case "false" -> ThinkOption.ThinkBoolean.DISABLED;
+                    default -> throw new IllegalArgumentException(
+                            "spring.ai.ollama.chat.options.think-option must be true or false");
+                };
+            }
+        };
+    }
+
+    @Bean
+    @ConfigurationPropertiesBinding
+    static Converter<Boolean, ThinkOption> ollamaBooleanThinkOptionConverter() {
+        // YAML 原生布尔值与环境变量字符串走不同转换入口，二者必须得到相同的请求配置。
+        return new Converter<>() {
+            @Override
+            public ThinkOption convert(Boolean source) {
+                return source ? ThinkOption.ThinkBoolean.ENABLED : ThinkOption.ThinkBoolean.DISABLED;
+            }
+        };
+    }
 
     @Bean
     static BeanFactoryPostProcessor validateModelConfiguration(Environment environment) {

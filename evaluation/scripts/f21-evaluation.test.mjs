@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   compareRerankResults,
@@ -7,7 +10,9 @@ import {
   compareStrategyResults,
   compareTuningConfigurations,
   summarizeResults,
+  summarizeRun,
   validateDataset,
+  validateF24Configuration,
   validateF24Metrics,
 } from "./f21-evaluation.mjs";
 
@@ -286,6 +291,7 @@ test("F24 运行指标校验证据守恒和未知用量", () => {
     noEvidence: false,
     retrievedEvidenceIds: ["E-1"],
     citedEvidenceIds: ["E-1"],
+    sources: [{ chunkId: "00000000-0000-4000-8000-000000000001", cited: true }],
     metrics: {
       evidenceCount: 1,
       retrievedEvidenceCount: 2,
@@ -311,4 +317,80 @@ test("F24 运行指标校验证据守恒和未知用量", () => {
   const invalidResult = structuredClone(result);
   invalidResult.metrics.retrievedEvidenceCount = 3;
   assert.throws(() => validateF24Metrics(invalidResult, 10), /证据筛选数量无法守恒/);
+
+  const multipleFacts = structuredClone(result);
+  multipleFacts.retrievedEvidenceIds.push("E-2");
+  multipleFacts.citedEvidenceIds.push("E-2");
+  multipleFacts.metrics.queryRewrite = { originalQuestion: "原问题", retrievalQuestion: "实际检索问题", status: "NO_HISTORY" };
+  assert.doesNotThrow(() => validateF24Metrics(multipleFacts, 10));
+  const missingChunks = structuredClone(result); delete missingChunks.sources;
+  assert.throws(() => validateF24Metrics(missingChunks, 10), /不能用证据段数替代分块数/);
+  const duplicateChunks = structuredClone(result); duplicateChunks.sources.push(duplicateChunks.sources[0]);
+  assert.throws(() => validateF24Metrics(duplicateChunks, 10), /来源分块重复/);
+  multipleFacts.metrics.queryRewrite.status = "INVENTED";
+  assert.throws(() => validateF24Metrics(multipleFacts, 10), /改写状态无效/);
+});
+
+test("配置接受真实多轮历史、查询改写及 Ollama 上下文和思考开关，仍拒绝未知字段", async () => {
+  const config = f24Configuration();
+  config.retrieval.queryRewrite = { enabled: true, version: "retrieval-query-v1", maxCharacters: 500 };
+  Object.assign(config.prompt, { historyInjection: "business-prompt-once", historyMaxRounds: 3, historyMaxCharacters: 6000 });
+  Object.assign(config.chat, { numCtx: 16384, think: false });
+  assert.doesNotThrow(() => validateF24Configuration(config));
+  const nullable = structuredClone(config); nullable.chat.numCtx = null; nullable.chat.think = null;
+  assert.doesNotThrow(() => validateF24Configuration(nullable));
+  const invalidContext = structuredClone(config); invalidContext.chat.numCtx = -1;
+  assert.throws(() => validateF24Configuration(invalidContext), /上下文长度/);
+  const invalidThink = structuredClone(config); invalidThink.chat.think = "false";
+  assert.throws(() => validateF24Configuration(invalidThink), /think 必须为布尔值/);
+  const wrongProvider = structuredClone(config); wrongProvider.chat.provider = "dashscope";
+  assert.throws(() => validateF24Configuration(wrongProvider), /仅适用于 Ollama/);
+  const unknown = structuredClone(config); unknown.prompt.secret = "not-allowed";
+  assert.throws(() => validateF24Configuration(unknown), /包含未允许字段/);
+  const schema = JSON.parse(await readFile(new URL("../schemas/f21-run.schema.json", import.meta.url), "utf8"));
+  assert.ok(schema.$defs.configSnapshot.properties.retrieval.properties.queryRewrite);
+  assert.ok(schema.$defs.configSnapshot.properties.prompt.properties.historyMaxRounds);
+  assert.ok(schema.$defs.ragMetrics.properties.queryRewrite);
+});
+
+test("真实结构完整固定题记录可汇总，但 null 人工复核仍被严格拒绝", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "support-ai-f21-test-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const dataset = await validateDataset();
+  const config = f24Configuration();
+  config.retrieval.queryRewrite = { enabled: true, version: "retrieval-query-v1", maxCharacters: 500 };
+  Object.assign(config.prompt, { historyInjection: "business-prompt-once", historyMaxRounds: 3, historyMaxCharacters: 6000 });
+  Object.assign(config.chat, { numCtx: 16384, think: false });
+  const results = dataset.cases.filter((item) => item.split === "test").map((item) => {
+    const answerable = item.expectedOutcome === "ANSWER";
+    return { caseId: item.id, status: "COMPLETED", answer: "测试夹具回答", noEvidence: !answerable,
+      retrievedEvidenceIds: item.evidenceIds, citedEvidenceIds: item.evidenceIds, configSnapshot: config,
+      sources: answerable ? [{ chunkId: "00000000-0000-4000-8000-000000000001", cited: true }] : [],
+      usage: answerable ? { promptTokens: 10, completionTokens: 20, totalTokens: 30 } : null,
+      humanReview: { citationCorrect: null, evidenceSufficient: null, notes: "测试夹具，非真实人工评分" },
+      metrics: { evidenceCount: answerable ? 1 : 0, retrievedEvidenceCount: answerable ? 1 : 0,
+        scoreFilteredEvidenceCount: 0, budgetFilteredEvidenceCount: 0, evidenceTokenCount: answerable ? 10 : 0,
+        citedCount: answerable ? 1 : 0, noEvidence: !answerable, retrievalMs: 5, embeddingTotalTokens: null,
+        rerankStatus: "DISABLED", rerankCandidateCount: 0, rerankMs: 0, rerankTotalTokens: null,
+        generationMs: answerable ? 20 : null, totalMs: 30, firstDeltaMs: 8,
+        queryRewrite: { originalQuestion: item.question, retrievalQuestion: item.question, status: "NO_HISTORY" } } };
+  });
+  const record = { metadata: { datasetVersion: dataset.datasetVersion, split: "test", datasetSha256: dataset.testSha256,
+    gitCommit: "a".repeat(40), startedAt: "2026-09-29T00:00:00Z", completedAt: "2026-09-29T00:01:00Z",
+    environment: "isolated-unit-test", reviewer: "unit-test-fixture", configSnapshot: config }, results };
+  const path = join(directory, "run.json");
+  await writeFile(path, JSON.stringify(record));
+  await assert.rejects(() => summarizeRun(path), /缺少人工引用或依据复核/);
+  for (const result of results.filter((item) => !item.noEvidence)) {
+    result.humanReview.citationCorrect = true; result.humanReview.evidenceSufficient = true;
+  }
+  await writeFile(path, JSON.stringify(record));
+  const report = await summarizeRun(path);
+  assert.equal(report.summary.denominators.allCases, 40);
+  assert.equal(report.summary.denominators.citationHumanReviewed, 39);
+  const snapshotMismatch = structuredClone(record);
+  snapshotMismatch.results[0].configSnapshot = structuredClone(snapshotMismatch.results[0].configSnapshot);
+  snapshotMismatch.results[0].configSnapshot.chat.numCtx = 8192;
+  await writeFile(path, JSON.stringify(snapshotMismatch));
+  await assert.rejects(() => summarizeRun(path), /配置快照与运行基线不一致/);
 });

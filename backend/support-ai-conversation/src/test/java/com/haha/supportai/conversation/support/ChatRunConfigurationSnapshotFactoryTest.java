@@ -37,6 +37,8 @@ class ChatRunConfigurationSnapshotFactoryTest {
         assertThat(snapshot.path("mode").asText()).isEqualTo("RAG");
         assertThat(snapshot.path("chat").path("provider").asText()).isEqualTo("dashscope");
         assertThat(snapshot.path("chat").path("model").asText()).isEqualTo("qwen-plus");
+        assertThat(snapshot.path("chat").has("numCtx")).isFalse();
+        assertThat(snapshot.path("chat").has("think")).isFalse();
         assertThat(snapshot.path("prompt").path("version").asText()).isEqualTo(RagPromptFactory.PROMPT_VERSION);
         assertThat(snapshot.path("prompt").path("historyInjection").asText())
                 .isEqualTo("business-prompt-once");
@@ -61,7 +63,9 @@ class ChatRunConfigurationSnapshotFactoryTest {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.model.chat", "ollama")
                 .withProperty("spring.ai.model.embedding", "ollama")
-                .withProperty("spring.ai.ollama.chat.options.model", "qwen2.5:3b")
+                .withProperty("spring.ai.ollama.chat.options.model", "qwen3.5:9b")
+                .withProperty("spring.ai.ollama.chat.options.num-ctx", "16384")
+                .withProperty("spring.ai.ollama.chat.options.think-option", "false")
                 .withProperty("spring.ai.ollama.embedding.options.model", "bge-m3")
                 .withProperty("spring.ai.ollama.api-key", "must-not-be-snapshotted")
                 .withProperty("support.ai.dimensions", "1024");
@@ -71,10 +75,14 @@ class ChatRunConfigurationSnapshotFactoryTest {
         JsonNode snapshot = objectMapper.readTree(factory.create(ChatSessionModeEnum.ASSISTANT));
 
         assertThat(snapshot.path("mode").asText()).isEqualTo("ASSISTANT");
+        assertThat(snapshot.path("chat").path("numCtx").asInt()).isEqualTo(16384);
+        assertThat(snapshot.path("chat").path("think").isBoolean()).isTrue();
+        assertThat(snapshot.path("chat").path("think").asBoolean()).isFalse();
         assertThat(snapshot.has("prompt")).isFalse();
         assertThat(snapshot.has("retrieval")).isFalse();
         assertThat(snapshot.path("agent").path("framework").asText())
                 .isEqualTo("spring-ai-alibaba-react-agent");
+        assertThat(snapshot.path("agent").path("promptVersion").asText()).isEqualTo("assistant-agent-v4");
         assertThat(snapshot.path("agent").path("maxToolCalls").asInt()).isEqualTo(2);
         assertThat(snapshot.path("agent").path("maxModelCalls").asInt()).isEqualTo(3);
         assertThat(snapshot.path("agent").path("maxContextTokens").asInt()).isEqualTo(8000);

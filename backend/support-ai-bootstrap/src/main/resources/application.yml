@@ -57,6 +57,10 @@ spring:
       chat:
         options:
           model: qwen3.5:9b
+          # 本地问答关闭独立思考输出，避免模型将有限上下文全部耗在思考而没有回答正文。
+          think-option: false
+          # 为检索证据、有限历史和回答预留上下文；实际内存占用随本机模型服务变化。
+          num-ctx: 16384
       embedding:
         options:
           model: bge-m3:567m

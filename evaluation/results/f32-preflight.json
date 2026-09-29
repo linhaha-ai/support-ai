@@ -1,0 +1,1584 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "F32_REAL_HTTP_EVALUATION",
+  "status": "PARTIAL_CAPTURE_PENDING_HUMAN_REVIEW",
+  "capturedCases": 3,
+  "expectedCases": 60,
+  "sourceRunSha256": "6c4f642f65bdb2ac1c33e4f93e281f294c8f82729358523fa9916ea547140ce8",
+  "metadata": {
+    "datasetVersion": "f21-2026-09-23-v1",
+    "datasetSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+    "split": "development",
+    "gitCommit": "c0debfa3f6ff7b8b9cd6d8e2243737bb9bf729da",
+    "environment": "本机 Docker/Ollama",
+    "imageId": "sha256:2e55dc226b202c85c2ca1174a5eab3deb873e4e6d7a3f2d749d4fa2364b903a7",
+    "runtimeHash": "e7a7a25b0e4515a4923e22e5fb26b6ecb0fc4f79ed176e08b38b1de3d5b5f6f0",
+    "sourceTreeHash": "b22ce7ad8858e90d7634a16bd9bd3a8dacdfbed7fc91c27b4641f836bcb585d5",
+    "sourceDirtyPaths": [],
+    "runnerSha256": "6e3a92216abbbf4b0486dbab8aa7f1fa1fe550c290d7c0e4d7bd7db458ce2bc0",
+    "project": "support-ai-f31-source4",
+    "baseUrl": "http://127.0.0.1:8088",
+    "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+    "startedAt": "2026-09-29T13:32:49.491Z",
+    "completedAt": "2026-09-29T13:34:28.409Z",
+    "configSnapshot": {
+      "chat": {
+        "role": "CHAT",
+        "model": "qwen3.5:9b",
+        "provider": "ollama",
+        "temperature": null
+      },
+      "mode": "RAG",
+      "index": {
+        "parser": {
+          "version": "plain-text-v1"
+        },
+        "chunker": {
+          "version": "token-budget-v1",
+          "maxChunks": 20000,
+          "maxTokens": 512,
+          "tokenizer": "CL100K_BASE"
+        },
+        "embedding": {
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+      },
+      "answer": {
+        "minimumScores": {
+          "fusion": 0,
+          "rerank": 0,
+          "vector": -1
+        },
+        "maxEvidenceTokens": 4096
+      },
+      "prompt": {
+        "version": "rag-cited-history-v2",
+        "historyInjection": "business-prompt-once",
+        "historyMaxRounds": 3,
+        "historyMaxCharacters": 6000
+      },
+      "rerank": {
+        "role": "RERANK",
+        "model": "qwen3-rerank",
+        "enabled": false,
+        "provider": "dashscope",
+        "timeoutMs": 5000,
+        "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+        "maxCandidates": 50,
+        "candidateMultiplier": 3,
+        "maxEstimatedItemTokens": 3500,
+        "maxEstimatedRequestTokens": 100000
+      },
+      "embedding": {
+        "role": "EMBEDDING",
+        "model": "bge-m3:567m",
+        "provider": "ollama",
+        "dimensions": 1024
+      },
+      "retrieval": {
+        "rrfK": 60,
+        "topK": 6,
+        "strategy": "VECTOR",
+        "maxKeywords": 8,
+        "queryRewrite": {
+          "enabled": true,
+          "version": "retrieval-query-json-v1",
+          "maxCharacters": 500
+        },
+        "candidateMultiplier": 3
+      },
+      "schemaVersion": "f24-v1"
+    },
+    "reviewer": "PENDING_HUMAN_REVIEW"
+  },
+  "results": [
+    {
+      "caseId": "DEV-001",
+      "status": "COMPLETED",
+      "requestId": "b70805b4-c612-4646-9a98-e4a9eeeabb65",
+      "runId": "124f539d-232f-4f16-8c74-77d5b5374c76",
+      "sessionId": "54fff07d-3e97-4b91-a024-be7e7dbc01f4",
+      "answer": "根据提供的资料，支付回调成功但订单仍是待支付的排查顺序如下：\n\n1. 先确认回调接收日志和 HTTP 200 [1]；\n2. 再核对签名校验结果 [1]；\n3. 然后查询支付流水 [1]；\n4. 最后检查订单事件是否进入消息队列并被消费 [1]。",
+      "noEvidence": false,
+      "configSnapshot": {
+        "chat": {
+          "role": "CHAT",
+          "model": "qwen3.5:9b",
+          "provider": "ollama",
+          "temperature": null
+        },
+        "mode": "RAG",
+        "index": {
+          "parser": {
+            "version": "plain-text-v1"
+          },
+          "chunker": {
+            "version": "token-budget-v1",
+            "maxChunks": 20000,
+            "maxTokens": 512,
+            "tokenizer": "CL100K_BASE"
+          },
+          "embedding": {
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+        },
+        "answer": {
+          "minimumScores": {
+            "fusion": 0,
+            "rerank": 0,
+            "vector": -1
+          },
+          "maxEvidenceTokens": 4096
+        },
+        "prompt": {
+          "version": "rag-cited-history-v2",
+          "historyInjection": "business-prompt-once",
+          "historyMaxRounds": 3,
+          "historyMaxCharacters": 6000
+        },
+        "rerank": {
+          "role": "RERANK",
+          "model": "qwen3-rerank",
+          "enabled": false,
+          "provider": "dashscope",
+          "timeoutMs": 5000,
+          "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+          "maxCandidates": 50,
+          "candidateMultiplier": 3,
+          "maxEstimatedItemTokens": 3500,
+          "maxEstimatedRequestTokens": 100000
+        },
+        "embedding": {
+          "role": "EMBEDDING",
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "retrieval": {
+          "rrfK": 60,
+          "topK": 6,
+          "strategy": "VECTOR",
+          "maxKeywords": 8,
+          "queryRewrite": {
+            "enabled": true,
+            "version": "retrieval-query-json-v1",
+            "maxCharacters": 500
+          },
+          "candidateMultiplier": 3
+        },
+        "schemaVersion": "f24-v1"
+      },
+      "retrievedEvidenceIds": [
+        "ORDER-V1-STATUS",
+        "PAY-CB-V2-AMOUNT",
+        "PAY-CB-V2-CONFIG",
+        "PAY-CB-V2-ENDPOINT",
+        "PAY-CB-V2-INVESTIGATION",
+        "RECON-V1-PROCESS"
+      ],
+      "citedEvidenceIds": [
+        "PAY-CB-V2-INVESTIGATION"
+      ],
+      "retrievalEvidenceBasis": "PERSISTED_MODEL_INPUT_SOURCES_AFTER_SCORE_AND_TOKEN_FILTERS",
+      "sources": [
+        {
+          "number": 1,
+          "cited": true,
+          "chunkId": "d0bafba7-523c-3edb-9daf-6aa57ccaf97f",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调成功但订单未更新",
+            "endOffset": 352,
+            "startOffset": 229
+          },
+          "snapshot": {
+            "score": 0.8203662878386356,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 2,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 2,
+          "cited": false,
+          "chunkId": "bab29650-fd04-3a2c-99b7-532f8e474731",
+          "documentId": "a76717b7-f2da-4611-b98a-247e00269dc2",
+          "versionId": "2cf65937-43c3-4dd0-81df-9b2f9ec8cd75",
+          "locator": {
+            "pageNo": null,
+            "section": "支付对账指南 / 差异处理顺序",
+            "endOffset": 605,
+            "startOffset": 507
+          },
+          "snapshot": {
+            "score": 0.7459886074068071,
+            "versionId": "2cf65937-43c3-4dd0-81df-9b2f9ec8cd75",
+            "versionNo": 1,
+            "chunkIndex": 5,
+            "documentId": "a76717b7-f2da-4611-b98a-247e00269dc2",
+            "documentName": "reconciliation-guide"
+          }
+        },
+        {
+          "number": 3,
+          "cited": false,
+          "chunkId": "0030c93d-ef61-32fd-906c-725dcadd0b90",
+          "documentId": "77fbad0b-4c27-4a49-8242-cccde775ad05",
+          "versionId": "b4539192-a7b8-414c-943f-fb86f333d2c0",
+          "locator": {
+            "pageNo": null,
+            "section": "订单接口参考 / 订单状态",
+            "endOffset": 511,
+            "startOffset": 373
+          },
+          "snapshot": {
+            "score": 0.7141805887224116,
+            "versionId": "b4539192-a7b8-414c-943f-fb86f333d2c0",
+            "versionNo": 1,
+            "chunkIndex": 3,
+            "documentId": "77fbad0b-4c27-4a49-8242-cccde775ad05",
+            "documentName": "order-api-reference"
+          }
+        },
+        {
+          "number": 4,
+          "cited": false,
+          "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 当前回调入口",
+            "endOffset": 229,
+            "startOffset": 97
+          },
+          "snapshot": {
+            "score": 0.7096333696206439,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 1,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 5,
+          "cited": false,
+          "chunkId": "02fa2f28-c7e3-345a-9cae-1d04fb4abc24",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 金额校验",
+            "endOffset": 1484,
+            "startOffset": 1421
+          },
+          "snapshot": {
+            "score": 0.7031596349408078,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 11,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 6,
+          "cited": false,
+          "chunkId": "59567772-5dac-3498-b8f8-dbcbc239f3ae",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调地址配置",
+            "endOffset": 898,
+            "startOffset": 769
+          },
+          "snapshot": {
+            "score": 0.688073057100686,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 6,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        }
+      ],
+      "citedSourcePreviews": [
+        {
+          "number": 1,
+          "type": "DOCUMENT",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "chunkId": "d0bafba7-523c-3edb-9daf-6aa57ccaf97f",
+          "title": "payment-callback-guide",
+          "section": "支付回调处理手册 / 回调成功但订单未更新",
+          "available": true,
+          "previewPath": "/api/chunks/d0bafba7-523c-3edb-9daf-6aa57ccaf97f/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true,
+          "preview": {
+            "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide",
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkId": "d0bafba7-523c-3edb-9daf-6aa57ccaf97f",
+            "chunkIndex": 2,
+            "section": "支付回调处理手册 / 回调成功但订单未更新",
+            "pageNo": null,
+            "startOffset": 229,
+            "endOffset": 352,
+            "isCurrent": true,
+            "content": "## 回调成功但订单未更新\n\n排查顺序固定为：先确认回调接收日志和 HTTP 200，再核对签名校验结果，然后查询支付流水，最后检查订单事件是否进入消息队列并被消费。\n\n<!-- evidence:PAY-CB-V2-SIGNATURE -->\n"
+          }
+        }
+      ],
+      "metrics": {
+        "evidenceCount": 6,
+        "retrievedEvidenceCount": 6,
+        "scoreFilteredEvidenceCount": 0,
+        "budgetFilteredEvidenceCount": 0,
+        "evidenceTokenCount": 409,
+        "citedCount": 1,
+        "noEvidence": false,
+        "retrievalMs": 1853,
+        "embeddingTotalTokens": null,
+        "rerankStatus": "DISABLED",
+        "rerankCandidateCount": 0,
+        "rerankMs": 0,
+        "rerankTotalTokens": null,
+        "generationMs": 32934,
+        "totalMs": 34814,
+        "firstDeltaMs": 33812,
+        "queryRewrite": {
+          "originalQuestion": "支付回调成功但订单仍是待支付，应按什么顺序排查？",
+          "retrievalQuestion": "支付回调成功但订单仍是待支付，应按什么顺序排查？",
+          "status": "NO_HISTORY"
+        }
+      },
+      "usage": {
+        "promptTokens": 703,
+        "completionTokens": 2474,
+        "totalTokens": 3177
+      },
+      "errorCode": null,
+      "startedAt": "2026-09-29T13:32:49.641254Z",
+      "finishedAt": "2026-09-29T13:33:24.453002Z",
+      "streaming": {
+        "events": [
+          {
+            "type": "start",
+            "elapsedMs": 13
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33823
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33833
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33843
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33854
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33864
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33874
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33886
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33896
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33907
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33918
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33929
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33941
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33952
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33962
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33974
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 33985
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34007
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34018
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34039
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34050
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34061
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34071
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34083
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34093
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34105
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34128
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34140
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34152
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34162
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34173
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34183
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34196
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34229
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34240
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34264
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34278
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34288
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34300
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34311
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34322
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34331
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34343
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34353
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34377
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34387
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34410
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34420
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34432
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34443
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34455
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34466
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34476
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34488
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34509
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34520
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34541
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34551
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34644
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34807
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34808
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34810
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34812
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34813
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34815
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34816
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34818
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34819
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34821
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 34822
+          },
+          {
+            "type": "sources",
+            "elapsedMs": 34827
+          },
+          {
+            "type": "done",
+            "elapsedMs": 34829
+          }
+        ],
+        "transportError": null
+      },
+      "humanReview": {
+        "citationCorrect": null,
+        "evidenceSufficient": null,
+        "notes": "待人工核对；自动采集不生成主观评分"
+      }
+    },
+    {
+      "caseId": "DEV-002",
+      "status": "FAILED",
+      "requestId": "2daa083f-70fb-4acd-b482-c69c396c3f71",
+      "runId": "4b3c6838-0f7a-490d-a217-df5c15674097",
+      "sessionId": "dfe729b0-d45a-465b-bab7-2adc8446273f",
+      "answer": "",
+      "noEvidence": false,
+      "configSnapshot": {
+        "chat": {
+          "role": "CHAT",
+          "model": "qwen3.5:9b",
+          "provider": "ollama",
+          "temperature": null
+        },
+        "mode": "RAG",
+        "index": {
+          "parser": {
+            "version": "plain-text-v1"
+          },
+          "chunker": {
+            "version": "token-budget-v1",
+            "maxChunks": 20000,
+            "maxTokens": 512,
+            "tokenizer": "CL100K_BASE"
+          },
+          "embedding": {
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+        },
+        "answer": {
+          "minimumScores": {
+            "fusion": 0,
+            "rerank": 0,
+            "vector": -1
+          },
+          "maxEvidenceTokens": 4096
+        },
+        "prompt": {
+          "version": "rag-cited-history-v2",
+          "historyInjection": "business-prompt-once",
+          "historyMaxRounds": 3,
+          "historyMaxCharacters": 6000
+        },
+        "rerank": {
+          "role": "RERANK",
+          "model": "qwen3-rerank",
+          "enabled": false,
+          "provider": "dashscope",
+          "timeoutMs": 5000,
+          "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+          "maxCandidates": 50,
+          "candidateMultiplier": 3,
+          "maxEstimatedItemTokens": 3500,
+          "maxEstimatedRequestTokens": 100000
+        },
+        "embedding": {
+          "role": "EMBEDDING",
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "retrieval": {
+          "rrfK": 60,
+          "topK": 6,
+          "strategy": "VECTOR",
+          "maxKeywords": 8,
+          "queryRewrite": {
+            "enabled": true,
+            "version": "retrieval-query-json-v1",
+            "maxCharacters": 500
+          },
+          "candidateMultiplier": 3
+        },
+        "schemaVersion": "f24-v1"
+      },
+      "retrievedEvidenceIds": [
+        "PAY-CB-V2-AMOUNT",
+        "PAY-CB-V2-CONFIG",
+        "PAY-CB-V2-ERRORS",
+        "PAY-CB-V2-INVESTIGATION",
+        "PAY-CB-V2-RETRY",
+        "PAY-CB-V2-SECURITY"
+      ],
+      "citedEvidenceIds": [],
+      "retrievalEvidenceBasis": "PERSISTED_MODEL_INPUT_SOURCES_AFTER_SCORE_AND_TOKEN_FILTERS",
+      "sources": [
+        {
+          "number": 1,
+          "cited": false,
+          "chunkId": "d6537c52-6195-3ba0-839a-77509c6e9c26",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 来源校验",
+            "endOffset": 1421,
+            "startOffset": 1325
+          },
+          "snapshot": {
+            "score": 0.6971586002547461,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 10,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 2,
+          "cited": false,
+          "chunkId": "8b6b977e-339b-3f4c-a265-2e2446389ed7",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调错误码",
+            "endOffset": 1053,
+            "startOffset": 898
+          },
+          "snapshot": {
+            "score": 0.6928584256347299,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 7,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 3,
+          "cited": false,
+          "chunkId": "59567772-5dac-3498-b8f8-dbcbc239f3ae",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调地址配置",
+            "endOffset": 898,
+            "startOffset": 769
+          },
+          "snapshot": {
+            "score": 0.6860101867836254,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 6,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 4,
+          "cited": false,
+          "chunkId": "d0bafba7-523c-3edb-9daf-6aa57ccaf97f",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调成功但订单未更新",
+            "endOffset": 352,
+            "startOffset": 229
+          },
+          "snapshot": {
+            "score": 0.6830630942455169,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 2,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 5,
+          "cited": false,
+          "chunkId": "02fa2f28-c7e3-345a-9cae-1d04fb4abc24",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 金额校验",
+            "endOffset": 1484,
+            "startOffset": 1421
+          },
+          "snapshot": {
+            "score": 0.6551385542502616,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 11,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 6,
+          "cited": false,
+          "chunkId": "c14af582-88d7-3662-b3ce-ae78642013cc",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调重试",
+            "endOffset": 769,
+            "startOffset": 635
+          },
+          "snapshot": {
+            "score": 0.6374183997803734,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 5,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        }
+      ],
+      "citedSourcePreviews": [],
+      "metrics": {
+        "evidenceCount": 6,
+        "retrievedEvidenceCount": 6,
+        "scoreFilteredEvidenceCount": 0,
+        "budgetFilteredEvidenceCount": 0,
+        "evidenceTokenCount": 480,
+        "citedCount": 0,
+        "noEvidence": false,
+        "retrievalMs": 20,
+        "embeddingTotalTokens": null,
+        "rerankStatus": "DISABLED",
+        "rerankCandidateCount": 0,
+        "rerankMs": 0,
+        "rerankTotalTokens": null,
+        "generationMs": 34933,
+        "totalMs": 34985,
+        "firstDeltaMs": null,
+        "queryRewrite": {
+          "originalQuestion": "支付回调签名校验失败时需要核对哪些字段？",
+          "retrievalQuestion": "支付回调签名校验失败时需要核对哪些字段？",
+          "status": "NO_HISTORY"
+        }
+      },
+      "usage": {
+        "promptTokens": 760,
+        "completionTokens": 3336,
+        "totalTokens": 4096
+      },
+      "errorCode": "MODEL_EMPTY_RESPONSE",
+      "startedAt": "2026-09-29T13:33:25.086601Z",
+      "finishedAt": "2026-09-29T13:34:00.071259Z",
+      "streaming": {
+        "events": [
+          {
+            "type": "start",
+            "elapsedMs": 12
+          },
+          {
+            "type": "error",
+            "elapsedMs": 34999
+          }
+        ],
+        "transportError": null
+      },
+      "humanReview": {
+        "citationCorrect": null,
+        "evidenceSufficient": null,
+        "notes": "待人工核对；自动采集不生成主观评分"
+      }
+    },
+    {
+      "caseId": "DEV-003",
+      "status": "COMPLETED",
+      "requestId": "01b4f65e-0b6c-419c-ae7a-71e1e8944b8f",
+      "runId": "96a0e259-48a9-432e-a5b5-ac841748dd14",
+      "sessionId": "03c348fe-4afe-4634-b21f-902d2eb2597b",
+      "answer": "系统应以 `transactionId` 作为幂等键 [1]。同一交易号重复到达时，应返回首次处理结果 [1]，不得重复更新订单、发放权益或发送业务事件 [1]。此外，错误码 `PAY-CB-1003` 表示重复交易已按幂等结果处理 [5]。",
+      "noEvidence": false,
+      "configSnapshot": {
+        "chat": {
+          "role": "CHAT",
+          "model": "qwen3.5:9b",
+          "provider": "ollama",
+          "temperature": null
+        },
+        "mode": "RAG",
+        "index": {
+          "parser": {
+            "version": "plain-text-v1"
+          },
+          "chunker": {
+            "version": "token-budget-v1",
+            "maxChunks": 20000,
+            "maxTokens": 512,
+            "tokenizer": "CL100K_BASE"
+          },
+          "embedding": {
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+        },
+        "answer": {
+          "minimumScores": {
+            "fusion": 0,
+            "rerank": 0,
+            "vector": -1
+          },
+          "maxEvidenceTokens": 4096
+        },
+        "prompt": {
+          "version": "rag-cited-history-v2",
+          "historyInjection": "business-prompt-once",
+          "historyMaxRounds": 3,
+          "historyMaxCharacters": 6000
+        },
+        "rerank": {
+          "role": "RERANK",
+          "model": "qwen3-rerank",
+          "enabled": false,
+          "provider": "dashscope",
+          "timeoutMs": 5000,
+          "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+          "maxCandidates": 50,
+          "candidateMultiplier": 3,
+          "maxEstimatedItemTokens": 3500,
+          "maxEstimatedRequestTokens": 100000
+        },
+        "embedding": {
+          "role": "EMBEDDING",
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "retrieval": {
+          "rrfK": 60,
+          "topK": 6,
+          "strategy": "VECTOR",
+          "maxKeywords": 8,
+          "queryRewrite": {
+            "enabled": true,
+            "version": "retrieval-query-json-v1",
+            "maxCharacters": 500
+          },
+          "candidateMultiplier": 3
+        },
+        "schemaVersion": "f24-v1"
+      },
+      "retrievedEvidenceIds": [
+        "PAY-CB-V2-AMOUNT",
+        "PAY-CB-V2-ENDPOINT",
+        "PAY-CB-V2-ERRORS",
+        "PAY-CB-V2-IDEMPOTENCY",
+        "PAY-CB-V2-RETRY",
+        "RECON-V1-REPROCESS"
+      ],
+      "citedEvidenceIds": [
+        "PAY-CB-V2-ERRORS",
+        "PAY-CB-V2-IDEMPOTENCY"
+      ],
+      "retrievalEvidenceBasis": "PERSISTED_MODEL_INPUT_SOURCES_AFTER_SCORE_AND_TOKEN_FILTERS",
+      "sources": [
+        {
+          "number": 1,
+          "cited": true,
+          "chunkId": "0cd3c740-aceb-333e-919d-3bd660ad7ba5",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调幂等",
+            "endOffset": 635,
+            "startOffset": 524
+          },
+          "snapshot": {
+            "score": 0.7541243267732808,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 4,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 2,
+          "cited": false,
+          "chunkId": "02fa2f28-c7e3-345a-9cae-1d04fb4abc24",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 金额校验",
+            "endOffset": 1484,
+            "startOffset": 1421
+          },
+          "snapshot": {
+            "score": 0.6871040390358026,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 11,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 3,
+          "cited": false,
+          "chunkId": "c14af582-88d7-3662-b3ce-ae78642013cc",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调重试",
+            "endOffset": 769,
+            "startOffset": 635
+          },
+          "snapshot": {
+            "score": 0.6732495987864513,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 5,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 4,
+          "cited": false,
+          "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 当前回调入口",
+            "endOffset": 229,
+            "startOffset": 97
+          },
+          "snapshot": {
+            "score": 0.6570862770316742,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 1,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 5,
+          "cited": true,
+          "chunkId": "8b6b977e-339b-3f4c-a265-2e2446389ed7",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调错误码",
+            "endOffset": 1053,
+            "startOffset": 898
+          },
+          "snapshot": {
+            "score": 0.649374264404256,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 7,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 6,
+          "cited": false,
+          "chunkId": "ab290cd6-fa4b-3358-9298-0e09a2f6cc8b",
+          "documentId": "a76717b7-f2da-4611-b98a-247e00269dc2",
+          "versionId": "2cf65937-43c3-4dd0-81df-9b2f9ec8cd75",
+          "locator": {
+            "pageNo": null,
+            "section": "支付对账指南 / 重跑约束",
+            "endOffset": 864,
+            "startOffset": 780
+          },
+          "snapshot": {
+            "score": 0.6478769636521139,
+            "versionId": "2cf65937-43c3-4dd0-81df-9b2f9ec8cd75",
+            "versionNo": 1,
+            "chunkIndex": 8,
+            "documentId": "a76717b7-f2da-4611-b98a-247e00269dc2",
+            "documentName": "reconciliation-guide"
+          }
+        }
+      ],
+      "citedSourcePreviews": [
+        {
+          "number": 1,
+          "type": "DOCUMENT",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "chunkId": "0cd3c740-aceb-333e-919d-3bd660ad7ba5",
+          "title": "payment-callback-guide",
+          "section": "支付回调处理手册 / 回调幂等",
+          "available": true,
+          "previewPath": "/api/chunks/0cd3c740-aceb-333e-919d-3bd660ad7ba5/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true,
+          "preview": {
+            "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide",
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkId": "0cd3c740-aceb-333e-919d-3bd660ad7ba5",
+            "chunkIndex": 4,
+            "section": "支付回调处理手册 / 回调幂等",
+            "pageNo": null,
+            "startOffset": 524,
+            "endOffset": 635,
+            "isCurrent": true,
+            "content": "## 回调幂等\n\n回调以 `transactionId` 作为幂等键；同一交易号重复到达时返回首次处理结果，不得重复更新订单、发放权益或发送业务事件。\n\n<!-- evidence:PAY-CB-V2-RETRY -->\n"
+          }
+        },
+        {
+          "number": 5,
+          "type": "DOCUMENT",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "chunkId": "8b6b977e-339b-3f4c-a265-2e2446389ed7",
+          "title": "payment-callback-guide",
+          "section": "支付回调处理手册 / 回调错误码",
+          "available": true,
+          "previewPath": "/api/chunks/8b6b977e-339b-3f4c-a265-2e2446389ed7/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true,
+          "preview": {
+            "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide",
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkId": "8b6b977e-339b-3f4c-a265-2e2446389ed7",
+            "chunkIndex": 7,
+            "section": "支付回调处理手册 / 回调错误码",
+            "pageNo": null,
+            "startOffset": 898,
+            "endOffset": 1053,
+            "isCurrent": true,
+            "content": "## 回调错误码\n\n`PAY-CB-1001` 表示签名不匹配，`PAY-CB-1002` 表示时间戳超出 3 分钟窗口，`PAY-CB-1003` 表示重复交易已按幂等结果处理，`PAY-CB-1004` 表示回调金额与订单应付金额不一致。\n\n<!-- evidence:PAY-CB-V2-ACK -->\n"
+          }
+        }
+      ],
+      "metrics": {
+        "evidenceCount": 6,
+        "retrievedEvidenceCount": 6,
+        "scoreFilteredEvidenceCount": 0,
+        "budgetFilteredEvidenceCount": 0,
+        "evidenceTokenCount": 440,
+        "citedCount": 2,
+        "noEvidence": false,
+        "retrievalMs": 2654,
+        "embeddingTotalTokens": null,
+        "rerankStatus": "DISABLED",
+        "rerankCandidateCount": 0,
+        "rerankMs": 0,
+        "rerankTotalTokens": null,
+        "generationMs": 24611,
+        "totalMs": 27287,
+        "firstDeltaMs": 26518,
+        "queryRewrite": {
+          "originalQuestion": "重复收到支付回调时系统应如何保证幂等？",
+          "retrievalQuestion": "重复收到支付回调时系统应如何保证幂等？",
+          "status": "NO_HISTORY"
+        }
+      },
+      "usage": {
+        "promptTokens": 740,
+        "completionTokens": 2332,
+        "totalTokens": 3072
+      },
+      "errorCode": null,
+      "startedAt": "2026-09-29T13:34:00.664607Z",
+      "finishedAt": "2026-09-29T13:34:27.950796Z",
+      "streaming": {
+        "events": [
+          {
+            "type": "start",
+            "elapsedMs": 11
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26527
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26536
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26548
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26558
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26568
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26579
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26600
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26611
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26621
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26631
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26641
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26652
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26663
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26673
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26684
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26695
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26705
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26716
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26726
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26736
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26747
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26758
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26768
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26779
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26789
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26799
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26809
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26820
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26830
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26840
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26850
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26861
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26871
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26881
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26891
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26901
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26912
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26923
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26934
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26944
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26954
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26965
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26975
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26985
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 26995
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27006
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27016
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27027
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27037
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27047
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27057
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27068
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27078
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27088
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27099
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27109
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27119
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27130
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27139
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27162
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27171
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27181
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27191
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27202
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27212
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27222
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27233
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27242
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27253
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27263
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27273
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 27284
+          },
+          {
+            "type": "sources",
+            "elapsedMs": 27300
+          },
+          {
+            "type": "done",
+            "elapsedMs": 27301
+          }
+        ],
+        "transportError": null
+      },
+      "humanReview": {
+        "citationCorrect": null,
+        "evidenceSufficient": null,
+        "notes": "待人工核对；自动采集不生成主观评分"
+      }
+    }
+  ]
+}

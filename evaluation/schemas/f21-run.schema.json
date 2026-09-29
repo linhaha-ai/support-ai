@@ -6,6 +6,12 @@
   "additionalProperties": false,
   "required": ["metadata", "results"],
   "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "artifactKind": { "const": "F32_REAL_HTTP_EVALUATION" },
+    "status": { "enum": ["COMPLETE_CAPTURE_PENDING_HUMAN_REVIEW", "PARTIAL_CAPTURE_PENDING_HUMAN_REVIEW"] },
+    "capturedCases": { "type": "integer", "minimum": 0 },
+    "expectedCases": { "type": "integer", "minimum": 1 },
+    "sourceRunSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "metadata": {
       "type": "object",
       "additionalProperties": false,
@@ -29,7 +35,17 @@
         "completedAt": { "type": "string", "format": "date-time" },
         "environment": { "type": "string", "minLength": 1 },
         "configSnapshot": { "$ref": "#/$defs/configSnapshot" },
-        "reviewer": { "type": "string", "minLength": 1 }
+        "reviewer": { "type": "string", "minLength": 1 },
+        "runtimeHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "runtimeWithoutStrategyHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bindingHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sourceTreeHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "runnerSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "freezeSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "imageId": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "baseUrl": { "type": "string", "format": "uri" },
+        "sourceDirtyPaths": { "type": "array", "items": { "type": "string" } }
       }
     },
     "results": {
@@ -49,11 +65,22 @@
         ],
         "properties": {
           "caseId": { "type": "string", "pattern": "^(DEV|TEST)-[0-9]{3}$" },
-          "status": { "enum": ["COMPLETED", "DENIED", "FAILED", "CONTRACT_PASSED", "CONTRACT_FAILED"] },
+          "status": { "enum": ["COMPLETED", "DENIED", "FAILED", "CANCELLED", "CONTRACT_PASSED", "CONTRACT_FAILED"] },
           "answer": { "type": ["string", "null"] },
           "noEvidence": { "type": ["boolean", "null"] },
           "retrievedEvidenceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
           "citedEvidenceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "configSnapshot": { "$ref": "#/$defs/configSnapshot" },
+          "requestId": { "type": "string", "format": "uuid" },
+          "runId": { "type": "string", "format": "uuid" },
+          "sessionId": { "type": "string", "format": "uuid" },
+          "retrievalEvidenceBasis": { "const": "PERSISTED_MODEL_INPUT_SOURCES_AFTER_SCORE_AND_TOKEN_FILTERS" },
+          "sources": { "type": "array", "items": { "$ref": "#/$defs/persistedSource" } },
+          "citedSourcePreviews": { "type": "array", "items": { "type": "object" } },
+          "errorCode": { "type": ["string", "null"] },
+          "startedAt": { "type": ["string", "null"], "format": "date-time" },
+          "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "streaming": { "type": ["object", "null"] },
           "usage": {
             "anyOf": [
               { "$ref": "#/$defs/chatUsage" },
@@ -76,11 +103,28 @@
               "notes": { "type": "string" }
             }
           }
-        }
+        },
+        "allOf": [{
+          "if": { "properties": { "status": { "const": "COMPLETED" } }, "required": ["status"] },
+          "then": { "required": ["sources"] }
+        }]
       }
     }
   },
   "$defs": {
+    "persistedSource": {
+      "type": "object",
+      "required": ["chunkId", "cited"],
+      "properties": {
+        "chunkId": { "type": "string", "format": "uuid" },
+        "documentId": { "type": "string", "format": "uuid" },
+        "versionId": { "type": "string", "format": "uuid" },
+        "number": { "type": "integer", "minimum": 1 },
+        "cited": { "type": "boolean" },
+        "locator": { "type": "object" },
+        "snapshot": { "type": "object" }
+      }
+    },
     "embeddingConfiguration": {
       "type": "object",
       "additionalProperties": false,
@@ -107,7 +151,17 @@
             "topK": { "type": "integer", "minimum": 1 },
             "candidateMultiplier": { "type": "integer", "minimum": 1 },
             "rrfK": { "type": "integer", "minimum": 1 },
-            "maxKeywords": { "type": "integer", "minimum": 1 }
+            "maxKeywords": { "type": "integer", "minimum": 1 },
+            "queryRewrite": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["enabled", "version", "maxCharacters"],
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "version": { "type": "string", "minLength": 1 },
+                "maxCharacters": { "type": "integer", "minimum": 1 }
+              }
+            }
           }
         },
         "rerank": {
@@ -153,8 +207,14 @@
             "role": { "const": "CHAT" },
             "provider": { "type": "string", "minLength": 1 },
             "model": { "type": "string", "minLength": 1 },
-            "temperature": { "type": ["number", "null"] }
-          }
+            "temperature": { "type": ["number", "null"] },
+            "numCtx": { "type": ["integer", "null"], "minimum": 1 },
+            "think": { "type": ["boolean", "null"] }
+          },
+          "allOf": [{
+            "if": { "properties": { "provider": { "not": { "const": "ollama" } } }, "required": ["provider"] },
+            "then": { "properties": { "numCtx": { "type": "null" }, "think": { "type": "null" } } }
+          }]
         },
         "embedding": {
           "type": "object",
@@ -197,7 +257,12 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["version"],
-          "properties": { "version": { "type": "string", "minLength": 1 } }
+          "properties": {
+            "version": { "type": "string", "minLength": 1 },
+            "historyInjection": { "const": "business-prompt-once" },
+            "historyMaxRounds": { "type": "integer", "minimum": 1 },
+            "historyMaxCharacters": { "type": "integer", "minimum": 1 }
+          }
         }
       }
     },
@@ -231,7 +296,19 @@
         "rerankTotalTokens": { "type": ["integer", "null"], "minimum": 0 },
         "generationMs": { "type": ["integer", "null"], "minimum": 0 },
         "totalMs": { "type": "integer", "minimum": 0 },
-        "firstDeltaMs": { "type": ["integer", "null"], "minimum": 0 }
+        "firstDeltaMs": { "type": ["integer", "null"], "minimum": 0 },
+        "queryRewrite": {
+          "anyOf": [{ "type": "null" }, {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["originalQuestion", "retrievalQuestion", "status"],
+            "properties": {
+              "originalQuestion": { "type": ["string", "null"] },
+              "retrievalQuestion": { "type": ["string", "null"] },
+              "status": { "enum": ["NOT_ATTEMPTED", "NO_HISTORY", "SELF_CONTAINED", "REWRITTEN", "UNCHANGED", "FALLBACK"] }
+            }
+          }]
+        }
       }
     }
   }

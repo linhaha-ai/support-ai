@@ -5,10 +5,13 @@ import com.haha.supportai.ai.model.ValidatedEmbeddingModel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.ai.ollama.api.ThinkOption;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
@@ -55,6 +58,49 @@ class AiConfigurationTest {
     @Test
     void defaultLocalConfigurationDoesNotNeedCloudCredentials() {
         runner.run(context -> assertThat(context).hasNotFailed().hasSingleBean(ChatClient.class));
+    }
+
+    @Test
+    void bindsLocalThinkingAndContextOptionsToActualModel() {
+        runner.run(context -> {
+            assertThat(context).hasNotFailed().hasSingleBean(OllamaChatModel.class);
+            OllamaChatOptions options = (OllamaChatOptions) context.getBean(OllamaChatModel.class).getDefaultOptions();
+            assertThat(options.getThinkOption()).isEqualTo(ThinkOption.ThinkBoolean.DISABLED);
+            assertThat(options.getNumCtx()).isEqualTo(16384);
+        });
+    }
+
+    @Test
+    void permitsExplicitLocalThinkingAndContextOverride() {
+        runner.withPropertyValues(
+                        "spring.ai.ollama.chat.options.think-option=true",
+                        "spring.ai.ollama.chat.options.num-ctx=8192")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    OllamaChatOptions options = (OllamaChatOptions) context.getBean(OllamaChatModel.class).getDefaultOptions();
+                    assertThat(options.getThinkOption()).isEqualTo(ThinkOption.ThinkBoolean.ENABLED);
+                    assertThat(options.getNumCtx()).isEqualTo(8192);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "low", "yes", "1" })
+    void rejectsInvalidLocalThinkingOption(String option) {
+        runner.withPropertyValues("spring.ai.ollama.chat.options.think-option=" + option)
+                .run(context -> assertThat(context.getStartupFailure())
+                        .hasRootCauseMessage("spring.ai.ollama.chat.options.think-option must be true or false"));
+    }
+
+    @Test
+    void unusedLocalThinkingOptionDoesNotPolluteCloudModels() {
+        runner.withPropertyValues(
+                        "spring.ai.model.chat=dashscope",
+                        "spring.ai.model.embedding=dashscope",
+                        "spring.ai.dashscope.enabled=true",
+                        "spring.ai.dashscope.api-key=test-key-not-a-credential",
+                        "spring.ai.ollama.chat.options.think-option=unused-local-value")
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(DashScopeChatModel.class)
+                        .doesNotHaveBean(OllamaChatModel.class));
     }
 
     @Test

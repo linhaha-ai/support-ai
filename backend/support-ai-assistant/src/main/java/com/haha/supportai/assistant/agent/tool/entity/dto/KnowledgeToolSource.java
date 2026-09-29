@@ -18,4 +18,9 @@ public class KnowledgeToolSource {
     private final Integer pageNo; // 来源页码，可为空
 
     private final String content; // 当前授权范围内的文档片段正文
+
+    // 引用标记由可信句柄生成，模型只需复制，不承担 UUID 与括号拼接。
+    public String getCitation() {
+        return "[[source:" + sourceHandle + "]]";
+    }
 }

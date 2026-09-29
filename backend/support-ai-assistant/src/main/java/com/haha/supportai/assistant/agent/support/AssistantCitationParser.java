@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 
 import com.haha.supportai.assistant.agent.entity.dto.AssistantCitationResult;
 import com.haha.supportai.assistant.agent.exception.AssistantCitationException;
+import com.haha.supportai.assistant.agent.exception.AssistantCitationException.Reason;
 import com.haha.supportai.data.conversation.entity.po.MessageSource;
 import org.springframework.stereotype.Component;
 
@@ -22,11 +23,14 @@ public class AssistantCitationParser {
     private static final Pattern UNTRUSTED_NUMBER_PATTERN = Pattern.compile("\\[[1-9][0-9]*]");
 
     public AssistantCitationResult parse(String rawAnswer, List<MessageSource> sources) {
-        if (rawAnswer == null || rawAnswer.isBlank() || sources == null) {
-            throw new AssistantCitationException();
+        if (rawAnswer == null || rawAnswer.isBlank()) {
+            throw new AssistantCitationException(Reason.EMPTY_ANSWER);
+        }
+        if (sources == null) {
+            throw new AssistantCitationException(Reason.INVALID_REGISTRY);
         }
         if (UNTRUSTED_NUMBER_PATTERN.matcher(rawAnswer).find()) {
-            throw new AssistantCitationException();
+            throw new AssistantCitationException(Reason.UNTRUSTED_NUMBER);
         }
         Map<UUID, Integer> citationNumbers = new LinkedHashMap<>();
         Set<Integer> registeredNumbers = new LinkedHashSet<>();
@@ -34,7 +38,7 @@ public class AssistantCitationParser {
             if (source == null || source.getId() == null || source.getCitationNo() < 1
                     || citationNumbers.putIfAbsent(source.getId(), source.getCitationNo()) != null
                     || !registeredNumbers.add(source.getCitationNo())) {
-                throw new AssistantCitationException();
+                throw new AssistantCitationException(Reason.INVALID_REGISTRY);
             }
         }
 
@@ -44,18 +48,18 @@ public class AssistantCitationParser {
         while (matcher.find()) {
             Integer citationNumber = citationNumbers.get(UUID.fromString(matcher.group(1)));
             if (citationNumber == null) {
-                throw new AssistantCitationException();
+                throw new AssistantCitationException(Reason.UNKNOWN_HANDLE);
             }
             cited.add(citationNumber);
             matcher.appendReplacement(normalized, Matcher.quoteReplacement("[" + citationNumber + "]"));
         }
         matcher.appendTail(normalized);
         if (normalized.indexOf("[[source:") >= 0) {
-            throw new AssistantCitationException();
+            throw new AssistantCitationException(Reason.MALFORMED_HANDLE);
         }
         String answer = normalized.toString().trim();
         if (answer.isEmpty()) {
-            throw new AssistantCitationException();
+            throw new AssistantCitationException(Reason.EMPTY_ANSWER);
         }
         return new AssistantCitationResult(answer, List.copyOf(cited));
     }
