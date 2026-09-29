@@ -1,0 +1,1163 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "F32_REAL_HTTP_EVALUATION",
+  "status": "PARTIAL_CAPTURE_PENDING_HUMAN_REVIEW",
+  "capturedCases": 1,
+  "expectedCases": 60,
+  "sourceRunSha256": "a15abbe44864befe097c28388cf40fcd9424d31c4cd816a5666fe96bdb2225b9",
+  "metadata": {
+    "datasetVersion": "f21-2026-09-23-v1",
+    "datasetSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+    "split": "development",
+    "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+    "environment": "本机 Docker/Ollama",
+    "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+    "runtimeHash": "e328764d2c5f3ef8f65e6e01fe4b143a583549bc82804b62ef292393f23b5029",
+    "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+    "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+    "sourceDirtyPaths": [],
+    "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+    "project": "support-ai-f31-source4",
+    "baseUrl": "http://127.0.0.1:8088",
+    "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+    "startedAt": "2026-09-29T14:58:23.758Z",
+    "completedAt": "2026-09-29T14:58:27.864Z",
+    "configSnapshot": {
+      "chat": {
+        "role": "CHAT",
+        "model": "qwen3.5:9b",
+        "think": false,
+        "numCtx": 16384,
+        "provider": "ollama",
+        "temperature": null
+      },
+      "mode": "RAG",
+      "index": {
+        "parser": {
+          "version": "plain-text-v1"
+        },
+        "chunker": {
+          "version": "token-budget-v1",
+          "maxChunks": 20000,
+          "maxTokens": 512,
+          "tokenizer": "CL100K_BASE"
+        },
+        "embedding": {
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+      },
+      "answer": {
+        "minimumScores": {
+          "fusion": 0,
+          "rerank": 0,
+          "vector": -1
+        },
+        "maxEvidenceTokens": 4096
+      },
+      "prompt": {
+        "version": "rag-cited-history-v2",
+        "historyInjection": "business-prompt-once",
+        "historyMaxRounds": 3,
+        "historyMaxCharacters": 6000
+      },
+      "rerank": {
+        "role": "RERANK",
+        "model": "qwen3-rerank",
+        "enabled": false,
+        "provider": "dashscope",
+        "timeoutMs": 5000,
+        "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+        "maxCandidates": 50,
+        "candidateMultiplier": 3,
+        "maxEstimatedItemTokens": 3500,
+        "maxEstimatedRequestTokens": 100000
+      },
+      "embedding": {
+        "role": "EMBEDDING",
+        "model": "bge-m3:567m",
+        "provider": "ollama",
+        "dimensions": 1024
+      },
+      "retrieval": {
+        "rrfK": 60,
+        "topK": 6,
+        "strategy": "FUSION",
+        "maxKeywords": 8,
+        "queryRewrite": {
+          "enabled": true,
+          "version": "retrieval-query-json-v1",
+          "maxCharacters": 500
+        },
+        "candidateMultiplier": 3
+      },
+      "schemaVersion": "f24-v1"
+    },
+    "reviewer": "PENDING_HUMAN_REVIEW"
+  },
+  "results": [
+    {
+      "caseId": "DEV-042",
+      "status": "COMPLETED",
+      "requestId": "4b51fb21-91fb-4bed-a58c-cd69fe7a2001",
+      "runId": "cb90b893-835b-4bdb-8472-5dd15205a81d",
+      "sessionId": "dcd2293b-e188-480a-b186-daecb9b45219",
+      "answer": "根据提供的已验证历史问答和授权证据，针对支付回调日志的必须记录项和禁止记录项说明如下：\n\n**1. 必须记录的信息：**\n*   `traceId` [1]\n*   `merchantId` [1]\n*   `orderNo` [1]\n*   `transactionId` [1]\n*   验签结果 [1]\n*   处理耗时 [1]\n\n**2. 禁止记录的信息：**\n*   商户密钥 [1][2]\n*   完整签名 [1]\n*   用户银行卡号（完整）[1][2]\n*   其他敏感信息（如用户密码、未经脱敏的身份证号等，参照通用日志规范）[2]\n\n**注意：** 退款审计记录包含操作人、订单号、商户退款号、退款金额、原因、结果和时间，且用户敏感信息需脱敏 [6]。",
+      "noEvidence": false,
+      "configSnapshot": {
+        "chat": {
+          "role": "CHAT",
+          "model": "qwen3.5:9b",
+          "think": false,
+          "numCtx": 16384,
+          "provider": "ollama",
+          "temperature": null
+        },
+        "mode": "RAG",
+        "index": {
+          "parser": {
+            "version": "plain-text-v1"
+          },
+          "chunker": {
+            "version": "token-budget-v1",
+            "maxChunks": 20000,
+            "maxTokens": 512,
+            "tokenizer": "CL100K_BASE"
+          },
+          "embedding": {
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+        },
+        "answer": {
+          "minimumScores": {
+            "fusion": 0,
+            "rerank": 0,
+            "vector": -1
+          },
+          "maxEvidenceTokens": 4096
+        },
+        "prompt": {
+          "version": "rag-cited-history-v2",
+          "historyInjection": "business-prompt-once",
+          "historyMaxRounds": 3,
+          "historyMaxCharacters": 6000
+        },
+        "rerank": {
+          "role": "RERANK",
+          "model": "qwen3-rerank",
+          "enabled": false,
+          "provider": "dashscope",
+          "timeoutMs": 5000,
+          "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+          "maxCandidates": 50,
+          "candidateMultiplier": 3,
+          "maxEstimatedItemTokens": 3500,
+          "maxEstimatedRequestTokens": 100000
+        },
+        "embedding": {
+          "role": "EMBEDDING",
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "retrieval": {
+          "rrfK": 60,
+          "topK": 6,
+          "strategy": "FUSION",
+          "maxKeywords": 8,
+          "queryRewrite": {
+            "enabled": true,
+            "version": "retrieval-query-json-v1",
+            "maxCharacters": 500
+          },
+          "candidateMultiplier": 3
+        },
+        "schemaVersion": "f24-v1"
+      },
+      "retrievedEvidenceIds": [
+        "OPS-V1-DATA",
+        "PAY-CB-V2-AMOUNT",
+        "PAY-CB-V2-ENDPOINT",
+        "PAY-CB-V2-INVESTIGATION",
+        "PAY-CB-V2-OBSERVABILITY",
+        "REFUND-V1-AUDIT"
+      ],
+      "citedEvidenceIds": [
+        "OPS-V1-DATA",
+        "PAY-CB-V2-OBSERVABILITY",
+        "REFUND-V1-AUDIT"
+      ],
+      "retrievalEvidenceBasis": "PERSISTED_MODEL_INPUT_SOURCES_AFTER_SCORE_AND_TOKEN_FILTERS",
+      "sources": [
+        {
+          "number": 1,
+          "cited": true,
+          "chunkId": "b86223f8-cd12-3924-a03b-5ab5cd92852d",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调观测字段",
+            "endOffset": 1325,
+            "startOffset": 1185
+          },
+          "snapshot": {
+            "score": 0.7650267465517739,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 9,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 2,
+          "cited": true,
+          "chunkId": "6a427c6d-ab24-35a9-9bc5-976142d7e844",
+          "documentId": "d93d9270-7862-437c-8315-98ae4bc52aea",
+          "versionId": "96371303-8c11-4c91-b0b2-249134182507",
+          "locator": {
+            "pageNo": null,
+            "section": "支付平台运行与服务等级指南 / 敏感数据",
+            "endOffset": 1044,
+            "startOffset": 994
+          },
+          "snapshot": {
+            "score": 0.6492466005846245,
+            "versionId": "96371303-8c11-4c91-b0b2-249134182507",
+            "versionNo": 1,
+            "chunkIndex": 10,
+            "documentId": "d93d9270-7862-437c-8315-98ae4bc52aea",
+            "documentName": "operations-sla-guide"
+          }
+        },
+        {
+          "number": 3,
+          "cited": false,
+          "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 当前回调入口",
+            "endOffset": 229,
+            "startOffset": 97
+          },
+          "snapshot": {
+            "score": 0.6353991304876493,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 1,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 4,
+          "cited": false,
+          "chunkId": "02fa2f28-c7e3-345a-9cae-1d04fb4abc24",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 金额校验",
+            "endOffset": 1484,
+            "startOffset": 1421
+          },
+          "snapshot": {
+            "score": 0.6247352436658316,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 11,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 5,
+          "cited": false,
+          "chunkId": "d0bafba7-523c-3edb-9daf-6aa57ccaf97f",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "locator": {
+            "pageNo": null,
+            "section": "支付回调处理手册 / 回调成功但订单未更新",
+            "endOffset": 352,
+            "startOffset": 229
+          },
+          "snapshot": {
+            "score": 0.6234651092049083,
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkIndex": 2,
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide"
+          }
+        },
+        {
+          "number": 6,
+          "cited": true,
+          "chunkId": "6e0fb2bd-3d78-3803-a6e8-0a8264d32d13",
+          "documentId": "4dd0472c-1899-4b2d-9c66-81b5c0886373",
+          "versionId": "5b0abe15-c6f1-434c-8bfe-4e7d678fd238",
+          "locator": {
+            "pageNo": null,
+            "section": "退款处理指南 / 审计字段",
+            "endOffset": 1235,
+            "startOffset": 1177
+          },
+          "snapshot": {
+            "score": 0.6203328001300911,
+            "versionId": "5b0abe15-c6f1-434c-8bfe-4e7d678fd238",
+            "versionNo": 1,
+            "chunkIndex": 10,
+            "documentId": "4dd0472c-1899-4b2d-9c66-81b5c0886373",
+            "documentName": "refund-guide"
+          }
+        }
+      ],
+      "citedSourcePreviews": [
+        {
+          "number": 1,
+          "type": "DOCUMENT",
+          "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+          "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+          "chunkId": "b86223f8-cd12-3924-a03b-5ab5cd92852d",
+          "title": "payment-callback-guide",
+          "section": "支付回调处理手册 / 回调观测字段",
+          "available": true,
+          "previewPath": "/api/chunks/b86223f8-cd12-3924-a03b-5ab5cd92852d/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true,
+          "preview": {
+            "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+            "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+            "documentName": "payment-callback-guide",
+            "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+            "versionNo": 2,
+            "chunkId": "b86223f8-cd12-3924-a03b-5ab5cd92852d",
+            "chunkIndex": 9,
+            "section": "支付回调处理手册 / 回调观测字段",
+            "pageNo": null,
+            "startOffset": 1185,
+            "endOffset": 1325,
+            "isCurrent": true,
+            "content": "## 回调观测字段\n\n回调日志必须记录 `traceId`、`merchantId`、`orderNo`、`transactionId`、验签结果和处理耗时，但不得记录商户密钥、完整签名或用户银行卡号。\n\n<!-- evidence:PAY-CB-V2-SECURITY -->\n"
+          }
+        },
+        {
+          "number": 2,
+          "type": "DOCUMENT",
+          "documentId": "d93d9270-7862-437c-8315-98ae4bc52aea",
+          "versionId": "96371303-8c11-4c91-b0b2-249134182507",
+          "chunkId": "6a427c6d-ab24-35a9-9bc5-976142d7e844",
+          "title": "operations-sla-guide",
+          "section": "支付平台运行与服务等级指南 / 敏感数据",
+          "available": true,
+          "previewPath": "/api/chunks/6a427c6d-ab24-35a9-9bc5-976142d7e844/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true,
+          "preview": {
+            "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+            "documentId": "d93d9270-7862-437c-8315-98ae4bc52aea",
+            "documentName": "operations-sla-guide",
+            "versionId": "96371303-8c11-4c91-b0b2-249134182507",
+            "versionNo": 1,
+            "chunkId": "6a427c6d-ab24-35a9-9bc5-976142d7e844",
+            "chunkIndex": 10,
+            "section": "支付平台运行与服务等级指南 / 敏感数据",
+            "pageNo": null,
+            "startOffset": 994,
+            "endOffset": 1044,
+            "isCurrent": true,
+            "content": "## 敏感数据\n\n日志、工单和群聊中不得粘贴商户密钥、用户密码、完整银行卡号或未经脱敏的身份证号。\n"
+          }
+        },
+        {
+          "number": 6,
+          "type": "DOCUMENT",
+          "documentId": "4dd0472c-1899-4b2d-9c66-81b5c0886373",
+          "versionId": "5b0abe15-c6f1-434c-8bfe-4e7d678fd238",
+          "chunkId": "6e0fb2bd-3d78-3803-a6e8-0a8264d32d13",
+          "title": "refund-guide",
+          "section": "退款处理指南 / 审计字段",
+          "available": true,
+          "previewPath": "/api/chunks/6e0fb2bd-3d78-3803-a6e8-0a8264d32d13/source",
+          "ticketNo": null,
+          "ticketStatus": null,
+          "ticketUpdatedAt": null,
+          "ticketQueriedAt": null,
+          "originSourceId": null,
+          "toolCallId": null,
+          "inherited": false,
+          "isCurrent": true,
+          "preview": {
+            "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+            "documentId": "4dd0472c-1899-4b2d-9c66-81b5c0886373",
+            "documentName": "refund-guide",
+            "versionId": "5b0abe15-c6f1-434c-8bfe-4e7d678fd238",
+            "versionNo": 1,
+            "chunkId": "6e0fb2bd-3d78-3803-a6e8-0a8264d32d13",
+            "chunkIndex": 10,
+            "section": "退款处理指南 / 审计字段",
+            "pageNo": null,
+            "startOffset": 1177,
+            "endOffset": 1235,
+            "isCurrent": true,
+            "content": "## 审计字段\n\n退款审计记录必须包含操作人、订单号、商户退款号、退款金额、原因、结果和时间，用户敏感信息应脱敏。\n"
+          }
+        }
+      ],
+      "metrics": {
+        "evidenceCount": 6,
+        "retrievedEvidenceCount": 6,
+        "scoreFilteredEvidenceCount": 0,
+        "budgetFilteredEvidenceCount": 0,
+        "evidenceTokenCount": 383,
+        "citedCount": 3,
+        "noEvidence": false,
+        "retrievalMs": 26,
+        "embeddingTotalTokens": null,
+        "rerankStatus": "DISABLED",
+        "rerankCandidateCount": 0,
+        "rerankMs": 0,
+        "rerankTotalTokens": null,
+        "generationMs": 3352,
+        "totalMs": 3418,
+        "firstDeltaMs": 383,
+        "queryRewrite": {
+          "originalQuestion": "支付回调日志必须记录和禁止记录哪些信息？",
+          "retrievalQuestion": "支付回调日志必须记录和禁止记录哪些信息？",
+          "status": "NO_HISTORY"
+        }
+      },
+      "usage": {
+        "promptTokens": 657,
+        "completionTokens": 203,
+        "totalTokens": 860
+      },
+      "errorCode": null,
+      "startedAt": "2026-09-29T14:58:23.93563Z",
+      "finishedAt": "2026-09-29T14:58:27.354151Z",
+      "streaming": {
+        "events": [
+          {
+            "type": "start",
+            "elapsedMs": 12
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 395
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 412
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 430
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 446
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 463
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 479
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 494
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 510
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 527
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 543
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 559
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 576
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 591
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 606
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 623
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 639
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 656
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 671
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 687
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 702
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 717
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 731
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 747
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 760
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 774
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 803
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 819
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 832
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 863
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 878
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 893
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 909
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 940
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 972
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 988
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1000
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1016
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1029
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1045
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1059
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1087
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1116
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1130
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1145
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1160
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1175
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1190
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1205
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1235
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1263
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1277
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1292
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1307
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1322
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1336
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1351
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1381
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1409
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1423
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1437
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1452
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1467
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1482
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1496
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1526
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1571
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1585
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1599
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1615
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1628
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1643
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1673
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1716
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1729
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1743
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1757
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1772
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1802
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1817
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1830
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1858
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1874
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1889
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1903
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1932
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1975
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 1990
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2005
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2021
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2035
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2050
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2069
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2100
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2144
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2159
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2173
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2188
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2203
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2233
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2277
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2292
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2307
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2322
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2336
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2351
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2365
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2381
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2395
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2410
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2425
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2455
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2499
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2513
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2527
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2542
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2556
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2570
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2585
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2601
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2616
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2637
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2646
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2661
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2675
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2690
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2704
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2720
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2734
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2749
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2765
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2779
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2795
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2809
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2825
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2854
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2869
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2884
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2915
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2930
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2945
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2959
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2974
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 2990
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3005
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3022
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3038
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3055
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3069
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3085
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3101
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3116
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3129
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3144
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3160
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3174
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3189
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3205
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3221
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3236
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3251
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3266
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3283
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3299
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3315
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3331
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3347
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3364
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3379
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3394
+          },
+          {
+            "type": "delta",
+            "elapsedMs": 3410
+          },
+          {
+            "type": "sources",
+            "elapsedMs": 3432
+          },
+          {
+            "type": "done",
+            "elapsedMs": 3433
+          }
+        ],
+        "transportError": null
+      },
+      "humanReview": {
+        "citationCorrect": null,
+        "evidenceSufficient": null,
+        "notes": "待人工核对；自动采集不生成主观评分"
+      }
+    }
+  ]
+}

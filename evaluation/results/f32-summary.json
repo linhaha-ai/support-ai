@@ -1,0 +1,620 @@
+{
+  "artifactKind": "F32_OBJECTIVE_SUMMARIES",
+  "status": "DRAFT_PENDING_HUMAN_REVIEW",
+  "generatedAt": "2026-09-29T15:13:38.4177058+00:00",
+  "captureGitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+  "summarizerSha256": "c837dee97049afea32186042ad637c590f9f9290d15ba48640255a7274087d58",
+  "note": "原始采集与冻结不变；归档时修正失败生成前的Embedding尝试计数，无法确认的前置失败单列未知；humanReview未填写。",
+  "captures": [
+    {
+      "name": "development-vector",
+      "sourceArtifact": "f32-development-vector.json",
+      "metadata": {
+        "datasetVersion": "f21-2026-09-23-v1",
+        "datasetSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+        "split": "development",
+        "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+        "environment": "本机 Docker/Ollama",
+        "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+        "runtimeHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+        "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+        "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+        "sourceDirtyPaths": [],
+        "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+        "project": "support-ai-f31-source4",
+        "baseUrl": "http://127.0.0.1:8088",
+        "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+        "startedAt": "2026-09-29T14:48:33.145Z",
+        "completedAt": "2026-09-29T14:50:42.946Z",
+        "configSnapshot": {
+          "chat": {
+            "role": "CHAT",
+            "model": "qwen3.5:9b",
+            "think": false,
+            "numCtx": 16384,
+            "provider": "ollama",
+            "temperature": null
+          },
+          "mode": "RAG",
+          "index": {
+            "parser": {
+              "version": "plain-text-v1"
+            },
+            "chunker": {
+              "version": "token-budget-v1",
+              "maxChunks": 20000,
+              "maxTokens": 512,
+              "tokenizer": "CL100K_BASE"
+            },
+            "embedding": {
+              "model": "bge-m3:567m",
+              "provider": "ollama",
+              "dimensions": 1024
+            },
+            "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+          },
+          "answer": {
+            "minimumScores": {
+              "fusion": 0,
+              "rerank": 0,
+              "vector": -1
+            },
+            "maxEvidenceTokens": 4096
+          },
+          "prompt": {
+            "version": "rag-cited-history-v2",
+            "historyInjection": "business-prompt-once",
+            "historyMaxRounds": 3,
+            "historyMaxCharacters": 6000
+          },
+          "rerank": {
+            "role": "RERANK",
+            "model": "qwen3-rerank",
+            "enabled": false,
+            "provider": "dashscope",
+            "timeoutMs": 5000,
+            "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+            "maxCandidates": 50,
+            "candidateMultiplier": 3,
+            "maxEstimatedItemTokens": 3500,
+            "maxEstimatedRequestTokens": 100000
+          },
+          "embedding": {
+            "role": "EMBEDDING",
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "retrieval": {
+            "rrfK": 60,
+            "topK": 6,
+            "strategy": "VECTOR",
+            "maxKeywords": 8,
+            "queryRewrite": {
+              "enabled": true,
+              "version": "retrieval-query-json-v1",
+              "maxCharacters": 500
+            },
+            "candidateMultiplier": 3
+          },
+          "schemaVersion": "f24-v1"
+        },
+        "reviewer": "PENDING_HUMAN_REVIEW"
+      },
+      "summary": {
+        "denominators": {
+          "allCases": 60,
+          "ragCases": 52,
+          "answerableCases": 40,
+          "refusalCases": 12,
+          "completedAnswers": 40,
+          "citationHumanReviewed": 0,
+          "evidenceHumanReviewed": 0,
+          "usageKnown": 48
+        },
+        "quality": {
+          "retrievalHit": {
+            "passed": 37,
+            "total": 40
+          },
+          "citationCorrect": {
+            "passed": 0,
+            "total": 0
+          },
+          "evidenceSufficient": {
+            "passed": 0,
+            "total": 0
+          },
+          "refusalCorrect": {
+            "passed": 0,
+            "total": 12
+          }
+        },
+        "usage": {
+          "attemptedRuns": 48,
+          "noCallRuns": 12,
+          "knownRuns": 48,
+          "unknownRuns": 0,
+          "totalTokens": 41589
+        },
+        "embedding": {
+          "attemptedRuns": 48,
+          "attemptUnknownRuns": 0,
+          "usageKnownRuns": 0,
+          "usageUnknownRuns": 48,
+          "totalTokens": null
+        },
+        "rerank": {
+          "statuses": {
+            "DISABLED": 48
+          },
+          "attemptedRuns": 0,
+          "noCallRuns": 60,
+          "usageKnownRuns": 0,
+          "usageUnknownRuns": 0,
+          "totalTokens": 0
+        },
+        "latencyMs": {
+          "retrieval": {
+            "known": 48,
+            "p50": 21,
+            "p95": 32
+          },
+          "rerank": {
+            "known": 48,
+            "p50": 0,
+            "p95": 0
+          },
+          "generation": {
+            "known": 48,
+            "p50": 1437,
+            "p95": 4212
+          },
+          "total": {
+            "known": 48,
+            "p50": 1465,
+            "p95": 4243
+          }
+        }
+      },
+      "notRunCases": [
+        "DEV-015",
+        "DEV-016",
+        "DEV-017",
+        "DEV-018",
+        "DEV-019",
+        "DEV-020",
+        "DEV-035",
+        "DEV-036",
+        "DEV-037",
+        "DEV-038",
+        "DEV-039",
+        "DEV-040"
+      ],
+      "missingCases": [],
+      "limitations": [
+        "humanReview 未由脚本填写；汇总不代表人工引用正确率或依据充分性验收通过",
+        "retrievedEvidenceIds 基于持久化的实际入模来源，已应用分数与 Token 预算筛选；不是筛选前候选集",
+        "refusalCorrect 仅统计 noEvidence=true 的零证据分支与权限拒绝；模型读取无关资料后语义正确拒答仍需人工核对"
+      ]
+    },
+    {
+      "name": "development-fusion",
+      "sourceArtifact": "f32-development-fusion.json",
+      "metadata": {
+        "datasetVersion": "f21-2026-09-23-v1",
+        "datasetSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+        "split": "development",
+        "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+        "environment": "本机 Docker/Ollama",
+        "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+        "runtimeHash": "e328764d2c5f3ef8f65e6e01fe4b143a583549bc82804b62ef292393f23b5029",
+        "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+        "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+        "sourceDirtyPaths": [],
+        "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+        "project": "support-ai-f31-source4",
+        "baseUrl": "http://127.0.0.1:8088",
+        "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+        "startedAt": "2026-09-29T14:52:50.476Z",
+        "completedAt": "2026-09-29T14:55:51.801Z",
+        "configSnapshot": {
+          "chat": {
+            "role": "CHAT",
+            "model": "qwen3.5:9b",
+            "think": false,
+            "numCtx": 16384,
+            "provider": "ollama",
+            "temperature": null
+          },
+          "mode": "RAG",
+          "index": {
+            "parser": {
+              "version": "plain-text-v1"
+            },
+            "chunker": {
+              "version": "token-budget-v1",
+              "maxChunks": 20000,
+              "maxTokens": 512,
+              "tokenizer": "CL100K_BASE"
+            },
+            "embedding": {
+              "model": "bge-m3:567m",
+              "provider": "ollama",
+              "dimensions": 1024
+            },
+            "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+          },
+          "answer": {
+            "minimumScores": {
+              "fusion": 0,
+              "rerank": 0,
+              "vector": -1
+            },
+            "maxEvidenceTokens": 4096
+          },
+          "prompt": {
+            "version": "rag-cited-history-v2",
+            "historyInjection": "business-prompt-once",
+            "historyMaxRounds": 3,
+            "historyMaxCharacters": 6000
+          },
+          "rerank": {
+            "role": "RERANK",
+            "model": "qwen3-rerank",
+            "enabled": false,
+            "provider": "dashscope",
+            "timeoutMs": 5000,
+            "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+            "maxCandidates": 50,
+            "candidateMultiplier": 3,
+            "maxEstimatedItemTokens": 3500,
+            "maxEstimatedRequestTokens": 100000
+          },
+          "embedding": {
+            "role": "EMBEDDING",
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "retrieval": {
+            "rrfK": 60,
+            "topK": 6,
+            "strategy": "FUSION",
+            "maxKeywords": 8,
+            "queryRewrite": {
+              "enabled": true,
+              "version": "retrieval-query-json-v1",
+              "maxCharacters": 500
+            },
+            "candidateMultiplier": 3
+          },
+          "schemaVersion": "f24-v1"
+        },
+        "reviewer": "PENDING_HUMAN_REVIEW"
+      },
+      "summary": {
+        "denominators": {
+          "allCases": 60,
+          "ragCases": 52,
+          "answerableCases": 40,
+          "refusalCases": 12,
+          "completedAnswers": 39,
+          "citationHumanReviewed": 0,
+          "evidenceHumanReviewed": 0,
+          "usageKnown": 47
+        },
+        "quality": {
+          "retrievalHit": {
+            "passed": 36,
+            "total": 40
+          },
+          "citationCorrect": {
+            "passed": 0,
+            "total": 0
+          },
+          "evidenceSufficient": {
+            "passed": 0,
+            "total": 0
+          },
+          "refusalCorrect": {
+            "passed": 0,
+            "total": 12
+          }
+        },
+        "usage": {
+          "attemptedRuns": 48,
+          "noCallRuns": 12,
+          "knownRuns": 47,
+          "unknownRuns": 1,
+          "totalTokens": null
+        },
+        "embedding": {
+          "attemptedRuns": 48,
+          "attemptUnknownRuns": 0,
+          "usageKnownRuns": 0,
+          "usageUnknownRuns": 48,
+          "totalTokens": null
+        },
+        "rerank": {
+          "statuses": {
+            "DISABLED": 48
+          },
+          "attemptedRuns": 0,
+          "noCallRuns": 60,
+          "usageKnownRuns": 0,
+          "usageUnknownRuns": 0,
+          "totalTokens": 0
+        },
+        "latencyMs": {
+          "retrieval": {
+            "known": 48,
+            "p50": 28,
+            "p95": 37
+          },
+          "rerank": {
+            "known": 48,
+            "p50": 0,
+            "p95": 0
+          },
+          "generation": {
+            "known": 48,
+            "p50": 1930,
+            "p95": 8308
+          },
+          "total": {
+            "known": 48,
+            "p50": 1975,
+            "p95": 8379
+          }
+        }
+      },
+      "notRunCases": [
+        "DEV-015",
+        "DEV-016",
+        "DEV-017",
+        "DEV-018",
+        "DEV-019",
+        "DEV-020",
+        "DEV-035",
+        "DEV-036",
+        "DEV-037",
+        "DEV-038",
+        "DEV-039",
+        "DEV-040"
+      ],
+      "missingCases": [],
+      "limitations": [
+        "humanReview 未由脚本填写；汇总不代表人工引用正确率或依据充分性验收通过",
+        "retrievedEvidenceIds 基于持久化的实际入模来源，已应用分数与 Token 预算筛选；不是筛选前候选集",
+        "refusalCorrect 仅统计 noEvidence=true 的零证据分支与权限拒绝；模型读取无关资料后语义正确拒答仍需人工核对"
+      ]
+    },
+    {
+      "name": "fixed-test",
+      "sourceArtifact": "f32-test.json",
+      "metadata": {
+        "datasetVersion": "f21-2026-09-23-v1",
+        "datasetSha256": "b367d40354c66f69e59a64c4e52cf7d43b16e72c66bc5af976b3b0e8ea372239",
+        "split": "test",
+        "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+        "environment": "本机 Docker/Ollama",
+        "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+        "runtimeHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+        "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+        "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+        "sourceDirtyPaths": [],
+        "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+        "project": "support-ai-f31-source4",
+        "baseUrl": "http://127.0.0.1:8088",
+        "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+        "startedAt": "2026-09-29T15:00:41.104Z",
+        "completedAt": "2026-09-29T15:02:05.266Z",
+        "configSnapshot": {
+          "chat": {
+            "role": "CHAT",
+            "model": "qwen3.5:9b",
+            "think": false,
+            "numCtx": 16384,
+            "provider": "ollama",
+            "temperature": null
+          },
+          "mode": "RAG",
+          "index": {
+            "parser": {
+              "version": "plain-text-v1"
+            },
+            "chunker": {
+              "version": "token-budget-v1",
+              "maxChunks": 20000,
+              "maxTokens": 512,
+              "tokenizer": "CL100K_BASE"
+            },
+            "embedding": {
+              "model": "bge-m3:567m",
+              "provider": "ollama",
+              "dimensions": 1024
+            },
+            "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+          },
+          "answer": {
+            "minimumScores": {
+              "fusion": 0,
+              "rerank": 0,
+              "vector": -1
+            },
+            "maxEvidenceTokens": 4096
+          },
+          "prompt": {
+            "version": "rag-cited-history-v2",
+            "historyInjection": "business-prompt-once",
+            "historyMaxRounds": 3,
+            "historyMaxCharacters": 6000
+          },
+          "rerank": {
+            "role": "RERANK",
+            "model": "qwen3-rerank",
+            "enabled": false,
+            "provider": "dashscope",
+            "timeoutMs": 5000,
+            "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+            "maxCandidates": 50,
+            "candidateMultiplier": 3,
+            "maxEstimatedItemTokens": 3500,
+            "maxEstimatedRequestTokens": 100000
+          },
+          "embedding": {
+            "role": "EMBEDDING",
+            "model": "bge-m3:567m",
+            "provider": "ollama",
+            "dimensions": 1024
+          },
+          "retrieval": {
+            "rrfK": 60,
+            "topK": 6,
+            "strategy": "VECTOR",
+            "maxKeywords": 8,
+            "queryRewrite": {
+              "enabled": true,
+              "version": "retrieval-query-json-v1",
+              "maxCharacters": 500
+            },
+            "candidateMultiplier": 3
+          },
+          "schemaVersion": "f24-v1"
+        },
+        "reviewer": "PENDING_HUMAN_REVIEW",
+        "freezeSha256": "a7e9533db040ddc11923e21145906495ab0669cccb56a6299a3b35a194092729"
+      },
+      "summary": {
+        "denominators": {
+          "allCases": 40,
+          "ragCases": 40,
+          "answerableCases": 39,
+          "refusalCases": 1,
+          "completedAnswers": 39,
+          "citationHumanReviewed": 0,
+          "evidenceHumanReviewed": 0,
+          "usageKnown": 40
+        },
+        "quality": {
+          "retrievalHit": {
+            "passed": 38,
+            "total": 39
+          },
+          "citationCorrect": {
+            "passed": 0,
+            "total": 0
+          },
+          "evidenceSufficient": {
+            "passed": 0,
+            "total": 0
+          },
+          "refusalCorrect": {
+            "passed": 0,
+            "total": 1
+          }
+        },
+        "usage": {
+          "attemptedRuns": 40,
+          "noCallRuns": 0,
+          "knownRuns": 40,
+          "unknownRuns": 0,
+          "totalTokens": 29851
+        },
+        "embedding": {
+          "attemptedRuns": 40,
+          "attemptUnknownRuns": 0,
+          "usageKnownRuns": 0,
+          "usageUnknownRuns": 40,
+          "totalTokens": null
+        },
+        "rerank": {
+          "statuses": {
+            "DISABLED": 40
+          },
+          "attemptedRuns": 0,
+          "noCallRuns": 40,
+          "usageKnownRuns": 0,
+          "usageUnknownRuns": 0,
+          "totalTokens": 0
+        },
+        "latencyMs": {
+          "retrieval": {
+            "known": 40,
+            "p50": 26,
+            "p95": 38
+          },
+          "rerank": {
+            "known": 40,
+            "p50": 0,
+            "p95": 0
+          },
+          "generation": {
+            "known": 40,
+            "p50": 1191,
+            "p95": 2321
+          },
+          "total": {
+            "known": 40,
+            "p50": 1266,
+            "p95": 2355
+          }
+        }
+      },
+      "notRunCases": [],
+      "missingCases": [],
+      "limitations": [
+        "humanReview 未由脚本填写；汇总不代表人工引用正确率或依据充分性验收通过",
+        "retrievedEvidenceIds 基于持久化的实际入模来源，已应用分数与 Token 预算筛选；不是筛选前候选集",
+        "refusalCorrect 仅统计 noEvidence=true 的零证据分支与权限拒绝；模型读取无关资料后语义正确拒答仍需人工核对"
+      ]
+    }
+  ],
+  "evidenceArtifacts": [
+    {
+      "file": "f32-business-history.json",
+      "sha256": "467d8072cc3a761bd7baaa4516579e25ba9a607f85ae66cdc18ce7da4fa162af"
+    },
+    {
+      "file": "f32-business.json",
+      "sha256": "31b9b6b8a366dac471ca9b0c18ea5164b7f98bcb2d7fc73ce768352b38791917"
+    },
+    {
+      "file": "f32-development-fusion.json",
+      "sha256": "2b23e304b522200dc4c5b4e8b4b1cdc03ec60fe5f115cc6feb2831c20af0687d"
+    },
+    {
+      "file": "f32-development-vector.json",
+      "sha256": "0b8ab997d18a7c95faddb76e982f091c140a82387aa1c0a60485d0066806cab1"
+    },
+    {
+      "file": "f32-freeze.json",
+      "sha256": "69e5b3d20f18df9257be0ecf121e8ef987a87f044327ae17248d76314de1c0d3"
+    },
+    {
+      "file": "f32-fusion-provider-recheck.json",
+      "sha256": "bae8855bd735014d10e0ef97d544d6591a67ad0ed29d276fd71bf9f38207f6b7"
+    },
+    {
+      "file": "f32-permissions.json",
+      "sha256": "10539f288376e34bc56c7a466070574bf5a81b7b171a367ac7f36224a4d6d4a5"
+    },
+    {
+      "file": "f32-preflight.json",
+      "sha256": "daab12eca30a7ba020af8de2a5445458413762618771da2ecb7dbdc4bcc25dd0"
+    },
+    {
+      "file": "f32-restore.json",
+      "sha256": "ec494902f492f6244f6d234f518c85bef9ddd2ae8eda7cf9bf1e16e37f82c8d2"
+    },
+    {
+      "file": "f32-strategy-comparison.json",
+      "sha256": "1ac8e4fdd741d0bf3f1c92da0b14a08349b8885a858650edfc593f0cda296069"
+    },
+    {
+      "file": "f32-test.json",
+      "sha256": "16cb4ec8562aea68f98438c83a774c5118d7028d4a41b0b18f89b03c4e479bc9"
+    }
+  ]
+}

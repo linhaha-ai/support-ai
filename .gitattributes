@@ -1,0 +1,5 @@
+# F32 证据使用原始字节计算指纹，跨平台检出时不得转换换行。
+evaluation/results/f32-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# 冻结记录与汇总产物包含评测脚本指纹，固定脚本换行以便复核。
+evaluation/scripts/*.mjs text eol=lf

@@ -1,0 +1,815 @@
+{
+  "Status": "PASSED",
+  "StartedAt": "2026-09-29T14:43:19.8007369+00:00",
+  "BaseUri": "http://127.0.0.1:8088/",
+  "ProjectName": "support-ai-f31-source4",
+  "Ids": {
+    "KnowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+    "DocumentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+    "VersionId": "5f130bab-7dbe-410d-8184-d8bdf4b9f3c5",
+    "IngestionJobId": "5c0544e1-0291-4b45-aa73-24345e59ae5c",
+    "RagSessionId": "971e9214-3406-4298-93ca-8474aee00af3",
+    "TicketId": "46128d5b-448b-4c28-984f-11500427c07b",
+    "TicketNo": "F32707894507",
+    "AssistantSessionId": "5d654754-5994-40e7-877e-033e5b2491a6"
+  },
+  "Checks": [
+    {
+      "Name": "获取 admin 的 CSRF 令牌",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "登录身份匹配 admin",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "获取 support1 的 CSRF 令牌",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "登录身份匹配 support1",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "当前身份与登录账号一致",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "管理员目录包含验收账号且不返回密码",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "普通账号不能读取管理员目录",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "创建知识库并获得WRITE权限",
+      "Passed": true,
+      "Evidence": {
+        "KnowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5"
+      }
+    },
+    {
+      "Name": "管理员管理目录包含新知识库",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "无成员权限和缺失CSRF均被拒绝",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "元数据修订号递增",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "过期修订号阻止覆盖",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "READ授权与成员目录一致",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "READ成员可读取授权知识库列表与详情",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "READ不能上传、WRITE上传后真实入库成功",
+      "Passed": true,
+      "Evidence": {
+        "JobId": "5c0544e1-0291-4b45-aa73-24345e59ae5c"
+      }
+    },
+    {
+      "Name": "文档列表详情版本对应READY活动版本",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "原文完整且分块来源属于当前版本",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "融合检索命中授权文档且版本正确",
+      "Passed": true,
+      "Evidence": {
+        "Matches": [
+          {
+            "knowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "documentName": "F32 故障处理手册-9b580eff62e5",
+            "versionId": "5f130bab-7dbe-410d-8184-d8bdf4b9f3c5",
+            "versionNo": 1,
+            "chunkId": "c7c4fb13-ca4f-36b7-8e5a-096fdeeb5032",
+            "chunkIndex": 0,
+            "section": null,
+            "pageNo": null,
+            "startOffset": 0,
+            "endOffset": 83,
+            "content": "F32 专用业务验收手册。\n错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按三次退避重试。\n本手册不包含工单实时状态，必须查询工单系统。\n",
+            "score": 0.03278688524590164
+          }
+        ],
+        "Strategy": "FUSION"
+      }
+    },
+    {
+      "Name": "创建个人RAG会话",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "会话标题更新且个人列表可见",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "SSE 与持久化回答一致且正常完成",
+      "Passed": true,
+      "Evidence": {
+        "RunId": "be34bd5f-05dc-4ac7-8ac5-9864eb5499d2",
+        "Sources": [
+          {
+            "number": 1,
+            "type": "DOCUMENT",
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "versionId": "5f130bab-7dbe-410d-8184-d8bdf4b9f3c5",
+            "chunkId": "c7c4fb13-ca4f-36b7-8e5a-096fdeeb5032",
+            "title": "F32 故障处理手册-9b580eff62e5",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/c7c4fb13-ca4f-36b7-8e5a-096fdeeb5032/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": null,
+            "inherited": false,
+            "isCurrent": true
+          }
+        ],
+        "DurationMs": 6900,
+        "Events": [
+          "start",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "delta",
+          "sources",
+          "done"
+        ],
+        "Answer": "F32_E_TIMEOUT 表示回调超时，应先核对回调地址和网络，再按三次退避重试 [1]。"
+      }
+    },
+    {
+      "Name": "RAG回答包含已登记文档引用和排查依据",
+      "Passed": true,
+      "Evidence": {
+        "RunId": "be34bd5f-05dc-4ac7-8ac5-9864eb5499d2"
+      }
+    },
+    {
+      "Name": "同幂等键复用原运行且没有重复生成记录",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "历史持久化用户与助手正文及引用",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "活动问答运行取消已持久化",
+      "Passed": true,
+      "Evidence": {
+        "RunId": "526107a1-60ae-4a20-af9a-59b16a5fda29"
+      }
+    },
+    {
+      "Name": "取消问答终态可回读",
+      "Passed": true,
+      "Evidence": {
+        "RunId": "526107a1-60ae-4a20-af9a-59b16a5fda29"
+      }
+    },
+    {
+      "Name": "相同文件与配置复用版本和任务",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "新版本发布后原子切换且历史来源标旧",
+      "Passed": true,
+      "Evidence": {
+        "NewVersionId": "9cbd3359-0c0a-4813-a24d-066f1e504493"
+      }
+    },
+    {
+      "Name": "检索仅返回当前新版而非历史向量",
+      "Passed": true,
+      "Evidence": {
+        "Matches": [
+          {
+            "knowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "documentName": "F32 故障处理手册-9b580eff62e5",
+            "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+            "versionNo": 2,
+            "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+            "chunkIndex": 0,
+            "section": null,
+            "pageNo": null,
+            "startOffset": 0,
+            "endOffset": 91,
+            "content": "F32 专用业务验收手册。\n错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按四次退避重试，并通知值班人员。\n本手册不包含工单实时状态，必须查询工单系统。\n",
+            "score": 0.03278688524590164
+          }
+        ]
+      }
+    },
+    {
+      "Name": "创建唯一 FAILED 入库夹具",
+      "Passed": true,
+      "Evidence": {
+        "JobId": "1c0f7de4-0129-4dbc-98d9-5811310e199c",
+        "VersionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+        "DocumentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb"
+      }
+    },
+    {
+      "Name": "失败任务人工重试后真实发布成功",
+      "Passed": true,
+      "Evidence": {
+        "JobId": "1c0f7de4-0129-4dbc-98d9-5811310e199c"
+      }
+    },
+    {
+      "Name": "创建唯一 QUEUED 入库夹具",
+      "Passed": true,
+      "Evidence": {
+        "JobId": "7528b67e-8acd-46c4-a854-627a83ebc347",
+        "VersionId": "df50e5bc-5f9c-489f-a459-3d24653c061f",
+        "DocumentId": "97986f73-9732-4dac-ab82-4651bdf0f526"
+      }
+    },
+    {
+      "Name": "取消排队任务清除pending且未激活版本",
+      "Passed": true,
+      "Evidence": {
+        "JobId": "7528b67e-8acd-46c4-a854-627a83ebc347"
+      }
+    },
+    {
+      "Name": "工单接口返回当前数据库状态和授权范围",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "SSE 与持久化回答一致且正常完成",
+      "Passed": true,
+      "Evidence": {
+        "RunId": "415d79e9-8b44-4b50-967c-c55590310e97",
+        "Sources": [
+          {
+            "number": 1,
+            "type": "TICKET",
+            "documentId": null,
+            "versionId": null,
+            "chunkId": null,
+            "title": "F32 回调超时验收",
+            "section": "F32值班员",
+            "available": true,
+            "previewPath": null,
+            "ticketNo": "F32707894507",
+            "ticketStatus": "OPEN",
+            "ticketUpdatedAt": "2026-09-29T14:44:22.532515Z",
+            "ticketQueriedAt": "2026-09-29T14:44:23.881091829Z",
+            "originSourceId": null,
+            "toolCallId": "2f79db43-30df-4ef7-94e4-9628b7d70bdc",
+            "inherited": false,
+            "isCurrent": true
+          },
+          {
+            "number": 2,
+            "type": "DOCUMENT",
+            "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+            "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+            "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+            "title": "F32 任务控制夹具",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/ae36100c-2899-346e-a6d3-718654bd59fe/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": "e99c1d55-3eb4-460d-b32f-bf231b2cda5d",
+            "inherited": false,
+            "isCurrent": true
+          },
+          {
+            "number": 3,
+            "type": "DOCUMENT",
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+            "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+            "title": "F32 故障处理手册-9b580eff62e5",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/c9582328-a41c-3378-b272-8d5b50792ea4/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": "e99c1d55-3eb4-460d-b32f-bf231b2cda5d",
+            "inherited": false,
+            "isCurrent": true
+          }
+        ],
+        "DurationMs": 6020,
+        "Events": [
+          "start",
+          "tool",
+          "tool",
+          "tool",
+          "tool",
+          "delta",
+          "sources",
+          "done"
+        ],
+        "Answer": "根据当前查询结果，为您整理如下信息：\n\n**工单状态（F32707894507）**：\n*   **标题**：F32 回调超时验收 [1]\n*   **状态**：OPEN（开放/处理中）[1]\n*   **描述**：F32_E_TIMEOUT 回调失败待排查 [1]\n\n**相关知识文档（F32_E_TIMEOUT手册）**：\n*   错误码 `F32_E_TIMEOUT` 明确表示**回调超时**。\n*   **处理步骤**：应先核对回调地址和网络，再按四次退避重试，并通知值班人员 [2]。\n\n**综合处理建议**：\n工单 F32707894507 当前处于 **OPEN** 状态，涉及回调失败排查。根据手册指引，建议您立即**核对回调地址配置和网络连通性**。如果网络正常且配置无误，请执行**四次退避重试**操作。在完成上述步骤后，请**通知值班人员（F32值班员）**。请注意，手册内容不包含工单实时状态信息 [3]。"
+      }
+    },
+    {
+      "Name": "真实助手组合文档与工单并持久化两类引用",
+      "Passed": true,
+      "Evidence": {
+        "Sources": [
+          {
+            "number": 1,
+            "type": "TICKET",
+            "documentId": null,
+            "versionId": null,
+            "chunkId": null,
+            "title": "F32 回调超时验收",
+            "section": "F32值班员",
+            "available": true,
+            "previewPath": null,
+            "ticketNo": "F32707894507",
+            "ticketStatus": "OPEN",
+            "ticketUpdatedAt": "2026-09-29T14:44:22.532515Z",
+            "ticketQueriedAt": "2026-09-29T14:44:23.881091829Z",
+            "originSourceId": null,
+            "toolCallId": "2f79db43-30df-4ef7-94e4-9628b7d70bdc",
+            "inherited": false,
+            "isCurrent": true
+          },
+          {
+            "number": 2,
+            "type": "DOCUMENT",
+            "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+            "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+            "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+            "title": "F32 任务控制夹具",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/ae36100c-2899-346e-a6d3-718654bd59fe/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": "e99c1d55-3eb4-460d-b32f-bf231b2cda5d",
+            "inherited": false,
+            "isCurrent": true
+          },
+          {
+            "number": 3,
+            "type": "DOCUMENT",
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+            "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+            "title": "F32 故障处理手册-9b580eff62e5",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/c9582328-a41c-3378-b272-8d5b50792ea4/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": "e99c1d55-3eb4-460d-b32f-bf231b2cda5d",
+            "inherited": false,
+            "isCurrent": true
+          }
+        ],
+        "RunId": "415d79e9-8b44-4b50-967c-c55590310e97"
+      }
+    },
+    {
+      "Name": "仅本次工单状态更新为RESOLVED",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "SSE 与持久化回答一致且正常完成",
+      "Passed": true,
+      "Evidence": {
+        "RunId": "dd2ab128-fcea-4dd5-9a94-fb4105dd80f2",
+        "Sources": [
+          {
+            "number": 4,
+            "type": "TICKET",
+            "documentId": null,
+            "versionId": null,
+            "chunkId": null,
+            "title": "F32 回调超时验收",
+            "section": "F32值班员",
+            "available": true,
+            "previewPath": null,
+            "ticketNo": "F32707894507",
+            "ticketStatus": "RESOLVED",
+            "ticketUpdatedAt": "2026-09-29T14:44:28.744107Z",
+            "ticketQueriedAt": "2026-09-29T14:44:29.824137834Z",
+            "originSourceId": null,
+            "toolCallId": "e113f9d2-a6de-4212-a096-24c834af8dc6",
+            "inherited": false,
+            "isCurrent": true
+          }
+        ],
+        "DurationMs": 3527,
+        "Events": [
+          "start",
+          "tool",
+          "tool",
+          "delta",
+          "sources",
+          "done"
+        ],
+        "Answer": "根据最新查询结果，工单 F32707894507 的状态更新如下：\n\n**工单状态（F32707894507）**：\n*   **标题**：F32 回调超时验收 [4]\n*   **状态**：**RESOLVED（已解决）** [4]\n*   **描述**：F32_E_TIMEOUT 回调失败待排查 [4]\n\n工单现已标记为已解决，意味着相关问题的排查或处理工作已完成。"
+      }
+    },
+    {
+      "Name": "多轮助手重新查工单并引用最新状态",
+      "Passed": true,
+      "Evidence": {
+        "Sources": [
+          {
+            "number": 4,
+            "type": "TICKET",
+            "documentId": null,
+            "versionId": null,
+            "chunkId": null,
+            "title": "F32 回调超时验收",
+            "section": "F32值班员",
+            "available": true,
+            "previewPath": null,
+            "ticketNo": "F32707894507",
+            "ticketStatus": "RESOLVED",
+            "ticketUpdatedAt": "2026-09-29T14:44:28.744107Z",
+            "ticketQueriedAt": "2026-09-29T14:44:29.824137834Z",
+            "originSourceId": null,
+            "toolCallId": "e113f9d2-a6de-4212-a096-24c834af8dc6",
+            "inherited": false,
+            "isCurrent": true
+          }
+        ],
+        "RunId": "dd2ab128-fcea-4dd5-9a94-fb4105dd80f2"
+      }
+    },
+    {
+      "Name": "助手工具审计覆盖知识搜索与工单查询",
+      "Passed": true,
+      "Evidence": [
+        {
+          "run_id": "415d79e9-8b44-4b50-967c-c55590310e97",
+          "tool_name": "getTicketStatus",
+          "status": "SUCCEEDED",
+          "call_no": 1
+        },
+        {
+          "run_id": "415d79e9-8b44-4b50-967c-c55590310e97",
+          "tool_name": "searchKnowledge",
+          "status": "SUCCEEDED",
+          "call_no": 2
+        },
+        {
+          "run_id": "dd2ab128-fcea-4dd5-9a94-fb4105dd80f2",
+          "tool_name": "getTicketStatus",
+          "status": "SUCCEEDED",
+          "call_no": 1
+        }
+      ]
+    },
+    {
+      "Name": "撤权后历史运行来源和工单正文均不可泄漏",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "撤权后助手工单快照与正文也被隐藏",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "删除本次会话后个人列表不再展示",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "删除文档立即不可读且持久化清理任务",
+      "Passed": true,
+      "Evidence": {
+        "DocumentId": "24141b72-f1b8-43ef-911f-db947935d04e"
+      }
+    },
+    {
+      "Name": "退出登录后原会话失效",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "16张业务向量表与清单完全一致",
+      "Passed": true,
+      "Evidence": [
+        "app_user",
+        "chat_message",
+        "chat_run",
+        "chat_session",
+        "chat_session_kb",
+        "document",
+        "document_chunk",
+        "document_cleanup_job",
+        "document_version",
+        "ingestion_job",
+        "kb_member",
+        "knowledge_base",
+        "message_source",
+        "ticket",
+        "tool_call",
+        "vector_store"
+      ]
+    },
+    {
+      "Name": "关键跨表外键和文档版本复合约束存在",
+      "Passed": true,
+      "Evidence": [
+        {
+          "source_table": "chat_message",
+          "target_table": "chat_run",
+          "conname": "fk_chat_message_run_session",
+          "definition": "FOREIGN KEY (session_id, run_id) REFERENCES chat_run(session_id, id)"
+        },
+        {
+          "source_table": "chat_message",
+          "target_table": "chat_session",
+          "conname": "fk_chat_message_session",
+          "definition": "FOREIGN KEY (session_id) REFERENCES chat_session(id)"
+        },
+        {
+          "source_table": "chat_run",
+          "target_table": "chat_session",
+          "conname": "fk_chat_run_session",
+          "definition": "FOREIGN KEY (session_id) REFERENCES chat_session(id)"
+        },
+        {
+          "source_table": "chat_session",
+          "target_table": "app_user",
+          "conname": "fk_chat_session_user",
+          "definition": "FOREIGN KEY (user_id) REFERENCES app_user(id)"
+        },
+        {
+          "source_table": "chat_session_kb",
+          "target_table": "knowledge_base",
+          "conname": "fk_chat_session_kb_knowledge_base",
+          "definition": "FOREIGN KEY (kb_id) REFERENCES knowledge_base(id)"
+        },
+        {
+          "source_table": "chat_session_kb",
+          "target_table": "chat_session",
+          "conname": "fk_chat_session_kb_session",
+          "definition": "FOREIGN KEY (session_id) REFERENCES chat_session(id)"
+        },
+        {
+          "source_table": "document",
+          "target_table": "document_version",
+          "conname": "fk_document_active_version",
+          "definition": "FOREIGN KEY (id, active_version_id) REFERENCES document_version(document_id, id)"
+        },
+        {
+          "source_table": "document",
+          "target_table": "app_user",
+          "conname": "fk_document_created_by",
+          "definition": "FOREIGN KEY (created_by) REFERENCES app_user(id)"
+        },
+        {
+          "source_table": "document",
+          "target_table": "knowledge_base",
+          "conname": "fk_document_knowledge_base",
+          "definition": "FOREIGN KEY (kb_id) REFERENCES knowledge_base(id)"
+        },
+        {
+          "source_table": "document",
+          "target_table": "document_version",
+          "conname": "fk_document_pending_version",
+          "definition": "FOREIGN KEY (id, pending_version_id) REFERENCES document_version(document_id, id)"
+        },
+        {
+          "source_table": "document_chunk",
+          "target_table": "document_version",
+          "conname": "fk_document_chunk_document_version",
+          "definition": "FOREIGN KEY (version_id) REFERENCES document_version(id)"
+        },
+        {
+          "source_table": "document_cleanup_job",
+          "target_table": "document",
+          "conname": "fk_document_cleanup_job_document",
+          "definition": "FOREIGN KEY (document_id) REFERENCES document(id)"
+        },
+        {
+          "source_table": "document_version",
+          "target_table": "document",
+          "conname": "fk_document_version_document",
+          "definition": "FOREIGN KEY (document_id) REFERENCES document(id)"
+        },
+        {
+          "source_table": "ingestion_job",
+          "target_table": "document_version",
+          "conname": "fk_ingestion_job_document_version",
+          "definition": "FOREIGN KEY (version_id) REFERENCES document_version(id)"
+        },
+        {
+          "source_table": "kb_member",
+          "target_table": "app_user",
+          "conname": "fk_kb_member_granted_by",
+          "definition": "FOREIGN KEY (granted_by) REFERENCES app_user(id)"
+        },
+        {
+          "source_table": "kb_member",
+          "target_table": "knowledge_base",
+          "conname": "fk_kb_member_knowledge_base",
+          "definition": "FOREIGN KEY (kb_id) REFERENCES knowledge_base(id)"
+        },
+        {
+          "source_table": "kb_member",
+          "target_table": "app_user",
+          "conname": "fk_kb_member_user",
+          "definition": "FOREIGN KEY (user_id) REFERENCES app_user(id)"
+        },
+        {
+          "source_table": "knowledge_base",
+          "target_table": "app_user",
+          "conname": "fk_knowledge_base_owner",
+          "definition": "FOREIGN KEY (owner_id) REFERENCES app_user(id)"
+        },
+        {
+          "source_table": "message_source",
+          "target_table": "document_chunk",
+          "conname": "fk_message_source_document_chunk",
+          "definition": "FOREIGN KEY (chunk_id) REFERENCES document_chunk(id)"
+        },
+        {
+          "source_table": "message_source",
+          "target_table": "knowledge_base",
+          "conname": "fk_message_source_knowledge_base",
+          "definition": "FOREIGN KEY (kb_id) REFERENCES knowledge_base(id)"
+        },
+        {
+          "source_table": "message_source",
+          "target_table": "chat_message",
+          "conname": "fk_message_source_message",
+          "definition": "FOREIGN KEY (message_id) REFERENCES chat_message(id)"
+        },
+        {
+          "source_table": "message_source",
+          "target_table": "message_source",
+          "conname": "fk_message_source_origin",
+          "definition": "FOREIGN KEY (origin_source_id) REFERENCES message_source(id)"
+        },
+        {
+          "source_table": "message_source",
+          "target_table": "ticket",
+          "conname": "fk_message_source_ticket",
+          "definition": "FOREIGN KEY (ticket_id) REFERENCES ticket(id)"
+        },
+        {
+          "source_table": "message_source",
+          "target_table": "tool_call",
+          "conname": "fk_message_source_tool_call",
+          "definition": "FOREIGN KEY (tool_call_id) REFERENCES tool_call(id)"
+        },
+        {
+          "source_table": "ticket",
+          "target_table": "knowledge_base",
+          "conname": "fk_ticket_knowledge_base",
+          "definition": "FOREIGN KEY (kb_id) REFERENCES knowledge_base(id)"
+        },
+        {
+          "source_table": "tool_call",
+          "target_table": "chat_run",
+          "conname": "fk_tool_call_run",
+          "definition": "FOREIGN KEY (run_id) REFERENCES chat_run(id)"
+        },
+        {
+          "source_table": "vector_store",
+          "target_table": "document_chunk",
+          "conname": "fk_vector_store_document_chunk",
+          "definition": "FOREIGN KEY (id) REFERENCES document_chunk(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "Name": "本次所有文档active指针仅指向自身READY版本",
+      "Passed": true,
+      "Evidence": null
+    },
+    {
+      "Name": "全部35个设计业务接口均有语义断言",
+      "Passed": true,
+      "Evidence": {
+        "Expected": 35,
+        "Missing": [],
+        "Covered": 35
+      }
+    }
+  ],
+  "CoveredOperations": [
+    "cancelChatRun",
+    "cancelIngestionJob",
+    "createChatSession",
+    "createKnowledgeBase",
+    "deleteChatSession",
+    "deleteKnowledgeDocument",
+    "getChatRunStatus",
+    "getCsrfToken",
+    "getCurrentUser",
+    "getDocumentChunkSource",
+    "getIngestionJob",
+    "getKnowledgeBase",
+    "getKnowledgeDocument",
+    "getKnowledgeDocumentContent",
+    "getTicketStatus",
+    "listAccessibleKnowledgeBases",
+    "listChatSessionMessages",
+    "listChatSessions",
+    "listKnowledgeBaseMembers",
+    "listKnowledgeDocumentChunks",
+    "listKnowledgeDocuments",
+    "listKnowledgeDocumentVersions",
+    "listManagedKnowledgeBases",
+    "listUsersForAdministration",
+    "login",
+    "logout",
+    "retryIngestionJob",
+    "revokeKnowledgeBaseMember",
+    "submitChatMessage",
+    "testKnowledgeBaseRetrieval",
+    "updateChatSessionTitle",
+    "updateKnowledgeBase",
+    "uploadKnowledgeDocument",
+    "uploadKnowledgeDocumentVersion",
+    "upsertKnowledgeBaseMember"
+  ],
+  "UncoveredOperations": [],
+  "ModelEvidence": "真实部署配置；本脚本不启动协议桩",
+  "Assistant": "PASSED",
+  "FinishedAt": "2026-09-29T14:44:53.6910630+00:00"
+}

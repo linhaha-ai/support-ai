@@ -1,0 +1,150 @@
+{
+  "artifactKind": "F32_BUSINESS_FAILURE_HISTORY",
+  "note": "保留修复前与脚本误报批次，不计入最终通过数；详细未脱离合成验收夹具。",
+  "runs": [
+    {
+      "sourceArtifact": "f32-business-20260929.json",
+      "status": "FAILED",
+      "startedAt": "2026-09-29T21:52:51.5926862+08:00",
+      "finishedAt": "2026-09-29T21:52:52.2408793+08:00",
+      "passedChecks": 9,
+      "recordedChecks": 9,
+      "coveredOperations": 6,
+      "assistant": "PENDING",
+      "error": "PATCH /api/knowledge-bases/9ab38b4b-7c4d-48e6-9129-ff110d65e050 返回 HTTP 200，预期 403。",
+      "ids": {
+        "KnowledgeBaseId": "9ab38b4b-7c4d-48e6-9129-ff110d65e050"
+      },
+      "failedChecks": []
+    },
+    {
+      "sourceArtifact": "f32-business-20260929-r2.json",
+      "status": "FAILED",
+      "startedAt": "2026-09-29T21:55:33.8404064+08:00",
+      "finishedAt": "2026-09-29T21:56:37.9546442+08:00",
+      "passedChecks": 34,
+      "recordedChecks": 34,
+      "coveredOperations": 31,
+      "assistant": "PENDING",
+      "error": "SSE 错误：AGENT_INVALID_CITATION",
+      "ids": {
+        "KnowledgeBaseId": "2aa98912-b04b-4bf9-abde-c6ab82f9bbb9",
+        "DocumentId": "4a7f17c9-0d2f-4834-9ddd-2d85c6b03c68",
+        "VersionId": "9533eb32-1b36-489e-81d4-9e448cac28f1",
+        "IngestionJobId": "4690c58a-cca4-44b9-9099-d65978442cfb",
+        "RagSessionId": "b78c31e4-1765-4b6c-a1c6-7057d0f38a0e",
+        "TicketId": "df6c3b2b-e8fa-46ba-b7e9-cdb2e49a63d4",
+        "TicketNo": "F32286113033",
+        "AssistantSessionId": "d30aa064-527f-4336-8ee3-09e72ff93462"
+      },
+      "failedChecks": []
+    },
+    {
+      "sourceArtifact": "f32-business-20260929-r3.json",
+      "status": "FAILED",
+      "startedAt": "2026-09-29T22:16:03.3916817+08:00",
+      "finishedAt": "2026-09-29T22:17:26.6714559+08:00",
+      "passedChecks": 34,
+      "recordedChecks": 34,
+      "coveredOperations": 31,
+      "assistant": "PENDING",
+      "error": "SSE 错误：AGENT_INVALID_CITATION",
+      "ids": {
+        "KnowledgeBaseId": "c92c1f8f-7d63-4e7c-89d0-b80554eaaa57",
+        "DocumentId": "81919e04-1a00-45ad-afce-96bb9fc04ff0",
+        "VersionId": "f1295d72-89b7-44ef-b14f-a48f5e456c19",
+        "IngestionJobId": "d3215959-63ac-463a-a835-a52bc22d3068",
+        "RagSessionId": "59f0ecde-0c1a-483b-88f8-daa1d5808cba",
+        "TicketId": "fc014059-65de-4809-8de9-8a48e7b4ccbc",
+        "TicketNo": "F32616241769",
+        "AssistantSessionId": "a76f52a8-815c-470d-93e8-d699d9cc2196"
+      },
+      "failedChecks": []
+    },
+    {
+      "sourceArtifact": "f32-business-20260929-r4.json",
+      "status": "FAILED",
+      "startedAt": "2026-09-29T22:32:48.8442052+08:00",
+      "finishedAt": "2026-09-29T22:34:18.5601292+08:00",
+      "passedChecks": 48,
+      "recordedChecks": 49,
+      "coveredOperations": 35,
+      "assistant": "PASSED",
+      "error": "业务语义校验失败：全部35个设计业务接口均有语义断言",
+      "ids": {
+        "KnowledgeBaseId": "15b8e245-5db4-458a-9b1e-1c8b809f1f3f",
+        "DocumentId": "bce91f88-fbe0-4084-b2df-ec10a351e601",
+        "VersionId": "bfb81cbd-f44b-4b08-b96f-b34db02565d1",
+        "IngestionJobId": "dc2e3ddc-0646-41d2-be27-55f627d85f68",
+        "RagSessionId": "2c1517e8-2451-4e97-8d85-808253715980",
+        "TicketId": "fab6cdc8-4680-4e1e-a026-d81fecaf2844",
+        "TicketNo": "F32171884626",
+        "AssistantSessionId": "85b020b0-c112-40d8-99f1-5e6c5464bede"
+      },
+      "failedChecks": [
+        {
+          "Name": "全部35个设计业务接口均有语义断言",
+          "Passed": false,
+          "Evidence": {
+            "Covered": 35,
+            "Missing": [
+              "links"
+            ],
+            "Expected": 36
+          }
+        }
+      ]
+    },
+    {
+      "sourceArtifact": "f32-business-20260929-r5.json",
+      "status": "FAILED",
+      "startedAt": "2026-09-29T22:37:28.5658387+08:00",
+      "finishedAt": "2026-09-29T22:38:33.8998784+08:00",
+      "passedChecks": 35,
+      "recordedChecks": 36,
+      "coveredOperations": 31,
+      "assistant": "PENDING",
+      "error": "业务语义校验失败：真实助手组合文档与工单并持久化两类引用",
+      "ids": {
+        "KnowledgeBaseId": "e668df1f-c937-485a-978b-d712fe5bfd3e",
+        "DocumentId": "9233b164-c46d-4bde-b3d9-bb1dc892c433",
+        "VersionId": "7479e9a8-df93-40a9-bc18-1ed81bcd3757",
+        "IngestionJobId": "f07e99ed-5ff0-441a-9fa9-56c88fb6d431",
+        "RagSessionId": "bc9e8876-f81a-46f0-95df-6112bfb5881e",
+        "TicketId": "a50c65ed-a12a-4ea4-a737-b644dafff744",
+        "TicketNo": "F32324163058",
+        "AssistantSessionId": "85defe11-dbc1-429c-b832-630bb403e703"
+      },
+      "failedChecks": [
+        {
+          "Name": "真实助手组合文档与工单并持久化两类引用",
+          "Passed": false,
+          "Evidence": {
+            "RunId": "4d59cce0-3734-48c3-bf39-93f625f29d5b",
+            "Sources": [
+              {
+                "number": 1,
+                "type": "TICKET",
+                "documentId": null,
+                "versionId": null,
+                "chunkId": null,
+                "title": "F32 回调超时验收",
+                "section": "F32值班员",
+                "available": true,
+                "previewPath": null,
+                "ticketNo": "F32324163058",
+                "ticketStatus": "OPEN",
+                "ticketUpdatedAt": "2026-09-29T14:38:28.896923Z",
+                "ticketQueriedAt": "2026-09-29T14:38:29.912782512Z",
+                "originSourceId": null,
+                "toolCallId": "429426ca-b4b7-4158-9e16-2bee652f4de2",
+                "inherited": false,
+                "isCurrent": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

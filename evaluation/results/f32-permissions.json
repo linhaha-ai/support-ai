@@ -1,0 +1,993 @@
+{
+  "ArtifactKind": "F32_INDEPENDENT_PERMISSION_SCENARIOS",
+  "Status": "PASSED",
+  "StartedAt": "2026-09-29T14:29:45.6429418+00:00",
+  "FinishedAt": "2026-09-29T14:30:34.9785575+00:00",
+  "BaseUri": "http://127.0.0.1:8088/",
+  "ProjectName": "support-ai-f31-source4",
+  "Stage": "FINISHED",
+  "Ids": {
+    "AdminUserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+    "Support1UserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+    "Support2UserId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+    "Support1KnowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+    "Support2KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6"
+  },
+  "Fixtures": [
+    {
+      "KnowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+      "OwnerUserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "Name": "F32 support1 专属-983a367dbef54228a9c307211107eb64",
+      "DocumentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+      "VersionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+      "JobId": "a5b75e64-5411-49d7-aa35-ec2978a5fe1a"
+    },
+    {
+      "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+      "OwnerUserId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+      "Name": "F32 support2 支付专属-983a367dbef54228a9c307211107eb64",
+      "DocumentId": "806a2aa0-de0a-4105-8bd7-c7efb04bb104",
+      "VersionId": "fad57cc3-9333-4dcd-9f9b-b337b21c2cca",
+      "JobId": "6e1a5d33-708e-407c-85ae-1e3bc9a38385"
+    }
+  ],
+  "Checks": [
+    {
+      "CaseId": "",
+      "Name": "admin 登录身份匹配",
+      "Passed": true,
+      "Evidence": {
+        "Role": "ADMIN",
+        "UserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support1 登录身份匹配",
+      "Passed": true,
+      "Evidence": {
+        "Role": "USER",
+        "UserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support2 登录身份匹配",
+      "Passed": true,
+      "Evidence": {
+        "Role": "USER",
+        "UserId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "三个身份独立且管理员角色正确",
+      "Passed": true,
+      "Evidence": {
+        "AdminUserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+        "Support1UserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "Support2UserId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+        "Support1KnowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+        "Support2KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support1 合成资料真实入库",
+      "Passed": true,
+      "Evidence": {
+        "KnowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+        "OwnerUserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "Name": "F32 support1 专属-983a367dbef54228a9c307211107eb64",
+        "DocumentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+        "VersionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+        "JobId": "a5b75e64-5411-49d7-aa35-ec2978a5fe1a"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support1 可读自己的合成事实",
+      "Passed": true,
+      "Evidence": {
+        "KnowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+        "OwnerUserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "Name": "F32 support1 专属-983a367dbef54228a9c307211107eb64",
+        "DocumentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+        "VersionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+        "JobId": "a5b75e64-5411-49d7-aa35-ec2978a5fe1a"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support1 知识库成员独占",
+      "Passed": true,
+      "Evidence": {
+        "Members": [
+          {
+            "userId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+            "username": "support1",
+            "displayName": "支持用户一",
+            "role": "USER",
+            "enabled": true,
+            "permission": "WRITE",
+            "grantedBy": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+            "createdAt": "2026-09-29T14:29:46.445327Z"
+          }
+        ],
+        "KnowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support2 合成资料真实入库",
+      "Passed": true,
+      "Evidence": {
+        "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+        "OwnerUserId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+        "Name": "F32 support2 支付专属-983a367dbef54228a9c307211107eb64",
+        "DocumentId": "806a2aa0-de0a-4105-8bd7-c7efb04bb104",
+        "VersionId": "fad57cc3-9333-4dcd-9f9b-b337b21c2cca",
+        "JobId": "6e1a5d33-708e-407c-85ae-1e3bc9a38385"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support2 可读自己的合成事实",
+      "Passed": true,
+      "Evidence": {
+        "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+        "OwnerUserId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+        "Name": "F32 support2 支付专属-983a367dbef54228a9c307211107eb64",
+        "DocumentId": "806a2aa0-de0a-4105-8bd7-c7efb04bb104",
+        "VersionId": "fad57cc3-9333-4dcd-9f9b-b337b21c2cca",
+        "JobId": "6e1a5d33-708e-407c-85ae-1e3bc9a38385"
+      }
+    },
+    {
+      "CaseId": "",
+      "Name": "support2 知识库成员独占",
+      "Passed": true,
+      "Evidence": {
+        "Members": [
+          {
+            "userId": "e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+            "username": "support2",
+            "displayName": "支持用户二",
+            "role": "USER",
+            "enabled": true,
+            "permission": "WRITE",
+            "grantedBy": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+            "createdAt": "2026-09-29T14:30:04.742787Z"
+          }
+        ],
+        "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6"
+      }
+    },
+    {
+      "CaseId": "DEV-017",
+      "Name": "DEV-017 SSE 正常结束",
+      "Passed": true,
+      "Evidence": [
+        "start",
+        "delta",
+        "delta",
+        "sources",
+        "done"
+      ]
+    },
+    {
+      "CaseId": "DEV-017",
+      "Name": "DEV-017 仅使用本人固定知识库",
+      "Passed": true,
+      "Evidence": {
+        "userId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "scope": [
+          "dc8f0e3e-75fb-425b-b203-620a55e42619"
+        ],
+        "runCount": 1,
+        "runStatus": "COMPLETED",
+        "answer": "资料不足",
+        "sources": [
+          {
+            "sourceId": "9b5b97f4-21fb-4a5b-8381-b19e6c8b8f6c",
+            "knowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+            "chunkId": "eaaba69c-4cbd-3c90-a837-19e3444d7471",
+            "cited": false,
+            "snapshot": {
+              "score": 0.4262694002974917,
+              "versionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+              "versionNo": 1,
+              "chunkIndex": 0,
+              "documentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+              "documentName": "F32 support1 专属-983a367dbef54228a9c307211107eb64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "CaseId": "DEV-017",
+      "Name": "DEV-017 HTTP与数据库运行一致",
+      "Passed": true,
+      "Evidence": {
+        "RequestId": "2151e09a-f994-4a99-91aa-e2c484baf4f6",
+        "RunId": "a1174cda-1327-4ec8-9821-ae3f2fa973cd"
+      }
+    },
+    {
+      "CaseId": "DEV-017",
+      "Name": "DEV-017 不泄漏他人事实或来源",
+      "Passed": true,
+      "Evidence": {
+        "ForeignSourceCount": 0,
+        "PrivateValueAbsent": true
+      }
+    },
+    {
+      "CaseId": "DEV-017",
+      "Name": "DEV-017 明确资料不足",
+      "Passed": true,
+      "Evidence": {
+        "Answer": "资料不足",
+        "NoEvidence": false,
+        "Note": "允许召回本人无关资料后语义拒答；不把它等同于零证据分支。"
+      }
+    },
+    {
+      "CaseId": "DEV-037",
+      "Name": "DEV-037 SSE 正常结束",
+      "Passed": true,
+      "Evidence": [
+        "start",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "sources",
+        "done"
+      ]
+    },
+    {
+      "CaseId": "DEV-037",
+      "Name": "DEV-037 仅使用本人固定知识库",
+      "Passed": true,
+      "Evidence": {
+        "userId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "scope": [
+          "dc8f0e3e-75fb-425b-b203-620a55e42619"
+        ],
+        "runCount": 1,
+        "runStatus": "COMPLETED",
+        "answer": "资料不足。当前提供的授权证据仅包含 support1 的桌面维护与保养要求 [1]，未提供关于\"F32 支付隔离演练-983a367dbef54228a9c307211107eb64\"所需填写核验值的信息。",
+        "sources": [
+          {
+            "sourceId": "fa7821c5-a33e-4651-adfd-83dd92ad8404",
+            "knowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+            "chunkId": "eaaba69c-4cbd-3c90-a837-19e3444d7471",
+            "cited": true,
+            "snapshot": {
+              "score": 0.45030952841967564,
+              "versionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+              "versionNo": 1,
+              "chunkIndex": 0,
+              "documentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+              "documentName": "F32 support1 专属-983a367dbef54228a9c307211107eb64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "CaseId": "DEV-037",
+      "Name": "DEV-037 HTTP与数据库运行一致",
+      "Passed": true,
+      "Evidence": {
+        "RequestId": "4fe93d03-85db-4b87-a7e6-1e1ebde877b0",
+        "RunId": "2bb246d1-66e2-4517-ba9e-46301f001377"
+      }
+    },
+    {
+      "CaseId": "DEV-037",
+      "Name": "DEV-037 不泄漏他人事实或来源",
+      "Passed": true,
+      "Evidence": {
+        "ForeignSourceCount": 0,
+        "PrivateValueAbsent": true
+      }
+    },
+    {
+      "CaseId": "DEV-037",
+      "Name": "DEV-037 明确资料不足",
+      "Passed": true,
+      "Evidence": {
+        "Answer": "资料不足。当前提供的授权证据仅包含 support1 的桌面维护与保养要求 [1]，未提供关于\"F32 支付隔离演练-983a367dbef54228a9c307211107eb64\"所需填写核验值的信息。",
+        "NoEvidence": false,
+        "Note": "允许召回本人无关资料后语义拒答；不把它等同于零证据分支。"
+      }
+    },
+    {
+      "CaseId": "DEV-018",
+      "Name": "DEV-018 管理员没有目标库成员关系",
+      "Passed": true,
+      "Evidence": {
+        "membership": 0,
+        "sessions": 53,
+        "runs": 56,
+        "targetScopes": 0
+      }
+    },
+    {
+      "CaseId": "DEV-018",
+      "Name": "DEV-018 越权创建会话被拒绝且零写入",
+      "Passed": true,
+      "Evidence": {
+        "CaseId": "DEV-018",
+        "Actor": "admin-without-membership",
+        "Status": "PASSED",
+        "RunnerStatus": "NOT_RUN",
+        "UserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+        "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+        "HttpStatus": 404,
+        "ErrorCode": "KNOWLEDGE_BASE_NOT_FOUND",
+        "TraceId": "2acce1a5-9e86-4b7c-8a16-78011444acff",
+        "Before": {
+          "membership": 0,
+          "sessions": 53,
+          "runs": 56,
+          "targetScopes": 0
+        },
+        "After": {
+          "membership": 0,
+          "sessions": 53,
+          "runs": 56,
+          "targetScopes": 0
+        },
+        "HumanReview": null
+      }
+    },
+    {
+      "CaseId": "DEV-038",
+      "Name": "DEV-038 管理员没有目标库成员关系",
+      "Passed": true,
+      "Evidence": {
+        "membership": 0,
+        "sessions": 53,
+        "runs": 56,
+        "targetScopes": 0
+      }
+    },
+    {
+      "CaseId": "DEV-038",
+      "Name": "DEV-038 越权创建会话被拒绝且零写入",
+      "Passed": true,
+      "Evidence": {
+        "CaseId": "DEV-038",
+        "Actor": "admin-without-membership",
+        "Status": "PASSED",
+        "RunnerStatus": "NOT_RUN",
+        "UserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+        "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+        "HttpStatus": 404,
+        "ErrorCode": "KNOWLEDGE_BASE_NOT_FOUND",
+        "TraceId": "bfb79157-35f2-40a6-808b-b66c29d6c51f",
+        "Before": {
+          "membership": 0,
+          "sessions": 53,
+          "runs": 56,
+          "targetScopes": 0
+        },
+        "After": {
+          "membership": 0,
+          "sessions": 53,
+          "runs": 56,
+          "targetScopes": 0
+        },
+        "HumanReview": null
+      }
+    }
+  ],
+  "HttpRequests": [
+    {
+      "Actor": "admin",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/auth/login",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/auth/login",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "POST",
+      "Path": "/api/auth/login",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/auth/csrf",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/knowledge-bases",
+      "Status": 201
+    },
+    {
+      "Actor": "admin",
+      "Method": "PUT",
+      "Path": "/api/knowledge-bases/dc8f0e3e-75fb-425b-b203-620a55e42619/members/0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/knowledge-bases/dc8f0e3e-75fb-425b-b203-620a55e42619/documents",
+      "Status": 202
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/a5b75e64-5411-49d7-aa35-ec2978a5fe1a",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/documents/8d4625b0-fc43-41de-9d1d-081ad720c84a/versions/b37e4deb-fee3-4453-bfd5-c87e2584312f/content",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "DELETE",
+      "Path": "/api/knowledge-bases/dc8f0e3e-75fb-425b-b203-620a55e42619/members/d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+      "Status": 204
+    },
+    {
+      "Actor": "admin",
+      "Method": "GET",
+      "Path": "/api/knowledge-bases/dc8f0e3e-75fb-425b-b203-620a55e42619/members",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/knowledge-bases",
+      "Status": 201
+    },
+    {
+      "Actor": "admin",
+      "Method": "PUT",
+      "Path": "/api/knowledge-bases/1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6/members/e3ba865b-b1d8-43e4-a8e7-ca11a636b366",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "POST",
+      "Path": "/api/knowledge-bases/1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6/documents",
+      "Status": 202
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/ingestion-jobs/6e1a5d33-708e-407c-85ae-1e3bc9a38385",
+      "Status": 200
+    },
+    {
+      "Actor": "support2",
+      "Method": "GET",
+      "Path": "/api/documents/806a2aa0-de0a-4105-8bd7-c7efb04bb104/versions/fad57cc3-9333-4dcd-9f9b-b337b21c2cca/content",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "DELETE",
+      "Path": "/api/knowledge-bases/1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6/members/d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+      "Status": 204
+    },
+    {
+      "Actor": "admin",
+      "Method": "GET",
+      "Path": "/api/knowledge-bases/1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6/members",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/documents/806a2aa0-de0a-4105-8bd7-c7efb04bb104",
+      "Status": 404
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/chat/sessions",
+      "Status": 201
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/chat/sessions/58f32692-cb83-4e96-bd44-61146bd9fba8/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/runs/a1174cda-1327-4ec8-9821-ae3f2fa973cd",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/sessions/58f32692-cb83-4e96-bd44-61146bd9fba8/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/chat/sessions",
+      "Status": 201
+    },
+    {
+      "Actor": "support1",
+      "Method": "POST",
+      "Path": "/api/chat/sessions/4154b558-0416-43ce-90f2-229a9d582bee/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/runs/2bb246d1-66e2-4517-ba9e-46301f001377",
+      "Status": 200
+    },
+    {
+      "Actor": "support1",
+      "Method": "GET",
+      "Path": "/api/chat/sessions/4154b558-0416-43ce-90f2-229a9d582bee/messages",
+      "Status": 200
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/chat/sessions",
+      "Status": 404
+    },
+    {
+      "Actor": "admin",
+      "Method": "POST",
+      "Path": "/api/chat/sessions",
+      "Status": 404
+    }
+  ],
+  "Cases": [
+    {
+      "CaseId": "DEV-017",
+      "Actor": "support1",
+      "Status": "PASSED",
+      "RunnerStatus": "NOT_RUN",
+      "UserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "SessionId": "58f32692-cb83-4e96-bd44-61146bd9fba8",
+      "ClientRequestId": "2151e09a-f994-4a99-91aa-e2c484baf4f6",
+      "RunId": "a1174cda-1327-4ec8-9821-ae3f2fa973cd",
+      "ScopeKnowledgeBaseIds": [
+        "dc8f0e3e-75fb-425b-b203-620a55e42619"
+      ],
+      "ForeignKnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+      "Question": "F32 支付隔离演练-983a367dbef54228a9c307211107eb64 的支付回调演练核验值是什么？仅依据授权资料作答，资料没有记载时请明确回答资料不足。",
+      "Answer": "资料不足",
+      "HttpStatus": 200,
+      "Events": [
+        "start",
+        "delta",
+        "delta",
+        "sources",
+        "done"
+      ],
+      "Database": {
+        "userId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "scope": [
+          "dc8f0e3e-75fb-425b-b203-620a55e42619"
+        ],
+        "runCount": 1,
+        "runStatus": "COMPLETED",
+        "answer": "资料不足",
+        "sources": [
+          {
+            "sourceId": "9b5b97f4-21fb-4a5b-8381-b19e6c8b8f6c",
+            "knowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+            "chunkId": "eaaba69c-4cbd-3c90-a837-19e3444d7471",
+            "cited": false,
+            "snapshot": {
+              "score": 0.4262694002974917,
+              "versionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+              "versionNo": 1,
+              "chunkIndex": 0,
+              "documentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+              "documentName": "F32 support1 专属-983a367dbef54228a9c307211107eb64"
+            }
+          }
+        ]
+      },
+      "HumanReview": null
+    },
+    {
+      "CaseId": "DEV-037",
+      "Actor": "support1",
+      "Status": "PASSED",
+      "RunnerStatus": "NOT_RUN",
+      "UserId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+      "SessionId": "4154b558-0416-43ce-90f2-229a9d582bee",
+      "ClientRequestId": "4fe93d03-85db-4b87-a7e6-1e1ebde877b0",
+      "RunId": "2bb246d1-66e2-4517-ba9e-46301f001377",
+      "ScopeKnowledgeBaseIds": [
+        "dc8f0e3e-75fb-425b-b203-620a55e42619"
+      ],
+      "ForeignKnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+      "Question": "请用当前会话资料告诉我，F32 支付隔离演练-983a367dbef54228a9c307211107eb64 需要填写哪个核验值？没有依据请说明资料不足，不要猜测。",
+      "Answer": "资料不足。当前提供的授权证据仅包含 support1 的桌面维护与保养要求 [1]，未提供关于\"F32 支付隔离演练-983a367dbef54228a9c307211107eb64\"所需填写核验值的信息。",
+      "HttpStatus": 200,
+      "Events": [
+        "start",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "sources",
+        "done"
+      ],
+      "Database": {
+        "userId": "0e02cab3-f5e4-4b6f-ad5a-2cf876993b9e",
+        "scope": [
+          "dc8f0e3e-75fb-425b-b203-620a55e42619"
+        ],
+        "runCount": 1,
+        "runStatus": "COMPLETED",
+        "answer": "资料不足。当前提供的授权证据仅包含 support1 的桌面维护与保养要求 [1]，未提供关于\"F32 支付隔离演练-983a367dbef54228a9c307211107eb64\"所需填写核验值的信息。",
+        "sources": [
+          {
+            "sourceId": "fa7821c5-a33e-4651-adfd-83dd92ad8404",
+            "knowledgeBaseId": "dc8f0e3e-75fb-425b-b203-620a55e42619",
+            "chunkId": "eaaba69c-4cbd-3c90-a837-19e3444d7471",
+            "cited": true,
+            "snapshot": {
+              "score": 0.45030952841967564,
+              "versionId": "b37e4deb-fee3-4453-bfd5-c87e2584312f",
+              "versionNo": 1,
+              "chunkIndex": 0,
+              "documentId": "8d4625b0-fc43-41de-9d1d-081ad720c84a",
+              "documentName": "F32 support1 专属-983a367dbef54228a9c307211107eb64"
+            }
+          }
+        ]
+      },
+      "HumanReview": null
+    },
+    {
+      "CaseId": "DEV-018",
+      "Actor": "admin-without-membership",
+      "Status": "PASSED",
+      "RunnerStatus": "NOT_RUN",
+      "UserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+      "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+      "HttpStatus": 404,
+      "ErrorCode": "KNOWLEDGE_BASE_NOT_FOUND",
+      "TraceId": "2acce1a5-9e86-4b7c-8a16-78011444acff",
+      "Before": {
+        "membership": 0,
+        "sessions": 53,
+        "runs": 56,
+        "targetScopes": 0
+      },
+      "After": {
+        "membership": 0,
+        "sessions": 53,
+        "runs": 56,
+        "targetScopes": 0
+      },
+      "HumanReview": null
+    },
+    {
+      "CaseId": "DEV-038",
+      "Actor": "admin-without-membership",
+      "Status": "PASSED",
+      "RunnerStatus": "NOT_RUN",
+      "UserId": "d5ac1bcf-f159-49f0-8519-1f2d3ffe053b",
+      "KnowledgeBaseId": "1f9dbfd7-c1d0-4ec7-974f-2f2a80cc9fa6",
+      "HttpStatus": 404,
+      "ErrorCode": "KNOWLEDGE_BASE_NOT_FOUND",
+      "TraceId": "bfb79157-35f2-40a6-808b-b66c29d6c51f",
+      "Before": {
+        "membership": 0,
+        "sessions": 53,
+        "runs": 56,
+        "targetScopes": 0
+      },
+      "After": {
+        "membership": 0,
+        "sessions": 53,
+        "runs": 56,
+        "targetScopes": 0
+      },
+      "HumanReview": null
+    }
+  ],
+  "RunnerStatus": "NOT_RUN",
+  "HumanReview": null,
+  "Limitations": [
+    "独立权限场景证据不改写普通 runner 状态，不计入模型人工质量评分。",
+    "仅操作本轮新建夹具；管理员零写入断言要求验收期间没有其他管理员新建会话。"
+  ]
+}

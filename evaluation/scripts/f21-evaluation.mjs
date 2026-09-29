@@ -329,9 +329,16 @@ export function summarizeResults(cases, results) {
       && Number.isFinite(result.metrics?.generationMs));
   const knownUsage = attemptedChatRuns.filter((result) => Number.isFinite(result.usage?.totalTokens));
   const totalTokens = knownUsage.reduce((sum, result) => sum + result.usage.totalTokens, 0);
-  const completedRagRuns = results.filter((result) =>
-    caseById.get(result.caseId)?.executionMode === "RAG" && result.status === "COMPLETED");
-  const knownEmbeddingUsage = completedRagRuns.filter((result) =>
+  const ragExecutionRuns = results.filter((result) =>
+    caseById.get(result.caseId)?.executionMode === "RAG"
+      && ["COMPLETED", "FAILED", "CANCELLED"].includes(result.status));
+  // 失败或取消不会撤销已执行的检索；只有阶段或用量证据充分时才确认 Embedding 调用。
+  const attemptedEmbeddingRuns = ragExecutionRuns.filter((result) =>
+    result.status === "COMPLETED" || Number.isFinite(result.metrics?.generationMs)
+      || Number.isFinite(result.metrics?.embeddingTotalTokens)
+      || (Number.isFinite(result.metrics?.retrievedEvidenceCount) && result.metrics.retrievedEvidenceCount > 0));
+  const embeddingAttemptUnknownRuns = ragExecutionRuns.length - attemptedEmbeddingRuns.length;
+  const knownEmbeddingUsage = attemptedEmbeddingRuns.filter((result) =>
     Number.isFinite(result.metrics?.embeddingTotalTokens));
   const embeddingTotalTokens = knownEmbeddingUsage.reduce(
     (sum, result) => sum + result.metrics.embeddingTotalTokens, 0);
@@ -388,12 +395,12 @@ export function summarizeResults(cases, results) {
         : (knownUsage.length === attemptedChatRuns.length ? totalTokens : null),
     },
     embedding: {
-      attemptedRuns: completedRagRuns.length,
+      attemptedRuns: attemptedEmbeddingRuns.length,
+      attemptUnknownRuns: embeddingAttemptUnknownRuns,
       usageKnownRuns: knownEmbeddingUsage.length,
-      usageUnknownRuns: completedRagRuns.length - knownEmbeddingUsage.length,
-      totalTokens: completedRagRuns.length === 0
-        ? 0
-        : (knownEmbeddingUsage.length === completedRagRuns.length ? embeddingTotalTokens : null),
+      usageUnknownRuns: attemptedEmbeddingRuns.length - knownEmbeddingUsage.length,
+      totalTokens: embeddingAttemptUnknownRuns === 0 && knownEmbeddingUsage.length === attemptedEmbeddingRuns.length
+        ? embeddingTotalTokens : null,
     },
     rerank: {
       statuses: rerankStatuses,

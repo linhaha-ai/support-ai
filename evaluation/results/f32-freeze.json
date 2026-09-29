@@ -1,0 +1,100 @@
+{
+  "datasetVersion": "f21-2026-09-23-v1",
+  "datasetSha256": "b367d40354c66f69e59a64c4e52cf7d43b16e72c66bc5af976b3b0e8ea372239",
+  "split": "test",
+  "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+  "environment": "本机 Docker/Ollama",
+  "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+  "runtimeHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+  "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+  "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+  "sourceDirtyPaths": [],
+  "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+  "project": "support-ai-f31-source4",
+  "baseUrl": "http://127.0.0.1:8088",
+  "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+  "startedAt": "2026-09-29T14:48:33.145Z",
+  "completedAt": "2026-09-29T14:50:42.946Z",
+  "configSnapshot": {
+    "chat": {
+      "role": "CHAT",
+      "model": "qwen3.5:9b",
+      "think": false,
+      "numCtx": 16384,
+      "provider": "ollama",
+      "temperature": null
+    },
+    "mode": "RAG",
+    "index": {
+      "parser": {
+        "version": "plain-text-v1"
+      },
+      "chunker": {
+        "version": "token-budget-v1",
+        "maxChunks": 20000,
+        "maxTokens": 512,
+        "tokenizer": "CL100K_BASE"
+      },
+      "embedding": {
+        "model": "bge-m3:567m",
+        "provider": "ollama",
+        "dimensions": 1024
+      },
+      "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+    },
+    "answer": {
+      "minimumScores": {
+        "fusion": 0,
+        "rerank": 0,
+        "vector": -1
+      },
+      "maxEvidenceTokens": 4096
+    },
+    "prompt": {
+      "version": "rag-cited-history-v2",
+      "historyInjection": "business-prompt-once",
+      "historyMaxRounds": 3,
+      "historyMaxCharacters": 6000
+    },
+    "rerank": {
+      "role": "RERANK",
+      "model": "qwen3-rerank",
+      "enabled": false,
+      "provider": "dashscope",
+      "timeoutMs": 5000,
+      "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+      "maxCandidates": 50,
+      "candidateMultiplier": 3,
+      "maxEstimatedItemTokens": 3500,
+      "maxEstimatedRequestTokens": 100000
+    },
+    "embedding": {
+      "role": "EMBEDDING",
+      "model": "bge-m3:567m",
+      "provider": "ollama",
+      "dimensions": 1024
+    },
+    "retrieval": {
+      "rrfK": 60,
+      "topK": 6,
+      "strategy": "VECTOR",
+      "maxKeywords": 8,
+      "queryRewrite": {
+        "enabled": true,
+        "version": "retrieval-query-json-v1",
+        "maxCharacters": 500
+      },
+      "candidateMultiplier": 3
+    },
+    "schemaVersion": "f24-v1"
+  },
+  "reviewer": "PENDING_HUMAN_REVIEW",
+  "freezeVersion": "1.0",
+  "frozenAt": "2026-09-29T15:00:39.261Z",
+  "sourceDevelopmentRun": ".local/evaluation/f32-development-vector-final.json",
+  "sourceDevelopmentSha256": "e642622bd1f14241a4feea6e433aacae9a5e4c9eb56d6532ab678cdcb2d7c3f6",
+  "reason": "维持现有 VECTOR、TopK 6、证据预算 4096 和关闭重排序。FUSION 未补齐 DEV-002/013/033 的关键证据缺口，仅 DEV-041/050 的非关键入模证据变化；不将 DEV-042 的 Ollama HTTP500 归因为策略退化。人工质量复核及真实重排序尚未完成，单次开发样本不足以切换默认策略。固定题只做冻结后验收，不用于反向调参。",
+  "configSnapshotSha256": "ac497a7c425931b8390d722fe503a529829d6095a814280f6cdb91cf395c270a",
+  "humanReviewStatus": "PENDING",
+  "limitation": "冻结用于一次真实测试采集，不能视为人工质量验收通过"
+}

@@ -1,0 +1,418 @@
+{
+  "status": "DRAFT_PENDING_HUMAN_REVIEW",
+  "baselineMetadata": {
+    "datasetVersion": "f21-2026-09-23-v1",
+    "datasetSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+    "split": "development",
+    "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+    "environment": "本机 Docker/Ollama",
+    "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+    "runtimeHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+    "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+    "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+    "sourceDirtyPaths": [],
+    "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+    "project": "support-ai-f31-source4",
+    "baseUrl": "http://127.0.0.1:8088",
+    "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+    "startedAt": "2026-09-29T14:48:33.145Z",
+    "completedAt": "2026-09-29T14:50:42.946Z",
+    "configSnapshot": {
+      "chat": {
+        "role": "CHAT",
+        "model": "qwen3.5:9b",
+        "think": false,
+        "numCtx": 16384,
+        "provider": "ollama",
+        "temperature": null
+      },
+      "mode": "RAG",
+      "index": {
+        "parser": {
+          "version": "plain-text-v1"
+        },
+        "chunker": {
+          "version": "token-budget-v1",
+          "maxChunks": 20000,
+          "maxTokens": 512,
+          "tokenizer": "CL100K_BASE"
+        },
+        "embedding": {
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+      },
+      "answer": {
+        "minimumScores": {
+          "fusion": 0,
+          "rerank": 0,
+          "vector": -1
+        },
+        "maxEvidenceTokens": 4096
+      },
+      "prompt": {
+        "version": "rag-cited-history-v2",
+        "historyInjection": "business-prompt-once",
+        "historyMaxRounds": 3,
+        "historyMaxCharacters": 6000
+      },
+      "rerank": {
+        "role": "RERANK",
+        "model": "qwen3-rerank",
+        "enabled": false,
+        "provider": "dashscope",
+        "timeoutMs": 5000,
+        "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+        "maxCandidates": 50,
+        "candidateMultiplier": 3,
+        "maxEstimatedItemTokens": 3500,
+        "maxEstimatedRequestTokens": 100000
+      },
+      "embedding": {
+        "role": "EMBEDDING",
+        "model": "bge-m3:567m",
+        "provider": "ollama",
+        "dimensions": 1024
+      },
+      "retrieval": {
+        "rrfK": 60,
+        "topK": 6,
+        "strategy": "VECTOR",
+        "maxKeywords": 8,
+        "queryRewrite": {
+          "enabled": true,
+          "version": "retrieval-query-json-v1",
+          "maxCharacters": 500
+        },
+        "candidateMultiplier": 3
+      },
+      "schemaVersion": "f24-v1"
+    },
+    "reviewer": "PENDING_HUMAN_REVIEW"
+  },
+  "candidateMetadata": {
+    "datasetVersion": "f21-2026-09-23-v1",
+    "datasetSha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+    "split": "development",
+    "gitCommit": "2d929cd5038b349ef2b82328df2fcad2e06ddc22",
+    "environment": "本机 Docker/Ollama",
+    "imageId": "sha256:86029d1a463fe477152030e5a6d871f7d97141241ef6ef833a6faa4e3ff95796",
+    "runtimeHash": "e328764d2c5f3ef8f65e6e01fe4b143a583549bc82804b62ef292393f23b5029",
+    "runtimeWithoutStrategyHash": "8206807b263a72d05100e8aabde8d21a5e847a077839a4289b20cc024c026595",
+    "sourceTreeHash": "cedf7e84fd05a6001c14212b58a85f87821f92cda47d78faa0a4b41bd4b46ade",
+    "sourceDirtyPaths": [],
+    "runnerSha256": "cd8c1b54d4cb1af0f6eeb16dc07cb7a27590eb8dc069145fbffca87d1d87d39d",
+    "project": "support-ai-f31-source4",
+    "baseUrl": "http://127.0.0.1:8088",
+    "bindingHash": "10ed5746f290afa4118f391424e2810cb41b9f52dc88a7f27eb28d75caefbf1d",
+    "startedAt": "2026-09-29T14:52:50.476Z",
+    "completedAt": "2026-09-29T14:55:51.801Z",
+    "configSnapshot": {
+      "chat": {
+        "role": "CHAT",
+        "model": "qwen3.5:9b",
+        "think": false,
+        "numCtx": 16384,
+        "provider": "ollama",
+        "temperature": null
+      },
+      "mode": "RAG",
+      "index": {
+        "parser": {
+          "version": "plain-text-v1"
+        },
+        "chunker": {
+          "version": "token-budget-v1",
+          "maxChunks": 20000,
+          "maxTokens": 512,
+          "tokenizer": "CL100K_BASE"
+        },
+        "embedding": {
+          "model": "bge-m3:567m",
+          "provider": "ollama",
+          "dimensions": 1024
+        },
+        "configHash": "89601327d5da9b3107be69e0506a7237254aad146a971f9c59d78f4b2c7561a2"
+      },
+      "answer": {
+        "minimumScores": {
+          "fusion": 0,
+          "rerank": 0,
+          "vector": -1
+        },
+        "maxEvidenceTokens": 4096
+      },
+      "prompt": {
+        "version": "rag-cited-history-v2",
+        "historyInjection": "business-prompt-once",
+        "historyMaxRounds": 3,
+        "historyMaxCharacters": 6000
+      },
+      "rerank": {
+        "role": "RERANK",
+        "model": "qwen3-rerank",
+        "enabled": false,
+        "provider": "dashscope",
+        "timeoutMs": 5000,
+        "instruction": "Given a web search query, retrieve relevant passages that answer the query.",
+        "maxCandidates": 50,
+        "candidateMultiplier": 3,
+        "maxEstimatedItemTokens": 3500,
+        "maxEstimatedRequestTokens": 100000
+      },
+      "embedding": {
+        "role": "EMBEDDING",
+        "model": "bge-m3:567m",
+        "provider": "ollama",
+        "dimensions": 1024
+      },
+      "retrieval": {
+        "rrfK": 60,
+        "topK": 6,
+        "strategy": "FUSION",
+        "maxKeywords": 8,
+        "queryRewrite": {
+          "enabled": true,
+          "version": "retrieval-query-json-v1",
+          "maxCharacters": 500
+        },
+        "candidateMultiplier": 3
+      },
+      "schemaVersion": "f24-v1"
+    },
+    "reviewer": "PENDING_HUMAN_REVIEW"
+  },
+  "comparison": {
+    "quality": {
+      "retrievalHit": {
+        "vector": {
+          "passed": 37,
+          "total": 40
+        },
+        "fusion": {
+          "passed": 36,
+          "total": 40
+        },
+        "passedDelta": -1,
+        "totalDelta": 0
+      },
+      "citationCorrect": {
+        "vector": {
+          "passed": 0,
+          "total": 0
+        },
+        "fusion": {
+          "passed": 0,
+          "total": 0
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "evidenceSufficient": {
+        "vector": {
+          "passed": 0,
+          "total": 0
+        },
+        "fusion": {
+          "passed": 0,
+          "total": 0
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "refusalCorrect": {
+        "vector": {
+          "passed": 0,
+          "total": 12
+        },
+        "fusion": {
+          "passed": 0,
+          "total": 12
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      }
+    },
+    "retrievalByCategory": {
+      "API_NAME": {
+        "vector": {
+          "passed": 13,
+          "total": 14
+        },
+        "fusion": {
+          "passed": 13,
+          "total": 14
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "CHINESE_PARAPHRASE": {
+        "vector": {
+          "passed": 18,
+          "total": 19
+        },
+        "fusion": {
+          "passed": 18,
+          "total": 19
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "CROSS_DOCUMENT": {
+        "vector": {
+          "passed": 7,
+          "total": 9
+        },
+        "fusion": {
+          "passed": 6,
+          "total": 9
+        },
+        "passedDelta": -1,
+        "totalDelta": 0
+      },
+      "ERROR_CODE": {
+        "vector": {
+          "passed": 2,
+          "total": 2
+        },
+        "fusion": {
+          "passed": 2,
+          "total": 2
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "INSUFFICIENT": {
+        "vector": {
+          "passed": 0,
+          "total": 0
+        },
+        "fusion": {
+          "passed": 0,
+          "total": 0
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "PERMISSION": {
+        "vector": {
+          "passed": 4,
+          "total": 4
+        },
+        "fusion": {
+          "passed": 4,
+          "total": 4
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      },
+      "VERSION_CHANGE": {
+        "vector": {
+          "passed": 3,
+          "total": 3
+        },
+        "fusion": {
+          "passed": 3,
+          "total": 3
+        },
+        "passedDelta": 0,
+        "totalDelta": 0
+      }
+    },
+    "changes": {
+      "retrievalGains": [],
+      "retrievalRegressions": [
+        "DEV-042"
+      ],
+      "changedEvidence": [
+        "DEV-041",
+        "DEV-050"
+      ]
+    },
+    "usage": {
+      "vector": {
+        "attemptedRuns": 48,
+        "noCallRuns": 12,
+        "knownRuns": 48,
+        "unknownRuns": 0,
+        "totalTokens": 41589
+      },
+      "fusion": {
+        "attemptedRuns": 48,
+        "noCallRuns": 12,
+        "knownRuns": 47,
+        "unknownRuns": 1,
+        "totalTokens": null
+      },
+      "totalTokensDelta": null
+    },
+    "embeddingUsage": {
+      "vector": {
+        "attemptedRuns": 48,
+        "attemptUnknownRuns": 0,
+        "usageKnownRuns": 0,
+        "usageUnknownRuns": 48,
+        "totalTokens": null
+      },
+      "fusion": {
+        "attemptedRuns": 48,
+        "attemptUnknownRuns": 0,
+        "usageKnownRuns": 0,
+        "usageUnknownRuns": 48,
+        "totalTokens": null
+      },
+      "totalTokensDelta": null
+    },
+    "latencyMs": {
+      "retrieval": {
+        "vector": {
+          "known": 48,
+          "p50": 21,
+          "p95": 32
+        },
+        "fusion": {
+          "known": 48,
+          "p50": 28,
+          "p95": 37
+        },
+        "p50Delta": 7,
+        "p95Delta": 5
+      },
+      "generation": {
+        "vector": {
+          "known": 48,
+          "p50": 1437,
+          "p95": 4212
+        },
+        "fusion": {
+          "known": 48,
+          "p50": 1930,
+          "p95": 8308
+        },
+        "p50Delta": 493,
+        "p95Delta": 4096
+      },
+      "total": {
+        "vector": {
+          "known": 48,
+          "p50": 1465,
+          "p95": 4243
+        },
+        "fusion": {
+          "known": 48,
+          "p50": 1975,
+          "p95": 8379
+        },
+        "p50Delta": 510,
+        "p95Delta": 4136
+      }
+    }
+  },
+  "limitations": [
+    "引用正确率与依据充分性尚未人工复核；本报告仅比较客观采集结果",
+    "refusalCorrect 是零证据或权限自动口径，不是语义拒答评分",
+    "特殊契约及权限夹具为 NOT_RUN，不计为场景通过"
+  ]
+}

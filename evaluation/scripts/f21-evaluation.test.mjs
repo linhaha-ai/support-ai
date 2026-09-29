@@ -118,11 +118,62 @@ test("汇总只使用人工复核结论并保留真实分母", () => {
   assert.equal(summary.usage.noCallRuns, 1);
   assert.equal(summary.usage.unknownRuns, 0);
   assert.equal(summary.embedding.attemptedRuns, 2);
+  assert.equal(summary.embedding.attemptUnknownRuns, 0);
   assert.equal(summary.embedding.usageUnknownRuns, 2);
   assert.equal(summary.embedding.totalTokens, null);
   assert.equal(summary.latencyMs.generation.known, 1);
   assert.equal(summarizeResults([cases[1]], [results[1]]).usage.totalTokens, 0);
   assert.equal(summarizeResults([cases[0]], [{ ...results[0], usage: null }]).usage.totalTokens, null);
+});
+
+test("生成阶段失败仍计入已执行的 Embedding，但不算召回质量通过", () => {
+  const cases = [{ id: "DEV-042", executionMode: "RAG", expectedOutcome: "ANSWER", evidenceIds: ["E-42"] }];
+  const results = [{
+    caseId: "DEV-042", status: "FAILED", errorCode: "MODEL_UNAVAILABLE", noEvidence: false,
+    retrievedEvidenceIds: ["E-42"], citedEvidenceIds: [], usage: null,
+    sources: Array.from({ length: 6 }, (_, index) => ({ chunkId: `chunk-${index}`, cited: false })),
+    metrics: { retrievalMs: 27, generationMs: 127, totalMs: 164, firstDeltaMs: null,
+      retrievedEvidenceCount: 6, evidenceCount: 6, evidenceTokenCount: 383, embeddingTotalTokens: null },
+  }];
+
+  const summary = summarizeResults(cases, results);
+
+  assert.deepEqual(summary.embedding, { attemptedRuns: 1, attemptUnknownRuns: 0,
+    usageKnownRuns: 0, usageUnknownRuns: 1, totalTokens: null });
+  assert.equal(summary.denominators.completedAnswers, 0);
+  assert.deepEqual(summary.quality.retrievalHit, { passed: 0, total: 1 });
+  assert.deepEqual(summary.quality.citationCorrect, { passed: 0, total: 0 });
+});
+
+test("失败取消且检索阶段未知时不记零用量，未运行和拒绝访问不算调用未知", () => {
+  const statuses = ["FAILED", "CANCELLED", "COMPLETED", "DENIED", "NOT_RUN"];
+  const cases = statuses.map((_, index) => ({ id: `DEV-${index}`, executionMode: "RAG",
+    expectedOutcome: "ANSWER", evidenceIds: ["E-1"] }));
+  const results = statuses.map((status, index) => ({ caseId: cases[index].id, status,
+    metrics: { retrievalMs: index === 0 ? 27 : 0, generationMs: null,
+      embeddingTotalTokens: status === "COMPLETED" ? 15 : null, retrievedEvidenceCount: 0 } }));
+
+  assert.deepEqual(summarizeResults(cases, results).embedding,
+    { attemptedRuns: 1, attemptUnknownRuns: 2, usageKnownRuns: 1, usageUnknownRuns: 0, totalTokens: null });
+  assert.deepEqual(summarizeResults(cases.slice(0, 2), results.slice(0, 2)).embedding,
+    { attemptedRuns: 0, attemptUnknownRuns: 2, usageKnownRuns: 0, usageUnknownRuns: 0, totalTokens: null });
+  assert.deepEqual(summarizeResults(cases.slice(3), results.slice(3)).embedding,
+    { attemptedRuns: 0, attemptUnknownRuns: 0, usageKnownRuns: 0, usageUnknownRuns: 0, totalTokens: 0 });
+  assert.equal(summarizeResults([{ ...cases[0], executionMode: "CONTRACT" }], [results[0]])
+    .embedding.attemptUnknownRuns, 0);
+});
+
+test("失败取消运行可独立根据生成阶段、Embedding 用量或检索结果确认调用", () => {
+  const cases = [{ id: "DEV-001", executionMode: "RAG", expectedOutcome: "ANSWER", evidenceIds: ["E-1"] }];
+  const metrics = [{ generationMs: 0 }, { embeddingTotalTokens: 0 }, { retrievedEvidenceCount: 1 }];
+  for (const status of ["FAILED", "CANCELLED"]) {
+    for (const metric of metrics) {
+      const summary = summarizeResults(cases, [{ caseId: "DEV-001", status, metrics: metric }]);
+      assert.equal(summary.embedding.attemptedRuns, 1);
+      assert.equal(summary.embedding.attemptUnknownRuns, 0);
+      assert.equal(summary.embedding.totalTokens, metric.embeddingTotalTokens ?? null);
+    }
+  }
 });
 
 test("同集策略比较同时报告召回收益、回退、耗时和用量差值", () => {

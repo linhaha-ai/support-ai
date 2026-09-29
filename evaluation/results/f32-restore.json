@@ -1,0 +1,46 @@
+{
+  "Status": "PASSED",
+  "SourceProject": "support-ai-f31-source4",
+  "RestoreProject": "support-ai-f32-restore",
+  "BackupName": "20260929T150409Z-8ee8aecf",
+  "KnowledgeBaseId": "dd947f79-1b4b-4bf7-934c-4ecc761fb5c6",
+  "DocumentId": "4836a000-7093-4182-afbf-e555be105476",
+  "VersionId": "a2372013-083b-4bd4-862f-0d92b2bd07e1",
+  "IngestionJobId": "fdcb06d1-2de9-4ee9-981c-049664f22b6a",
+  "RecoveryIngestionJobId": "fbdecf4a-fcff-4e98-a7ef-eeba7a294faf",
+  "ChatSessionId": "06a91ec5-5369-4117-94c8-bb3cc609c969",
+  "InterruptedRunId": "b00d4cf9-22c8-4405-b191-f254cb7cdb44",
+  "Checks": {
+    "SourceHealth": "通过",
+    "SourceDocumentContent": "通过",
+    "SourceTicket": "通过",
+    "SourceChatHistoryAndSources": "通过",
+    "OldSessionInvalidated": "通过（HTTP 401）",
+    "ReloginAfterRecreate": "通过",
+    "ExpiredIngestionLeaseRecovered": "通过（遗留 RUNNING 任务由新实例完成为 SUCCEEDED）",
+    "ContainerRecreatePersistence": "通过",
+    "ConsistentBackup": "通过",
+    "RestoredKnowledgeBase": "通过",
+    "RestoredDocumentContent": "通过",
+    "RestoredTicket": "通过",
+    "InterruptedRunRecoveredWithoutReplay": "通过",
+    "RestoredChatHistoryAndSources": "通过"
+  },
+  "Streaming": {
+    "ModelEvidence": "Ollama真实模型qwen3.5:9b+bge-m3:567m",
+    "Source": {
+      "EventCount": 86,
+      "DeltaCount": 83,
+      "FirstEventMilliseconds": 34,
+      "LastEventMilliseconds": 1783
+    },
+    "Status": "通过",
+    "RestoredFollowUp": {
+      "EventCount": 123,
+      "DeltaCount": 120,
+      "FirstEventMilliseconds": 67,
+      "LastEventMilliseconds": 2533
+    }
+  },
+  "RestoreEnvironment": "已恢复并通过健康检查；容器已停止，数据卷保留"
+}
