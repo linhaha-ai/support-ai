@@ -44,6 +44,7 @@ import org.springframework.stereotype.Service;
 public class SupportAssistantAnswerService implements AssistantAnswerService {
 
     private static final String PUBLIC_FAILURE_MESSAGE = "智能助手本次未能完成，请稍后重试";
+    private static final String NO_EVIDENCE_ANSWER = "资料不足：未找到可用于回答该问题的授权资料。";
 
     private final AssistantAgentRunner agentRunner;
     private final AssistantCitationParser citationParser;
@@ -78,6 +79,16 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
             AssistantCitationResult citation = citationParser.parse(runResult.getAnswer(), registeredSources);
             ensureRequiredTicketCitation(requiredTickets, registeredSources,
                     citation.getCitationNumbers());
+            ensureCurrentDocumentCitation(runResult.getCalledToolNames(), registeredSources,
+                    citation.getCitationNumbers());
+            if (citation.getCitationNumbers().isEmpty()) {
+                if (!registeredSources.isEmpty() || !requiredTickets.isEmpty()
+                        || !runResult.getCalledToolNames().contains(AssistantToolNameConstant.SEARCH_KNOWLEDGE)) {
+                    throw new AssistantCitationException(AssistantCitationException.Reason.NO_CITED_SOURCE);
+                }
+                // 实际检索后仍无来源时，仅保存服务端固定拒答，不能采纳模型自行补充的知识。
+                citation = new AssistantCitationResult(NO_EVIDENCE_ANSWER, List.of());
+            }
             ensureScopeReadable(preparedRun);
             historyService.ensureReadable(preparedRun);
             List<RagSourceResponse> sources = readableSources(preparedRun.getUserId(), registeredSources,
@@ -120,6 +131,21 @@ public class SupportAssistantAnswerService implements AssistantAnswerService {
             if (!citedTicket) {
                 throw new AssistantCitationException(AssistantCitationException.Reason.REQUIRED_TICKET_NOT_CITED);
             }
+        }
+    }
+
+    private void ensureCurrentDocumentCitation(Set<String> calledToolNames, List<MessageSource> sources,
+            List<Integer> citedNumbers) {
+        if (!calledToolNames.contains(AssistantToolNameConstant.SEARCH_KNOWLEDGE)) {
+            return;
+        }
+        // 仅本轮检索产生的文档要求本轮引用，不能让历史继承来源干扰工单回顾。
+        List<MessageSource> currentDocuments = sources.stream()
+                .filter(source -> source.getSourceType() == MessageSourceTypeEnum.DOCUMENT
+                        && source.getOriginSourceId() == null && source.getToolCallId() != null).toList();
+        if (!currentDocuments.isEmpty() && currentDocuments.stream()
+                .noneMatch(source -> citedNumbers.contains(source.getCitationNo()))) {
+            throw new AssistantCitationException(AssistantCitationException.Reason.REQUIRED_DOCUMENT_NOT_CITED);
         }
     }
 

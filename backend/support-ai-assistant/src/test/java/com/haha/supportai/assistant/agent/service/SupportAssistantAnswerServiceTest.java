@@ -33,6 +33,8 @@ import com.haha.supportai.knowledge.contract.KnowledgeScopeAccess;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -247,6 +249,202 @@ class SupportAssistantAnswerServiceTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_SOURCE_REVOKED"));
         verify(persistenceService, never()).append(any(), any(), anyString());
         verify(observer, never()).onDelta(anyString());
+    }
+
+    @Test
+    void rejectsUngroundedKnowledgeAnswerWithoutAnyLookup() {
+        PreparedChatRunResponse prepared = knowledgeRun();
+        when(agentRunner.run(eq(prepared), any(), eq(Set.of()), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("重试3至5次，每次等待200毫秒", 1, 0, 420, Set.of()));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.generateStreaming(prepared, observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
+
+        verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
+                eq("AGENT_INVALID_CITATION"), eq("助手引用校验失败: NO_CITED_SOURCE"), isNull(), anyString());
+        verify(persistenceService, never()).append(any(), any(), anyString());
+        verify(persistenceService, never()).complete(any(), any(), anyString(), any(), any(), any());
+        verify(observer, never()).onDelta(anyString());
+    }
+
+    @Test
+    void rejectsAnswerThatIgnoresRegisteredKnowledgeSources() {
+        MessageSource source = ticketSource();
+        source.setSourceType(MessageSourceTypeEnum.DOCUMENT);
+        when(agentRunner.run(any(), any(), eq(Set.of()), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("重试3至5次", 2, 1, 500, Set.of(AssistantToolNameConstant.SEARCH_KNOWLEDGE)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of(source));
+
+        assertThatThrownBy(() -> service.generateStreaming(knowledgeRun(), observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
+
+        verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
+                eq("AGENT_INVALID_CITATION"), eq("助手引用校验失败: REQUIRED_DOCUMENT_NOT_CITED"), isNull(), anyString());
+        verify(persistenceService, never()).append(any(), any(), anyString());
+        verify(persistenceService, never()).complete(any(), any(), anyString(), any(), any(), any());
+        verify(observer, never()).onDelta(anyString());
+    }
+
+    @Test
+    void replacesModelHallucinationWithFixedInsufficientAnswerAfterGenuineEmptySearch() throws Exception {
+        PreparedChatRunResponse prepared = knowledgeRun();
+        when(agentRunner.run(eq(prepared), any(), eq(Set.of()), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("凭常识建议重试3至5次", 2, 1, 500,
+                        Set.of(AssistantToolNameConstant.SEARCH_KNOWLEDGE)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of());
+        when(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID))
+                .thenReturn(List.of(KNOWLEDGE_BASE_ID));
+        when(knowledgeScopeAccess.allReadable(USER_ID, List.of(KNOWLEDGE_BASE_ID))).thenReturn(true);
+
+        var result = service.generateStreaming(prepared, observer);
+
+        String refusal = "资料不足：未找到可用于回答该问题的授权资料。";
+        assertThat(result.getContent()).isEqualTo(refusal);
+        assertThat(result.getSources()).isEmpty();
+        verify(persistenceService).append(RUN_ID, ASSISTANT_MESSAGE_ID, refusal);
+        verify(observer).onDelta(refusal);
+        ArgumentCaptor<String> metrics = ArgumentCaptor.forClass(String.class);
+        verify(persistenceService).complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), eq(refusal), eq(List.of()),
+                isNull(), metrics.capture());
+        assertThat(objectMapper.readTree(metrics.getValue()).path("noEvidence").asBoolean()).isTrue();
+        verify(historyService).ensureReadable(prepared);
+    }
+
+    @Test
+    void emptySearchCannotBypassUnknownHandleValidation() {
+        when(agentRunner.run(any(), any(), eq(Set.of()), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("伪造事实[[source:" + SOURCE_ID + "]]", 2, 1, 500,
+                        Set.of(AssistantToolNameConstant.SEARCH_KNOWLEDGE)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.generateStreaming(knowledgeRun(), observer))
+                .isInstanceOf(AssistantGenerationException.class);
+
+        verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
+                eq("AGENT_INVALID_CITATION"), eq("助手引用校验失败: UNKNOWN_HANDLE"), isNull(), anyString());
+        verify(persistenceService, never()).append(any(), any(), anyString());
+        verify(observer, never()).onDelta(anyString());
+    }
+
+    @Test
+    void rejectsTicketOnlyCitationWhenCurrentSearchReturnedDocuments() {
+        MessageSource document = documentSource(UUID.randomUUID(), 2);
+        when(agentRunner.run(any(), any(), eq(Set.of("T10086")), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("工单处理中[[source:" + SOURCE_ID + "]]，请按手册重试", 3, 2, 1200,
+                        Set.of(AssistantToolNameConstant.GET_TICKET_STATUS, AssistantToolNameConstant.SEARCH_KNOWLEDGE)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID))
+                .thenReturn(List.of(ticketSource(), document));
+
+        assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
+                .isInstanceOfSatisfying(AssistantGenerationException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo("AGENT_INVALID_CITATION"));
+
+        verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
+                eq("AGENT_INVALID_CITATION"), eq("助手引用校验失败: REQUIRED_DOCUMENT_NOT_CITED"), isNull(), anyString());
+        verify(persistenceService, never()).append(any(), any(), anyString());
+        verify(persistenceService, never()).complete(any(), any(), anyString(), any(), any(), any());
+        verify(observer, never()).onDelta(anyString());
+    }
+
+    @Test
+    void historicalDocumentCitationCannotReplaceCurrentSearchDocument() {
+        MessageSource historical = documentSource(UUID.randomUUID(), 2);
+        historical.setOriginSourceId(UUID.randomUUID());
+        MessageSource current = documentSource(UUID.randomUUID(), 3);
+        when(agentRunner.run(any(), any(), eq(Set.of("T10086")), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("工单处理中[[source:" + SOURCE_ID + "]]，按历史说明[[source:"
+                        + historical.getId() + "]]", 3, 2, 1200,
+                        Set.of(AssistantToolNameConstant.GET_TICKET_STATUS, AssistantToolNameConstant.SEARCH_KNOWLEDGE)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID))
+                .thenReturn(List.of(ticketSource(), historical, current));
+
+        assertThatThrownBy(() -> service.generateStreaming(preparedRun(), observer))
+                .isInstanceOf(AssistantGenerationException.class);
+
+        verify(persistenceService).fail(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), isNull(),
+                eq("AGENT_INVALID_CITATION"), eq("助手引用校验失败: REQUIRED_DOCUMENT_NOT_CITED"), isNull(), anyString());
+        verify(persistenceService, never()).append(any(), any(), anyString());
+        verify(observer, never()).onDelta(anyString());
+    }
+
+    @Test
+    void completesCombinedAnswerCitingTicketAndOneActuallyUsedCurrentDocument() {
+        MessageSource ticket = ticketSource();
+        MessageSource used = documentSource(UUID.randomUUID(), 2);
+        MessageSource unused = documentSource(UUID.randomUUID(), 3);
+        when(agentRunner.run(any(), any(), eq(Set.of("T10086")), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("工单处理中[[source:" + SOURCE_ID + "]]，重试2次[[source:"
+                        + used.getId() + "]]", 3, 2, 1200,
+                        Set.of(AssistantToolNameConstant.GET_TICKET_STATUS, AssistantToolNameConstant.SEARCH_KNOWLEDGE)));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID))
+                .thenReturn(List.of(ticket, used, unused));
+        allowReadableSources(ticket, used);
+
+        var result = service.generateStreaming(preparedRun(), observer);
+
+        assertThat(result.getContent()).isEqualTo("工单处理中[1]，重试2次[2]");
+        assertThat(result.getSources()).hasSize(2);
+        assertThat(result.getMetrics().getEvidenceCount()).isEqualTo(3);
+        assertThat(result.getMetrics().getCitedCount()).isEqualTo(2);
+        verify(persistenceService).complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID), eq(result.getContent()),
+                eq(List.of(1, 2)), isNull(), anyString());
+        verify(sourceResponseFactory, never()).create(USER_ID, unused);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "NO_SEARCH", "INHERITED_DOCUMENT", "NO_TOOL_CALL", "EMPTY_SEARCH" })
+    void doesNotRequireDocumentCitationWithoutCurrentSearchDocument(String scenario) {
+        MessageSource ticket = ticketSource();
+        MessageSource document = documentSource(UUID.randomUUID(), 2);
+        if ("INHERITED_DOCUMENT".equals(scenario)) {
+            document.setOriginSourceId(UUID.randomUUID());
+        } else if ("NO_TOOL_CALL".equals(scenario)) {
+            document.setToolCallId(null);
+        }
+        Set<String> calledTools = "NO_SEARCH".equals(scenario)
+                ? Set.of(AssistantToolNameConstant.GET_TICKET_STATUS)
+                : Set.of(AssistantToolNameConstant.GET_TICKET_STATUS, AssistantToolNameConstant.SEARCH_KNOWLEDGE);
+        when(agentRunner.run(any(), any(), eq(Set.of("T10086")), eq(observer))).thenReturn(
+                new AssistantAgentRunResult("工单处理中[[source:" + SOURCE_ID + "]]", 3, calledTools.size(), 1200,
+                        calledTools));
+        when(messageSourceRepository.listByMessageId(ASSISTANT_MESSAGE_ID))
+                .thenReturn("EMPTY_SEARCH".equals(scenario) ? List.of(ticket) : List.of(ticket, document));
+        allowReadableSources(ticket);
+
+        var result = service.generateStreaming(preparedRun(), observer);
+
+        assertThat(result.getContent()).isEqualTo("工单处理中[1]");
+        assertThat(result.getSources()).hasSize(1);
+        verify(observer).onDelta("工单处理中[1]");
+    }
+
+    private void allowReadableSources(MessageSource... sources) {
+        when(sessionKnowledgeBaseRepository.listKnowledgeBaseIdsBySessionId(SESSION_ID))
+                .thenReturn(List.of(KNOWLEDGE_BASE_ID));
+        when(knowledgeScopeAccess.allReadable(USER_ID, List.of(KNOWLEDGE_BASE_ID))).thenReturn(true);
+        for (MessageSource source : sources) {
+            when(sourceResponseFactory.create(USER_ID, source)).thenReturn(Optional.of(new RagSourceResponse(
+                    source.getCitationNo(), source.getSourceType(), null, null, null, "授权来源", null,
+                    true, true, null)));
+        }
+    }
+
+    private MessageSource documentSource(UUID sourceId, int citationNo) {
+        MessageSource source = ticketSource();
+        source.setId(sourceId);
+        source.setCitationNo(citationNo);
+        source.setSourceType(MessageSourceTypeEnum.DOCUMENT);
+        source.setSnapshot("{}");
+        return source;
+    }
+
+    private PreparedChatRunResponse knowledgeRun() {
+        return new PreparedChatRunResponse(RUN_ID, SESSION_ID, USER_ID, USER_MESSAGE_ID, ASSISTANT_MESSAGE_ID,
+                "REG_TIMEOUT 应如何排查？重试几次、间隔多久？", ChatSessionModeEnum.ASSISTANT,
+                ChatRunStatusEnum.QUEUED, false);
     }
 
     private PreparedChatRunResponse preparedRun() {

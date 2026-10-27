@@ -7,14 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.haha.supportai.conversation.config.RagProperties;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
 import com.haha.supportai.conversation.entity.dto.RagConversationContext;
 import com.haha.supportai.conversation.entity.dto.RagHistorySource;
 import com.haha.supportai.conversation.entity.dto.RagHistoryTurn;
+import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.data.conversation.entity.po.CompletedChatTurn;
 import com.haha.supportai.data.conversation.entity.po.HistoricalMessageSource;
 import com.haha.supportai.data.conversation.enums.MessageSourceTypeEnum;
@@ -33,13 +32,12 @@ public class ConversationContextService {
     private static final int CANDIDATE_MULTIPLIER = 4;
     private static final int MIN_CANDIDATE_PAGE_SIZE = 20;
     private static final int MAX_CANDIDATE_PAGE_SIZE = 100;
-    private static final Pattern CITATION_PATTERN = Pattern.compile("\\[([1-9]\\d*)]");
-    private static final String INVALID_HISTORY_CITATION = "[历史来源未登记]";
 
     private final ChatMessageRepository chatMessageRepository;
     private final MessageSourceRepository messageSourceRepository;
     private final DocumentSourceQueryService documentSourceQueryService;
     private final RagProperties ragProperties;
+    private final CitationParser citationParser;
 
     /**
      * 仅选择仍可验证全部来源的完整成功轮次，预算不足时不会截断问题或回答。
@@ -117,41 +115,30 @@ public class ConversationContextService {
     private RagConversationContext assembleContext(List<ValidatedTurn> turns) {
         Map<UUID, RagHistorySource> sourceByRootId = new LinkedHashMap<>();
         List<RagHistoryTurn> historyTurns = new ArrayList<>(turns.size());
+        int usedCharacters = 0;
         for (ValidatedTurn validatedTurn : turns) {
+            Map<UUID, RagHistorySource> candidateSources = new LinkedHashMap<>(sourceByRootId);
             Map<Integer, Integer> citationMapping = new LinkedHashMap<>();
             for (ValidatedSource validatedSource : validatedTurn.sources()) {
                 HistoricalMessageSource source = validatedSource.source();
-                RagHistorySource inherited = sourceByRootId.computeIfAbsent(source.getRootSourceId(), rootSourceId ->
-                        new RagHistorySource(sourceByRootId.size() + 1, rootSourceId,
+                RagHistorySource inherited = candidateSources.computeIfAbsent(source.getRootSourceId(), rootSourceId ->
+                        new RagHistorySource(candidateSources.size() + 1, rootSourceId,
                                 source.getKnowledgeBaseId(), source.getChunkId(), source.getLocator(),
                                 source.getSnapshot()));
                 citationMapping.putIfAbsent(source.getCitationNo(), inherited.getCitationNumber());
             }
-            historyTurns.add(new RagHistoryTurn(validatedTurn.turn().getQuestion(),
-                    rewriteCitations(validatedTurn.turn().getAnswer(), citationMapping)));
+            String question = validatedTurn.turn().getQuestion();
+            String answer = citationParser.remapRegisteredCitations(validatedTurn.turn().getAnswer(), citationMapping);
+            // 范围展开和编号重映射可能增加字符，入模前按实际文本再次核对整轮预算。
+            int turnCharacters = question.length() + answer.length();
+            if (turnCharacters > ragProperties.getHistoryMaxCharacters() - usedCharacters) {
+                continue;
+            }
+            sourceByRootId = candidateSources;
+            usedCharacters += turnCharacters;
+            historyTurns.add(new RagHistoryTurn(question, answer));
         }
         return new RagConversationContext(List.copyOf(historyTurns), List.copyOf(sourceByRootId.values()));
-    }
-
-    private String rewriteCitations(String answer, Map<Integer, Integer> citationMapping) {
-        Matcher matcher = CITATION_PATTERN.matcher(answer);
-        StringBuilder rewritten = new StringBuilder(answer.length());
-        while (matcher.find()) {
-            Integer mapped = mappedCitation(matcher.group(1), citationMapping);
-            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(mapped == null
-                    ? INVALID_HISTORY_CITATION
-                    : "[" + mapped + "]"));
-        }
-        matcher.appendTail(rewritten);
-        return rewritten.toString();
-    }
-
-    private Integer mappedCitation(String value, Map<Integer, Integer> citationMapping) {
-        try {
-            return citationMapping.get(Integer.parseInt(value));
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
     }
 
     private record ValidatedTurn(CompletedChatTurn turn, List<ValidatedSource> sources) {

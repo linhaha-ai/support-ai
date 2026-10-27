@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.haha.supportai.conversation.config.RagProperties;
 import com.haha.supportai.conversation.entity.dto.PreparedChatRunResponse;
+import com.haha.supportai.conversation.support.CitationParser;
 import com.haha.supportai.data.conversation.entity.po.CompletedChatTurn;
 import com.haha.supportai.data.conversation.entity.po.HistoricalMessageSource;
 import com.haha.supportai.data.conversation.enums.ChatRunStatusEnum;
@@ -52,7 +53,7 @@ class ConversationContextServiceTest {
         properties.setHistoryMaxRounds(3);
         properties.setHistoryMaxCharacters(6000);
         contextService = new ConversationContextService(chatMessageRepository, messageSourceRepository,
-                documentSourceQueryService, properties);
+                documentSourceQueryService, properties, new CitationParser());
     }
 
     @Test
@@ -83,6 +84,53 @@ class ConversationContextServiceTest {
         assertThat(context.getSources().get(0).getRootSourceId()).isEqualTo(olderSource.getRootSourceId());
         assertThat(context.getSources().get(1).getRootSourceId()).isEqualTo(newerSource.getRootSourceId());
         assertThat(context.getSources().get(2).getRootSourceId()).isEqualTo(repeatedSource.getRootSourceId());
+    }
+
+    @Test
+    void remapsRangeAndFootnoteHistoryUsingTheVerifiedRootsRatherThanNewNumberIntervals() {
+        CompletedChatTurn older = turn(1, "第一问", "第一答。[1]");
+        CompletedChatTurn newer = turn(2, "第二问", "参考[1]至[3]，以及[^2]，未知[3-9]。");
+        HistoricalMessageSource existing = historySource(1, 1, 1, true);
+        HistoricalMessageSource first = historySource(2, 1, 2, true);
+        HistoricalMessageSource repeated = historySource(3, 2, 1, true);
+        HistoricalMessageSource last = historySource(4, 3, 3, true);
+        given(chatMessageRepository.listCompletedTurnsBefore(SESSION_ID, USER_ID, CURRENT_USER_MESSAGE_ID, null, 20))
+                .willReturn(List.of(newer, older));
+        given(messageSourceRepository.listHistoricalSources(older.getAssistantMessageId(), SESSION_ID, USER_ID))
+                .willReturn(List.of(existing));
+        given(messageSourceRepository.listHistoricalSources(newer.getAssistantMessageId(), SESSION_ID, USER_ID))
+                .willReturn(List.of(first, repeated, last));
+        allowCurrentSource(existing);
+        allowCurrentSource(first);
+        allowCurrentSource(last);
+
+        var context = contextService.load(preparedRun());
+
+        assertThat(context.getTurns().get(1).getAnswer())
+                .isEqualTo("参考[2][1][3]，以及[1]，未知[历史来源未登记]。");
+        assertThat(context.getSources()).extracting(source -> source.getRootSourceId())
+                .containsExactly(existing.getRootSourceId(), first.getRootSourceId(), last.getRootSourceId());
+    }
+
+    @Test
+    void excludesWholeTurnAndItsSourcesWhenExpandedCitationsExceedHistoryBudget() {
+        properties.setHistoryMaxCharacters(256);
+        CompletedChatTurn turn = turn(1, "问题", "参考[1-3]。".repeat(25));
+        HistoricalMessageSource first = historySource(1, 1, 1, true);
+        HistoricalMessageSource second = historySource(2, 2, 2, true);
+        HistoricalMessageSource third = historySource(3, 3, 3, true);
+        given(chatMessageRepository.listCompletedTurnsBefore(SESSION_ID, USER_ID, CURRENT_USER_MESSAGE_ID, null, 20))
+                .willReturn(List.of(turn));
+        given(messageSourceRepository.listHistoricalSources(turn.getAssistantMessageId(), SESSION_ID, USER_ID))
+                .willReturn(List.of(first, second, third));
+        allowCurrentSource(first);
+        allowCurrentSource(second);
+        allowCurrentSource(third);
+
+        var context = contextService.load(preparedRun());
+
+        assertThat(context.getTurns()).isEmpty();
+        assertThat(context.getSources()).isEmpty();
     }
 
     @Test

@@ -9,6 +9,8 @@ public class AssistantCitationException extends RuntimeException {
         UNKNOWN_HANDLE,
         MALFORMED_HANDLE,
         REQUIRED_TICKET_NOT_CITED,
+        REQUIRED_DOCUMENT_NOT_CITED,
+        NO_CITED_SOURCE,
         SOURCE_UNAVAILABLE
     }
 

@@ -423,6 +423,27 @@ class RagAnswerServiceTest {
     }
 
     @Test
+    void persistsAndReturnsAllRegisteredRangeSourcesWhileKeepingStreamedAnswerUnchanged() {
+        List<KnowledgeRetrievalEvidenceResponse> evidenceList =
+                List.of(evidence(1, "第一条资料"), evidence(2, "第二条资料"), evidence(3, "第三条资料"));
+        arrangeEvidence(evidenceList);
+        for (KnowledgeRetrievalEvidenceResponse evidence : evidenceList) {
+            given(documentSourceQueryService.findAuthorizedSource(USER_ID, evidence.getChunkId()))
+                    .willReturn(Optional.of(source(evidence, true)));
+        }
+        String answer = "参考[^2]和[1]至[3]。未登记的范围[2-99]只保留原文。";
+        streamAnswer(answer, null);
+
+        var result = ragAnswerService.generate(preparedRun("如何处理？"));
+
+        then(persistenceService).should().complete(eq(RUN_ID), eq(ASSISTANT_MESSAGE_ID),
+                eq(answer), eq(List.of(2, 1, 3)), isNull(), anyString());
+        assertThat(result.getContent()).isEqualTo(answer);
+        assertThat(result.getCitedSourceNumbers()).containsExactly(2, 1, 3);
+        assertThat(result.getSources()).extracting(RagSourceResponse::getNumber).containsExactly(2, 1, 3);
+    }
+
+    @Test
     void persistsSanitizedFailedStateWhenModelCallFails() {
         KnowledgeRetrievalEvidenceResponse evidence = evidence(1, "可用资料");
         arrangeEvidence(List.of(evidence));
