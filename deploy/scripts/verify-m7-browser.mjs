@@ -98,6 +98,41 @@ const streamBody = async () => {
   return stream.text;
 };
 
+// 与后端引用契约一致：整个范围都已登记时才展开，未知或畸形编号不生成入口。
+const citedNumbers = (answer, sources) => {
+  const registered = new Set(sources.map((source) => source.number));
+  const numbers = new Set();
+  const horizontal = '[\\t \\u00a0\\u1680\\u180e\\u2000-\\u200a\\u202f\\u205f\\u3000]*';
+  const pattern = new RegExp(`\\[([0-9]+)\\]${horizontal}(?:[-–—]|至|到)${horizontal}\\[([0-9]+)\\]|\\[([0-9]+)${horizontal}[-–—]${horizontal}([0-9]+)\\]|\\[\\^?([0-9]+)\\]`, 'g');
+  const canonical = (value) => /^[1-9][0-9]*$/.test(value) && Number(value) <= 2147483647;
+  for (const match of answer.matchAll(pattern)) {
+    const start = match[5] ?? match[1] ?? match[3];
+    const end = match[5] ?? match[2] ?? match[4];
+    if (!canonical(start) || !canonical(end)) continue;
+    const length = Number(end) - Number(start) + 1;
+    if (length < 1 || length > 100) continue;
+    const range = Array.from({ length }, (_, index) => Number(start) + index);
+    if (range.every((number) => registered.has(number))) range.forEach((number) => numbers.add(number));
+  }
+  return [...numbers];
+};
+const completedFrames = async (sessionId) => {
+  const frames = (await streamBody()).split(/\r?\n\r?\n/).map((frame) => {
+    const event = frame.match(/^event:\s*(\S+)/m)?.[1];
+    const data = frame.match(/^data:\s*(.+)$/m)?.[1];
+    return event && data ? { event, data: JSON.parse(data) } : null;
+  }).filter(Boolean);
+  const terminal = frames.filter((frame) => ['done', 'error'].includes(frame.event));
+  const observation = { sessionId, runId: frames.find((frame) => frame.event === 'start')?.data.runId,
+    terminal, tools: frames.filter((frame) => frame.event === 'tool').map((frame) => frame.data) };
+  (result.streams ??= []).push(observation);
+  assert(observation.runId, 'SSE 缺少运行身份');
+  assert.equal(terminal.length, 1, 'SSE 必须且只能有一个终态');
+  assert.equal(frames.at(-1)?.event, 'done', `业务未成功完成：${JSON.stringify(terminal)}`);
+  await page.locator('.chat-message-assistant .chat-message-heading .el-tag').filter({ hasText: '已完成' }).waitFor();
+  return frames;
+};
+
 try {
   const { chromium } = await import(pathToFileURL(modulePath).href);
   browser = await chromium.launch({ executablePath, headless: true });
@@ -268,14 +303,8 @@ try {
     const response = await streamed;
     assert.equal(response.status(), 200);
     assert((await response.headerValue('content-type')).includes('text/event-stream'));
-    await page.locator('.chat-message-assistant .el-tag').filter({ hasText: '已完成' }).waitFor({ timeout: 120000 });
-    const body = await streamBody();
-    const events = [...body.matchAll(/^event:\s*(\S+)\s*$/gm)].map((match) => match[1]);
-    const frames = body.split(/\r?\n\r?\n/).map((frame) => {
-      const event = frame.match(/^event:\s*(\S+)/m)?.[1];
-      const data = frame.match(/^data:\s*(.+)$/m)?.[1];
-      return event && data ? { event, data: JSON.parse(data) } : null;
-    }).filter(Boolean);
+    const frames = await completedFrames(sessionId);
+    const events = frames.map((frame) => frame.event);
     runId = frames.find((frame) => frame.event === 'start')?.data.runId;
     assert(runId);
     assert.equal(events.at(-1), 'done');
@@ -289,8 +318,9 @@ try {
     const intermediate = progress.filter((sample) => sample.streaming && sample.length < finalAnswer.length);
     assert(intermediate.length > 1, '没有观察到完成前的多次真实 DOM 内容增长');
     const sources = frames.find((frame) => frame.event === 'sources')?.data.sources || [];
-    const numbers = [...new Set([...finalAnswer.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])))];
+    const numbers = citedNumbers(finalAnswer, sources);
     assert(numbers.length > 0 && numbers.every((number) => sources.some((source) => source.number === number)));
+    assert.deepEqual(numbers.toSorted((a, b) => a - b), sources.map((source) => source.number).toSorted((a, b) => a - b));
     const buttons = page.locator('.chat-message-assistant .chat-source-button');
     assert.equal(await buttons.count(), numbers.length);
     sourceNumber = numbers[0];
@@ -355,20 +385,19 @@ try {
     await page.getByRole('button', { name: '发送', exact: true }).click();
     const response = await streamed;
     assert.equal(response.status(), 200);
-    await page.locator('.chat-message-assistant .chat-message-heading .el-tag').filter({ hasText: '已完成' }).waitFor({ timeout: 180000 });
-    const frames = (await streamBody()).split(/\r?\n\r?\n/).map((frame) => {
-      const event = frame.match(/^event:\s*(\S+)/m)?.[1];
-      const data = frame.match(/^data:\s*(.+)$/m)?.[1];
-      return event && data ? { event, data: JSON.parse(data) } : null;
-    }).filter(Boolean);
+    const frames = await completedFrames(assistantSessionId);
     assert.equal(frames.at(-1)?.event, 'done');
     const sources = frames.find((frame) => frame.event === 'sources')?.data.sources || [];
     const tools = frames.filter((frame) => frame.event === 'tool').map((frame) => frame.data);
     assert(tools.some((tool) => tool.name === 'searchKnowledge' && tool.status === 'SUCCEEDED'));
     assert(tools.some((tool) => tool.name === 'getTicketStatus' && tool.status === 'SUCCEEDED'));
     const answer = await page.locator('.chat-message-assistant .chat-message-content').innerText();
-    const citations = [...new Set([...answer.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])))];
+    const citations = citedNumbers(answer, sources);
+    // 断言前留存实际正文与来源，失败批次也能直接区分漏引和页面解析错误。
+    result.assistantObservation = { sessionId: assistantSessionId,
+      runId: frames.find((frame) => frame.event === 'start')?.data.runId, answer, sources, citations };
     assert(citations.length > 1 && citations.every((number) => sources.some((source) => source.number === number)));
+    assert.deepEqual(citations.toSorted((a, b) => a - b), sources.map((source) => source.number).toSorted((a, b) => a - b));
     const document = sources.find((source) => source.type === 'DOCUMENT' && citations.includes(source.number));
     const ticket = sources.find((source) => source.type === 'TICKET' && citations.includes(source.number));
     assert(document && ticket, '助手本轮必须同时实际引用知识文档和工单');
@@ -390,6 +419,7 @@ try {
     await page.locator('.chat-source-content').waitFor();
     assert.equal(await page.locator('.chat-source-content').innerText(), detail.content);
     await page.locator('.chat-source-drawer .el-drawer__close-btn').click();
+    await page.locator('.chat-source-drawer').waitFor({ state: 'hidden' });
     await shot('assistant');
     return { sessionId: assistantSessionId, runId: frames.find((frame) => frame.event === 'start')?.data.runId,
       tools, citations, sources, answer, documentPreviewMatchesSourceIdentity: true };

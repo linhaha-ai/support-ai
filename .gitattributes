@@ -3,6 +3,11 @@ evaluation/results/f32-*.json -text whitespace=blank-at-eol,blank-at-eof,space-b
 # M7 补验结果同样保存原始字节，便于在复核记录中验证摘要。
 evaluation/results/m7-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 evaluation/results/m7-*.mjs text eol=lf
+# 本轮回归产物保留原始字节，运行脚本固定换行以便复核执行指纹。
+evaluation/results/regression-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+evaluation/results/regression-*.mjs text eol=lf
+deploy/scripts/verify-m1-m4-regression.mjs text eol=lf
+deploy/scripts/verify-m6-regression.mjs text eol=lf
 
 # 冻结记录与汇总产物包含评测脚本指纹，固定脚本换行以便复核。
 evaluation/scripts/*.mjs text eol=lf
