@@ -339,6 +339,36 @@ describe('会话创建页面', () => {
     expect(previewRequests[0]?.[0]).toBe(`/api/chunks/${chunkId}/source`)
   })
 
+  it('范围和脚注正文保持原样，来源入口完整使用服务端已登记集合', async () => {
+    const { view, stream, encoder } = await startRagCitationStream()
+    const answer = '参考[^2]和[1]至[3]。未登记的范围[2-99]只保留原文。'
+    stream.controller().enqueue(encoder.encode(
+      sseEvent('start', { runId, assistantMessageId })
+      + sseEvent('delta', { text: answer }),
+    ))
+    await flushPromises()
+    expect(view.findAll('.chat-source-button')).toHaveLength(0)
+
+    const sources = [2, 1, 3].map((number) => ({
+      ...registeredDocumentSource(),
+      number,
+      title: `已登记资料${number}`,
+      chunkId: `af5cf7b1-1a5c-4e60-a22a-6e7736e19a2${number}`,
+      previewPath: `/api/chunks/af5cf7b1-1a5c-4e60-a22a-6e7736e19a2${number}/source`,
+    }))
+    stream.controller().enqueue(encoder.encode(
+      sseEvent('sources', { sources })
+      + sseEvent('done', { runId, status: 'COMPLETED', usage: null, metrics: {} }),
+    ))
+    stream.controller().close()
+    await flushPromises()
+
+    expect(view.get('.chat-message-assistant .chat-message-content').text()).toBe(answer)
+    expect(view.findAll('.chat-source-button').map((button) => button.text()))
+      .toEqual(['[2] 已登记资料2', '[1] 已登记资料1', '[3] 已登记资料3'])
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/source'))).toHaveLength(0)
+  })
+
   it('流内失败时保留部分回答并显示未完整状态', async () => {
     const encoder = new TextEncoder()
     const stream = new Response(new ReadableStream<Uint8Array>({

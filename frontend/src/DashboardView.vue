@@ -96,9 +96,9 @@ onMounted(check)
         <p>身份验证已启用。</p>
         <span>会话与请求验证已受保护。</span>
         <div class="phase-progress"><i></i><i></i><i></i><i></i><i></i></div>
-        <span class="phase-caption">当前阶段 · F25</span>
+        <span class="phase-caption">当前阶段 · M7 验收</span>
       </div>
-      <div class="sidebar-bottom"><span class="local-dot"></span>本地开发工作空间<span>v0.3</span></div>
+      <div class="sidebar-bottom"><span class="local-dot"></span>本地开发工作空间<span>验收中</span></div>
     </aside>
 
     <div class="main-shell">
@@ -124,7 +124,7 @@ onMounted(check)
             <h1>登录成功，工作空间已就绪。</h1>
             <p>当前身份已验证，可继续查看应用基础状态。</p>
           </div>
-          <span class="phase-badge">F25 <span>只读工单查询</span></span>
+          <span class="phase-badge">M7 <span>完整产品验收</span></span>
         </div>
 
         <section class="status-card" :data-state="state" aria-labelledby="connection-heading">
@@ -162,7 +162,7 @@ onMounted(check)
           </section>
         </div>
 
-        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>工单实时查询 / F25</span></footer>
+        <footer><span>SUPPORT AI <span class="footer-dot">·</span> 知识驱动，让服务更进一步。</span><span>知识问答与业务助手</span></footer>
         </template>
       </main>
     </div>
