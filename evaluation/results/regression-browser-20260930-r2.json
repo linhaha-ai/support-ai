@@ -1,0 +1,1290 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+  "status": "FAILED",
+  "startedAt": "2026-09-30T05:33:22.526Z",
+  "baseUrl": "http://127.0.0.1:8088",
+  "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+  "gitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+  "scriptSha256": "bc68823120220b0c8f48047f23d98d922a6a729e5b97b1a014952aca0b9544e2",
+  "execution": "独立无头 Edge / Playwright，真实页面与后端，未模拟网络或模型响应",
+  "streamObservation": "只读克隆同一次真实 SSE Response；原响应直接交给应用，不替换数据或额外发送模型请求",
+  "checks": [
+    {
+      "name": "未登录显示登录页且写入按钮不可用",
+      "status": "PASSED",
+      "durationMs": 581,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "emptyLoginDisabled": true
+      }
+    },
+    {
+      "name": "通过真实表单登录并显示健康概览",
+      "status": "PASSED",
+      "durationMs": 292,
+      "evidence": {
+        "authenticated": true,
+        "backendHealthy": true,
+        "displayedPhase": "当前阶段 · M7 验收"
+      }
+    },
+    {
+      "name": "我的知识库列出合成验收资料且可查看文档",
+      "status": "PASSED",
+      "durationMs": 163,
+      "evidence": {
+        "knowledgeBaseName": "F32 真实评测 2026-09-29T13:21:09.313Z",
+        "documentCount": 6,
+        "documentNames": [
+          "operations-sla-guide",
+          "merchant-console-guide",
+          "reconciliation-guide",
+          "refund-guide",
+          "order-api-reference",
+          "payment-callback-guide"
+        ]
+      }
+    },
+    {
+      "name": "支付回调文档当前原文、历史版本和分块均可查看",
+      "status": "PASSED",
+      "durationMs": 391,
+      "evidence": {
+        "versionCount": 2,
+        "historicalFiveSecondContract": true,
+        "currentV2Contract": true,
+        "visibleChunkCount": 12
+      }
+    },
+    {
+      "name": "工单页面显示真实合成工单状态与查询时间",
+      "status": "PASSED",
+      "durationMs": 82,
+      "evidence": {
+        "ticketNo": "F32707894507",
+        "status": "RESOLVED",
+        "knowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+        "queriedAt": "2026-09-30T05:33:24.532680488Z"
+      }
+    },
+    {
+      "name": "不存在工单显示明确反馈而非保留旧卡片",
+      "status": "PASSED",
+      "durationMs": 70,
+      "evidence": {
+        "message": "未找到该工单，或当前账号无权查看。\n\n重试",
+        "visibleTicketCards": 0
+      }
+    },
+    {
+      "name": "选择固定知识库创建独立 RAG 会话并重命名",
+      "status": "PASSED",
+      "durationMs": 259,
+      "evidence": {
+        "sessionId": "2f9662af-c993-4c4b-9cda-09ffd92bb9c0",
+        "sessionTitle": "M7 浏览器验收 2026-09-30T05:33:24.619Z",
+        "mode": "RAG",
+        "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56"
+      }
+    },
+    {
+      "name": "真实 SSE 回答在完成前多次渐进更新",
+      "status": "PASSED",
+      "durationMs": 2780,
+      "evidence": {
+        "runId": "4874beed-5a0a-4b2b-ae41-36c36edd474f",
+        "sessionId": "2f9662af-c993-4c4b-9cda-09ffd92bb9c0",
+        "sseEventCount": 191,
+        "deltaEvents": 188,
+        "domUpdates": 188,
+        "intermediateUpdates": 187,
+        "progress": [
+          {
+            "elapsedMs": 479,
+            "length": 2,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 481,
+            "length": 5,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 491,
+            "length": 7,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 501,
+            "length": 8,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 512,
+            "length": 10,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 521,
+            "length": 11,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 532,
+            "length": 13,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 543,
+            "length": 14,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 552,
+            "length": 16,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 563,
+            "length": 18,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 573,
+            "length": 20,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 584,
+            "length": 22,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 594,
+            "length": 23,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 604,
+            "length": 25,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 615,
+            "length": 27,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 626,
+            "length": 28,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 647,
+            "length": 32,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 657,
+            "length": 33,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 669,
+            "length": 34,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 688,
+            "length": 37,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 698,
+            "length": 39,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 708,
+            "length": 41,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 719,
+            "length": 43,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 742,
+            "length": 45,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 760,
+            "length": 50,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 771,
+            "length": 52,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 780,
+            "length": 54,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 797,
+            "length": 55,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 801,
+            "length": 56,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 812,
+            "length": 60,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 822,
+            "length": 62,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 832,
+            "length": 66,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 843,
+            "length": 69,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 856,
+            "length": 71,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 863,
+            "length": 72,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 874,
+            "length": 80,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 884,
+            "length": 89,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 895,
+            "length": 90,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 905,
+            "length": 92,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 916,
+            "length": 93,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 925,
+            "length": 94,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 946,
+            "length": 96,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 967,
+            "length": 101,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 977,
+            "length": 103,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 988,
+            "length": 105,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1000,
+            "length": 106,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1012,
+            "length": 108,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1033,
+            "length": 110,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1044,
+            "length": 111,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1055,
+            "length": 112,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1077,
+            "length": 114,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1087,
+            "length": 117,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1099,
+            "length": 119,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1108,
+            "length": 121,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1119,
+            "length": 122,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1139,
+            "length": 126,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1149,
+            "length": 127,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1159,
+            "length": 128,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1180,
+            "length": 131,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1190,
+            "length": 133,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1200,
+            "length": 135,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1220,
+            "length": 137,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1242,
+            "length": 142,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1251,
+            "length": 144,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1261,
+            "length": 146,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1271,
+            "length": 148,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1282,
+            "length": 149,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1291,
+            "length": 151,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1301,
+            "length": 153,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1312,
+            "length": 156,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1322,
+            "length": 159,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1332,
+            "length": 160,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1356,
+            "length": 162,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1363,
+            "length": 163,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1373,
+            "length": 165,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1394,
+            "length": 168,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1404,
+            "length": 170,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1414,
+            "length": 172,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1424,
+            "length": 173,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1434,
+            "length": 174,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1444,
+            "length": 175,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1465,
+            "length": 177,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1486,
+            "length": 182,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1496,
+            "length": 184,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1505,
+            "length": 186,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1516,
+            "length": 187,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1526,
+            "length": 189,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1536,
+            "length": 191,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1546,
+            "length": 193,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1556,
+            "length": 194,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1566,
+            "length": 195,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1588,
+            "length": 199,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1597,
+            "length": 200,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1608,
+            "length": 202,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1618,
+            "length": 204,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1628,
+            "length": 206,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1638,
+            "length": 207,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1648,
+            "length": 209,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1658,
+            "length": 211,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1679,
+            "length": 213,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1704,
+            "length": 215,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1715,
+            "length": 216,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1726,
+            "length": 219,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1736,
+            "length": 221,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1747,
+            "length": 223,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1757,
+            "length": 224,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1767,
+            "length": 225,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1787,
+            "length": 227,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1797,
+            "length": 228,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1818,
+            "length": 230,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1828,
+            "length": 231,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1838,
+            "length": 232,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1848,
+            "length": 233,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1870,
+            "length": 235,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1880,
+            "length": 236,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1890,
+            "length": 238,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1901,
+            "length": 240,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1912,
+            "length": 242,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1921,
+            "length": 244,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1932,
+            "length": 245,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1942,
+            "length": 247,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1952,
+            "length": 248,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1962,
+            "length": 250,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1973,
+            "length": 251,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1983,
+            "length": 253,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1994,
+            "length": 255,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2004,
+            "length": 257,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2015,
+            "length": 259,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2025,
+            "length": 262,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2035,
+            "length": 264,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2045,
+            "length": 266,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2056,
+            "length": 268,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2065,
+            "length": 269,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2078,
+            "length": 270,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2090,
+            "length": 272,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2101,
+            "length": 273,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2110,
+            "length": 275,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2121,
+            "length": 277,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2132,
+            "length": 278,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2144,
+            "length": 279,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2166,
+            "length": 282,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2176,
+            "length": 284,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2187,
+            "length": 285,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2207,
+            "length": 287,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2228,
+            "length": 289,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2237,
+            "length": 291,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2258,
+            "length": 295,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2268,
+            "length": 296,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2279,
+            "length": 297,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2300,
+            "length": 300,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2309,
+            "length": 303,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2319,
+            "length": 305,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2339,
+            "length": 307,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2360,
+            "length": 312,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2370,
+            "length": 314,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2380,
+            "length": 316,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2391,
+            "length": 317,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2401,
+            "length": 318,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2411,
+            "length": 325,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2421,
+            "length": 326,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2431,
+            "length": 328,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2442,
+            "length": 329,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2452,
+            "length": 331,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2462,
+            "length": 332,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2473,
+            "length": 333,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2494,
+            "length": 335,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2515,
+            "length": 340,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2525,
+            "length": 342,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2535,
+            "length": 344,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2545,
+            "length": 345,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2555,
+            "length": 347,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2565,
+            "length": 350,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2575,
+            "length": 352,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2586,
+            "length": 354,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2596,
+            "length": 357,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2606,
+            "length": 358,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2617,
+            "length": 360,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2627,
+            "length": 363,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2638,
+            "length": 365,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2647,
+            "length": 366,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2659,
+            "length": 368,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2669,
+            "length": 369,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2681,
+            "length": 372,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2694,
+            "length": 373,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2705,
+            "length": 375,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2713,
+            "length": 377,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2724,
+            "length": 379,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 2734,
+            "length": 380,
+            "streaming": true
+          }
+        ],
+        "citedNumbers": [
+          1,
+          4
+        ],
+        "sourceButtonCount": 2,
+        "answer": "根据提供的资料，针对您询问的支付回调相关参数，回答如下：\n\n**1. 支付回调入口**\n*   **地址**：`POST /openapi/v2/payment/callback` [1]\n*   **说明**：这是 2.0 版支付的回调入口。\n\n**2. 响应时限**\n*   **时长要求**：商户系统必须在 **3 秒内** 返回结果 [1]。\n*   **注意**：虽然资料 [4] 提到了未收到成功确认时最多重试 6 次及具体的重试间隔（如 10 秒、30 秒等），但这属于平台侧的重试机制，而非商户系统必须处理的响应时限上限（该上限由资料 [1] 明确界定为 3 秒）。\n\n**3. 确认字符串**\n*   **内容**：`SUCCESS` [1][4]\n*   **说明**：商户系统在业务处理完成后，需在规定的时限内返回该字符串以表示成功确认。"
+      }
+    },
+    {
+      "name": "引用按钮打开对应真实原文且显示版本身份",
+      "status": "PASSED",
+      "durationMs": 630,
+      "evidence": {
+        "sourcePath": "/api/chunks/3820490a-a273-3614-b630-5a417c0275f9/source",
+        "citedNumber": 1,
+        "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+        "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+        "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+        "documentName": "payment-callback-guide",
+        "versionNo": 2,
+        "isCurrent": true,
+        "contentCharacters": 132
+      }
+    },
+    {
+      "name": "刷新后历史会话、回答和引用来源保持一致",
+      "status": "PASSED",
+      "durationMs": 1126,
+      "evidence": {
+        "sessionId": "2f9662af-c993-4c4b-9cda-09ffd92bb9c0",
+        "runId": "4874beed-5a0a-4b2b-ae41-36c36edd474f",
+        "sameAnswerAfterReload": true,
+        "sourceReadableAfterReload": true
+      }
+    },
+    {
+      "name": "智能助手真实组合知识与工单并展示两类引用",
+      "status": "FAILED",
+      "durationMs": 9775,
+      "error": "来源抽屉未稳定进入视口"
+    }
+  ],
+  "screenshots": [
+    "evaluation/results/regression-browser-20260930-r2-documents.png",
+    "evaluation/results/regression-browser-20260930-r2-source.png",
+    "evaluation/results/regression-browser-20260930-r2-failure.png"
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "path": "/api/auth/me"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 ()",
+      "path": "/api/tickets/M7-NOT-EXIST"
+    }
+  ],
+  "pageErrors": [],
+  "failedHttp": [
+    {
+      "status": 401,
+      "path": "/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "status": 404,
+      "path": "/api/tickets/M7-NOT-EXIST",
+      "method": "GET"
+    }
+  ],
+  "findings": [],
+  "browserVersion": "154.0.4258.37",
+  "streams": [
+    {
+      "sessionId": "2f9662af-c993-4c4b-9cda-09ffd92bb9c0",
+      "runId": "4874beed-5a0a-4b2b-ae41-36c36edd474f",
+      "terminal": [
+        {
+          "event": "done",
+          "data": {
+            "runId": "4874beed-5a0a-4b2b-ae41-36c36edd474f",
+            "status": "COMPLETED",
+            "usage": {
+              "promptTokens": 906,
+              "completionTokens": 220,
+              "totalTokens": 1126
+            },
+            "metrics": {
+              "evidenceCount": 6,
+              "retrievedEvidenceCount": 6,
+              "scoreFilteredEvidenceCount": 0,
+              "budgetFilteredEvidenceCount": 0,
+              "evidenceTokenCount": 453,
+              "citedCount": 2,
+              "noEvidence": false,
+              "retrievalMs": 28,
+              "embeddingTotalTokens": null,
+              "rerankStatus": "DISABLED",
+              "rerankCandidateCount": 0,
+              "rerankMs": 0,
+              "rerankTotalTokens": null,
+              "generationMs": 2622,
+              "totalMs": 2688,
+              "firstDeltaMs": 417,
+              "queryRewrite": {
+                "originalQuestion": "根据当前支付回调手册，支付回调入口、响应时限和确认字符串是什么？请引用来源。",
+                "retrievalQuestion": "根据当前支付回调手册，支付回调入口、响应时限和确认字符串是什么？请引用来源。",
+                "status": "NO_HISTORY"
+              }
+            }
+          }
+        }
+      ],
+      "tools": []
+    },
+    {
+      "sessionId": "1d498a35-70e4-4f00-a826-f1532540d0e6",
+      "runId": "2f6b3ef9-0088-4593-b2a0-42794bff7e4c",
+      "terminal": [
+        {
+          "event": "done",
+          "data": {
+            "runId": "2f6b3ef9-0088-4593-b2a0-42794bff7e4c",
+            "status": "COMPLETED",
+            "usage": null,
+            "metrics": {
+              "evidenceCount": 3,
+              "citedCount": 3,
+              "noEvidence": false,
+              "totalMs": 6208,
+              "firstDeltaMs": 6203,
+              "modelCallCount": 2,
+              "toolCallCount": 2,
+              "maxObservedContextTokens": 929,
+              "toolCallLimit": 2,
+              "modelCallLimit": 3,
+              "retrievedEvidenceCount": 3,
+              "scoreFilteredEvidenceCount": 0,
+              "budgetFilteredEvidenceCount": 0,
+              "evidenceTokenCount": 0,
+              "retrievalMs": 0,
+              "embeddingTotalTokens": null,
+              "rerankStatus": "NOT_REACHED",
+              "rerankCandidateCount": 0,
+              "rerankMs": 0,
+              "rerankTotalTokens": null,
+              "generationMs": null,
+              "queryRewrite": null
+            }
+          }
+        }
+      ],
+      "tools": [
+        {
+          "name": "getTicketStatus",
+          "status": "STARTED"
+        },
+        {
+          "name": "getTicketStatus",
+          "status": "SUCCEEDED"
+        },
+        {
+          "name": "searchKnowledge",
+          "status": "STARTED"
+        },
+        {
+          "name": "searchKnowledge",
+          "status": "SUCCEEDED"
+        }
+      ]
+    }
+  ],
+  "assistantObservation": {
+    "sessionId": "1d498a35-70e4-4f00-a826-f1532540d0e6",
+    "runId": "2f6b3ef9-0088-4593-b2a0-42794bff7e4c",
+    "answer": "根据查询结果：\n\n### 工单状态（F32707894507）\n工单 **F32707894507** 的标题为“F32 回调超时验收”，当前状态为 **RESOLVED（已解决）**，描述为“F32_E_TIMEOUT 回调失败待排查”，最后更新时间为 1790693068.744107000。本查询结果引用自 [1]。\n\n### F32_E_TIMEOUT 手册知识\n根据 **F32 任务控制夹具** 文档，错误码 F32_E_TIMEOUT 表示回调超时，处理流程包括：先核对回调地址和网络连接是否正常，然后按照四次退避重试策略进行重连尝试，并及时通知值班人员。该信息来源于 [2]。同时，**F32 故障处理手册-9b580eff62e5** 提供了相同指导：先核对回调地址和网络，再按四次退避重试并通知值班人员。此内容引用自 [3]。\n\n### 综合处理建议\n由于工单 F32707894507 状态为 **RESOLVED（已解决）**，表明该工单项下的回调超时问题已被修复或接受验收，当前无需进一步操作。但依据手册指引，若出现新的 F32_E_TIMEOUT 错误，应：\n1. 核对回调地址是否配置正确；\n2. 检查网络链路是否存在中断或不稳定；\n3. 按照四次退避策略进行重试（间隔依次递增）；\n4. 通知值班人员关注问题进展。\n\n以上建议均基于授权资料，未凭常识补造信息。",
+    "sources": [
+      {
+        "number": 1,
+        "type": "TICKET",
+        "documentId": null,
+        "versionId": null,
+        "chunkId": null,
+        "title": "F32 回调超时验收",
+        "section": "F32值班员",
+        "available": true,
+        "previewPath": null,
+        "ticketNo": "F32707894507",
+        "ticketStatus": "RESOLVED",
+        "ticketUpdatedAt": "2026-09-29T14:44:28.744107Z",
+        "ticketQueriedAt": "2026-09-30T05:33:30.979591379Z",
+        "originSourceId": null,
+        "toolCallId": "cf7e3874-2c6a-4e45-b6e4-d101640f833c",
+        "inherited": false,
+        "isCurrent": true
+      },
+      {
+        "number": 2,
+        "type": "DOCUMENT",
+        "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+        "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+        "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+        "title": "F32 任务控制夹具",
+        "section": null,
+        "available": true,
+        "previewPath": "/api/chunks/ae36100c-2899-346e-a6d3-718654bd59fe/source",
+        "ticketNo": null,
+        "ticketStatus": null,
+        "ticketUpdatedAt": null,
+        "ticketQueriedAt": null,
+        "originSourceId": null,
+        "toolCallId": "a347056c-785b-41ee-bbbb-f3409c129674",
+        "inherited": false,
+        "isCurrent": true
+      },
+      {
+        "number": 3,
+        "type": "DOCUMENT",
+        "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+        "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+        "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+        "title": "F32 故障处理手册-9b580eff62e5",
+        "section": null,
+        "available": true,
+        "previewPath": "/api/chunks/c9582328-a41c-3378-b272-8d5b50792ea4/source",
+        "ticketNo": null,
+        "ticketStatus": null,
+        "ticketUpdatedAt": null,
+        "ticketQueriedAt": null,
+        "originSourceId": null,
+        "toolCallId": "a347056c-785b-41ee-bbbb-f3409c129674",
+        "inherited": false,
+        "isCurrent": true
+      }
+    ],
+    "citations": [
+      1,
+      2,
+      3
+    ]
+  },
+  "error": "来源抽屉未稳定进入视口",
+  "completedAt": "2026-09-30T05:33:39.434Z",
+  "durationMs": 16908,
+  "passedChecks": 10,
+  "failedChecks": 1
+}

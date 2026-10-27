@@ -1,0 +1,998 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+  "status": "PASSED",
+  "startedAt": "2026-09-30T05:59:24.474Z",
+  "baseUrl": "http://127.0.0.1:8088",
+  "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+  "gitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+  "scriptSha256": "66a373dcce14ac7e701f2c93422f248b3a1c928dc7555f7879b7cbc8cc7c367d",
+  "execution": "独立无头 Edge / Playwright，真实页面与后端，未模拟网络或模型响应",
+  "streamObservation": "只读克隆同一次真实 SSE Response；原响应直接交给应用，不替换数据或额外发送模型请求",
+  "checks": [
+    {
+      "name": "未登录显示登录页且写入按钮不可用",
+      "status": "PASSED",
+      "durationMs": 590,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "emptyLoginDisabled": true
+      }
+    },
+    {
+      "name": "通过真实表单登录并显示健康概览",
+      "status": "PASSED",
+      "durationMs": 287,
+      "evidence": {
+        "authenticated": true,
+        "backendHealthy": true,
+        "displayedPhase": "当前阶段 · M7 验收"
+      }
+    },
+    {
+      "name": "我的知识库列出合成验收资料且可查看文档",
+      "status": "PASSED",
+      "durationMs": 169,
+      "evidence": {
+        "knowledgeBaseName": "F32 真实评测 2026-09-29T13:21:09.313Z",
+        "documentCount": 6,
+        "documentNames": [
+          "operations-sla-guide",
+          "merchant-console-guide",
+          "reconciliation-guide",
+          "refund-guide",
+          "order-api-reference",
+          "payment-callback-guide"
+        ]
+      }
+    },
+    {
+      "name": "支付回调文档当前原文、历史版本和分块均可查看",
+      "status": "PASSED",
+      "durationMs": 394,
+      "evidence": {
+        "versionCount": 2,
+        "historicalFiveSecondContract": true,
+        "currentV2Contract": true,
+        "visibleChunkCount": 12
+      }
+    },
+    {
+      "name": "工单页面显示真实合成工单状态与查询时间",
+      "status": "PASSED",
+      "durationMs": 81,
+      "evidence": {
+        "ticketNo": "F32707894507",
+        "status": "RESOLVED",
+        "knowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+        "queriedAt": "2026-09-30T05:59:28.211931611Z"
+      }
+    },
+    {
+      "name": "不存在工单显示明确反馈而非保留旧卡片",
+      "status": "PASSED",
+      "durationMs": 66,
+      "evidence": {
+        "message": "未找到该工单，或当前账号无权查看。\n\n重试",
+        "visibleTicketCards": 0
+      }
+    },
+    {
+      "name": "选择固定知识库创建独立 RAG 会话并重命名",
+      "status": "PASSED",
+      "durationMs": 281,
+      "evidence": {
+        "sessionId": "3f4b2477-131b-4ae9-9f70-aa885f291695",
+        "sessionTitle": "M7 浏览器验收 2026-09-30T05:59:28.294Z",
+        "mode": "RAG",
+        "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56"
+      }
+    },
+    {
+      "name": "真实 SSE 回答在完成前多次渐进更新",
+      "status": "PASSED",
+      "durationMs": 1816,
+      "evidence": {
+        "runId": "55ca9f45-3869-4577-b0ac-5453696624e0",
+        "sessionId": "3f4b2477-131b-4ae9-9f70-aa885f291695",
+        "sseEventCount": 111,
+        "deltaEvents": 108,
+        "domUpdates": 108,
+        "intermediateUpdates": 107,
+        "progress": [
+          {
+            "elapsedMs": 476,
+            "length": 2,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 478,
+            "length": 5,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 489,
+            "length": 7,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 498,
+            "length": 8,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 509,
+            "length": 10,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 518,
+            "length": 12,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 530,
+            "length": 14,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 540,
+            "length": 16,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 551,
+            "length": 17,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 561,
+            "length": 19,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 571,
+            "length": 21,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 582,
+            "length": 22,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 592,
+            "length": 24,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 602,
+            "length": 27,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 613,
+            "length": 30,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 625,
+            "length": 32,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 634,
+            "length": 33,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 655,
+            "length": 36,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 665,
+            "length": 37,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 686,
+            "length": 41,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 696,
+            "length": 43,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 706,
+            "length": 45,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 716,
+            "length": 47,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 726,
+            "length": 49,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 768,
+            "length": 56,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 778,
+            "length": 58,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 788,
+            "length": 59,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 798,
+            "length": 60,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 809,
+            "length": 61,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 820,
+            "length": 62,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 830,
+            "length": 63,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 840,
+            "length": 64,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 851,
+            "length": 66,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 861,
+            "length": 68,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 872,
+            "length": 70,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 882,
+            "length": 71,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 892,
+            "length": 73,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 902,
+            "length": 77,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 913,
+            "length": 79,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 926,
+            "length": 83,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 933,
+            "length": 86,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 943,
+            "length": 88,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 954,
+            "length": 89,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 965,
+            "length": 97,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 975,
+            "length": 106,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 986,
+            "length": 107,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 995,
+            "length": 109,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1006,
+            "length": 110,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1016,
+            "length": 112,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1027,
+            "length": 113,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1037,
+            "length": 114,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1047,
+            "length": 115,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1071,
+            "length": 118,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1081,
+            "length": 119,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1102,
+            "length": 123,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1113,
+            "length": 125,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1124,
+            "length": 127,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1135,
+            "length": 129,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1178,
+            "length": 136,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1188,
+            "length": 138,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1199,
+            "length": 141,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1210,
+            "length": 144,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1221,
+            "length": 145,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1242,
+            "length": 147,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1253,
+            "length": 149,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1274,
+            "length": 151,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1285,
+            "length": 153,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1295,
+            "length": 155,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1306,
+            "length": 158,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1317,
+            "length": 160,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1327,
+            "length": 161,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1336,
+            "length": 162,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1348,
+            "length": 163,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1367,
+            "length": 166,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1378,
+            "length": 167,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1398,
+            "length": 171,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1408,
+            "length": 173,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1418,
+            "length": 176,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1429,
+            "length": 178,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1470,
+            "length": 185,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1480,
+            "length": 187,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1490,
+            "length": 189,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1500,
+            "length": 191,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1513,
+            "length": 192,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1521,
+            "length": 195,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1531,
+            "length": 196,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1541,
+            "length": 198,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1552,
+            "length": 205,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1561,
+            "length": 206,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1571,
+            "length": 208,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1581,
+            "length": 209,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1592,
+            "length": 211,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1602,
+            "length": 212,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1613,
+            "length": 213,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1623,
+            "length": 214,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1633,
+            "length": 215,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1644,
+            "length": 217,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1654,
+            "length": 219,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1663,
+            "length": 220,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1675,
+            "length": 223,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1684,
+            "length": 224,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1694,
+            "length": 226,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1709,
+            "length": 228,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1721,
+            "length": 230,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1731,
+            "length": 232,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1742,
+            "length": 233,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1754,
+            "length": 234,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1764,
+            "length": 235,
+            "streaming": true
+          }
+        ],
+        "citedNumbers": [
+          1,
+          2,
+          4,
+          3
+        ],
+        "sourceButtonCount": 4,
+        "answer": "根据提供的资料，关于支付回调入口、响应时限和确认字符串的回答如下：\n\n1.  **支付回调入口**\n    当前版本（2.0）的支付回调入口为 `POST /openapi/v2/payment/callback` [1][2]。\n\n2.  **响应时限**\n    商户系统必须在 **3 秒** 内返回确认字符串 [1]。\n\n3.  **确认字符串**\n    商户系统必须返回的字符串是 `SUCCESS` [1][4]。若测试返回该字符串则表明配置成功 [3]。"
+      }
+    },
+    {
+      "name": "引用按钮打开对应真实原文且显示版本身份",
+      "status": "PASSED",
+      "durationMs": 729,
+      "evidence": {
+        "sourcePath": "/api/chunks/3820490a-a273-3614-b630-5a417c0275f9/source",
+        "citedNumber": 1,
+        "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+        "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+        "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+        "documentName": "payment-callback-guide",
+        "versionNo": 2,
+        "isCurrent": true,
+        "contentCharacters": 132
+      }
+    },
+    {
+      "name": "刷新后历史会话、回答和引用来源保持一致",
+      "status": "PASSED",
+      "durationMs": 1138,
+      "evidence": {
+        "sessionId": "3f4b2477-131b-4ae9-9f70-aa885f291695",
+        "runId": "55ca9f45-3869-4577-b0ac-5453696624e0",
+        "sameAnswerAfterReload": true,
+        "sourceReadableAfterReload": true
+      }
+    },
+    {
+      "name": "智能助手真实组合知识与工单并展示两类引用",
+      "status": "PASSED",
+      "durationMs": 6534,
+      "evidence": {
+        "sessionId": "efc365dd-a406-447f-b5d4-d0047b215c08",
+        "runId": "b575a809-dfa4-4f0c-bc74-8cda746ea14a",
+        "tools": [
+          {
+            "name": "getTicketStatus",
+            "status": "STARTED"
+          },
+          {
+            "name": "getTicketStatus",
+            "status": "SUCCEEDED"
+          },
+          {
+            "name": "searchKnowledge",
+            "status": "STARTED"
+          },
+          {
+            "name": "searchKnowledge",
+            "status": "SUCCEEDED"
+          }
+        ],
+        "citations": [
+          1,
+          2,
+          3
+        ],
+        "sources": [
+          {
+            "number": 1,
+            "type": "TICKET",
+            "documentId": null,
+            "versionId": null,
+            "chunkId": null,
+            "title": "F32 回调超时验收",
+            "section": "F32值班员",
+            "available": true,
+            "previewPath": null,
+            "ticketNo": "F32707894507",
+            "ticketStatus": "RESOLVED",
+            "ticketUpdatedAt": "2026-09-29T14:44:28.744107Z",
+            "ticketQueriedAt": "2026-09-30T05:59:33.891315914Z",
+            "originSourceId": null,
+            "toolCallId": "9fabbb55-dfff-40ec-9f28-dda5c5be7c3f",
+            "inherited": false,
+            "isCurrent": true
+          },
+          {
+            "number": 2,
+            "type": "DOCUMENT",
+            "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+            "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+            "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+            "title": "F32 任务控制夹具",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/ae36100c-2899-346e-a6d3-718654bd59fe/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+            "inherited": false,
+            "isCurrent": true
+          },
+          {
+            "number": 3,
+            "type": "DOCUMENT",
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+            "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+            "title": "F32 故障处理手册-9b580eff62e5",
+            "section": null,
+            "available": true,
+            "previewPath": "/api/chunks/c9582328-a41c-3378-b272-8d5b50792ea4/source",
+            "ticketNo": null,
+            "ticketStatus": null,
+            "ticketUpdatedAt": null,
+            "ticketQueriedAt": null,
+            "originSourceId": null,
+            "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+            "inherited": false,
+            "isCurrent": true
+          }
+        ],
+        "answer": "工单 F32707894507 当前状态为 RESOLVED（已解决），更新于 2026-09-29T14:44:28.744107Z[1]，标题为\"F32 回调超时验收\"，描述为\"F32_E_TIMEOUT 回调失败待排查\"。\n\n根据《F32 任务控制夹具》手册[2]与《F32 故障处理手册-9b580eff62e5》[3]的说明，错误码 F32_E_TIMEOUT 表示回调超时，处理建议如下：\n1. 核对回调地址和网络配置是否正常；\n2. 按四次退避重试策略进行重试操作；\n3. 通知值班人员协助处理。\n\n由于工单状态已为 RESOLVED，建议结合手册中“四次退避重试”等规范执行后续验证，若仍存在问题再行反馈。",
+        "documentPreviewMatchesSourceIdentity": true
+      }
+    },
+    {
+      "name": "退出后返回登录页且认证会话失效",
+      "status": "PASSED",
+      "durationMs": 63,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "meStatus": 401
+      }
+    },
+    {
+      "name": "没有未捕获页面异常或非预期失败请求",
+      "status": "PASSED",
+      "durationMs": 0,
+      "evidence": {
+        "pageErrors": 0,
+        "unexpectedFailedHttp": 0,
+        "unexpectedConsoleErrors": 0,
+        "expectedNegativeHttp": 2
+      }
+    }
+  ],
+  "screenshots": [
+    "evaluation/results/regression-browser-20260930-r4-documents.png",
+    "evaluation/results/regression-browser-20260930-r4-source.png",
+    "evaluation/results/regression-browser-20260930-r4-assistant.png"
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "path": "/api/auth/me"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 ()",
+      "path": "/api/tickets/M7-NOT-EXIST"
+    }
+  ],
+  "pageErrors": [],
+  "failedHttp": [
+    {
+      "status": 401,
+      "path": "/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "status": 404,
+      "path": "/api/tickets/M7-NOT-EXIST",
+      "method": "GET"
+    }
+  ],
+  "findings": [],
+  "browserVersion": "154.0.4258.37",
+  "streams": [
+    {
+      "sessionId": "3f4b2477-131b-4ae9-9f70-aa885f291695",
+      "runId": "55ca9f45-3869-4577-b0ac-5453696624e0",
+      "terminal": [
+        {
+          "event": "done",
+          "data": {
+            "runId": "55ca9f45-3869-4577-b0ac-5453696624e0",
+            "status": "COMPLETED",
+            "usage": {
+              "promptTokens": 906,
+              "completionTokens": 126,
+              "totalTokens": 1032
+            },
+            "metrics": {
+              "evidenceCount": 6,
+              "retrievedEvidenceCount": 6,
+              "scoreFilteredEvidenceCount": 0,
+              "budgetFilteredEvidenceCount": 0,
+              "evidenceTokenCount": 453,
+              "citedCount": 4,
+              "noEvidence": false,
+              "retrievalMs": 25,
+              "embeddingTotalTokens": null,
+              "rerankStatus": "DISABLED",
+              "rerankCandidateCount": 0,
+              "rerankMs": 0,
+              "rerankTotalTokens": null,
+              "generationMs": 1652,
+              "totalMs": 1718,
+              "firstDeltaMs": 416,
+              "queryRewrite": {
+                "originalQuestion": "根据当前支付回调手册，支付回调入口、响应时限和确认字符串是什么？请引用来源。",
+                "retrievalQuestion": "根据当前支付回调手册，支付回调入口、响应时限和确认字符串是什么？请引用来源。",
+                "status": "NO_HISTORY"
+              }
+            }
+          }
+        }
+      ],
+      "tools": []
+    },
+    {
+      "sessionId": "efc365dd-a406-447f-b5d4-d0047b215c08",
+      "runId": "b575a809-dfa4-4f0c-bc74-8cda746ea14a",
+      "terminal": [
+        {
+          "event": "done",
+          "data": {
+            "runId": "b575a809-dfa4-4f0c-bc74-8cda746ea14a",
+            "status": "COMPLETED",
+            "usage": null,
+            "metrics": {
+              "evidenceCount": 3,
+              "citedCount": 3,
+              "noEvidence": false,
+              "totalMs": 4538,
+              "firstDeltaMs": 4536,
+              "modelCallCount": 2,
+              "toolCallCount": 2,
+              "maxObservedContextTokens": 1227,
+              "toolCallLimit": 2,
+              "modelCallLimit": 3,
+              "retrievedEvidenceCount": 3,
+              "scoreFilteredEvidenceCount": 0,
+              "budgetFilteredEvidenceCount": 0,
+              "evidenceTokenCount": 0,
+              "retrievalMs": 0,
+              "embeddingTotalTokens": null,
+              "rerankStatus": "NOT_REACHED",
+              "rerankCandidateCount": 0,
+              "rerankMs": 0,
+              "rerankTotalTokens": null,
+              "generationMs": null,
+              "queryRewrite": null
+            }
+          }
+        }
+      ],
+      "tools": [
+        {
+          "name": "getTicketStatus",
+          "status": "STARTED"
+        },
+        {
+          "name": "getTicketStatus",
+          "status": "SUCCEEDED"
+        },
+        {
+          "name": "searchKnowledge",
+          "status": "STARTED"
+        },
+        {
+          "name": "searchKnowledge",
+          "status": "SUCCEEDED"
+        }
+      ]
+    }
+  ],
+  "assistantObservation": {
+    "sessionId": "efc365dd-a406-447f-b5d4-d0047b215c08",
+    "runId": "b575a809-dfa4-4f0c-bc74-8cda746ea14a",
+    "answer": "工单 F32707894507 当前状态为 RESOLVED（已解决），更新于 2026-09-29T14:44:28.744107Z[1]，标题为\"F32 回调超时验收\"，描述为\"F32_E_TIMEOUT 回调失败待排查\"。\n\n根据《F32 任务控制夹具》手册[2]与《F32 故障处理手册-9b580eff62e5》[3]的说明，错误码 F32_E_TIMEOUT 表示回调超时，处理建议如下：\n1. 核对回调地址和网络配置是否正常；\n2. 按四次退避重试策略进行重试操作；\n3. 通知值班人员协助处理。\n\n由于工单状态已为 RESOLVED，建议结合手册中“四次退避重试”等规范执行后续验证，若仍存在问题再行反馈。",
+    "sources": [
+      {
+        "number": 1,
+        "type": "TICKET",
+        "documentId": null,
+        "versionId": null,
+        "chunkId": null,
+        "title": "F32 回调超时验收",
+        "section": "F32值班员",
+        "available": true,
+        "previewPath": null,
+        "ticketNo": "F32707894507",
+        "ticketStatus": "RESOLVED",
+        "ticketUpdatedAt": "2026-09-29T14:44:28.744107Z",
+        "ticketQueriedAt": "2026-09-30T05:59:33.891315914Z",
+        "originSourceId": null,
+        "toolCallId": "9fabbb55-dfff-40ec-9f28-dda5c5be7c3f",
+        "inherited": false,
+        "isCurrent": true
+      },
+      {
+        "number": 2,
+        "type": "DOCUMENT",
+        "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+        "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+        "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+        "title": "F32 任务控制夹具",
+        "section": null,
+        "available": true,
+        "previewPath": "/api/chunks/ae36100c-2899-346e-a6d3-718654bd59fe/source",
+        "ticketNo": null,
+        "ticketStatus": null,
+        "ticketUpdatedAt": null,
+        "ticketQueriedAt": null,
+        "originSourceId": null,
+        "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+        "inherited": false,
+        "isCurrent": true
+      },
+      {
+        "number": 3,
+        "type": "DOCUMENT",
+        "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+        "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+        "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+        "title": "F32 故障处理手册-9b580eff62e5",
+        "section": null,
+        "available": true,
+        "previewPath": "/api/chunks/c9582328-a41c-3378-b272-8d5b50792ea4/source",
+        "ticketNo": null,
+        "ticketStatus": null,
+        "ticketUpdatedAt": null,
+        "ticketQueriedAt": null,
+        "originSourceId": null,
+        "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+        "inherited": false,
+        "isCurrent": true
+      }
+    ],
+    "citations": [
+      1,
+      2,
+      3
+    ]
+  },
+  "completedAt": "2026-09-30T05:59:39.093Z",
+  "durationMs": 14619,
+  "passedChecks": 13,
+  "failedChecks": 0
+}

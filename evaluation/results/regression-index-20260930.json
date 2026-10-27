@@ -1,0 +1,1269 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "M1_M7_REGRESSION_ARTIFACT_INDEX",
+  "recordedAt": "2026-09-30T06:07:50.337Z",
+  "status": "NOT_PASSED",
+  "gitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+  "acceptancePending": [
+    {
+      "id": "LOCAL_ANSWER_QUALITY",
+      "status": "OPEN",
+      "reason": "开发集默认TopK6仍漏DEV-002/013/033预期证据，DEV-014首查步骤不正确；TopK24虽补召回却有语义退步与成本上升，已恢复6。v9助手参数/时间改善，但部分样本仍扩大操作条件，未关闭质量缺口。"
+    },
+    {
+      "id": "CLOUD_PROVIDER",
+      "status": "PENDING",
+      "reason": "原 F01 云端 Chat、流式、Embedding 和向量链路尚需独立实测；不得以本地结果代替或自动缩减范围。"
+    },
+    {
+      "id": "HUMAN_QUALITY_REVIEW",
+      "status": "PENDING_APPROVAL",
+      "reason": "引用正确、依据充分、拒答及已记录质量问题仍需正式人工评审签核；自动采集不代签。"
+    },
+    {
+      "id": "REAL_RERANK_COMPARISON",
+      "status": "PENDING",
+      "reason": "真实重排序服务及相同开发集关闭/开启质量、成本比较尚待验证，关闭状态不等于通过。"
+    },
+    {
+      "id": "TEST039_SCOPE",
+      "status": "PENDING_APPROVAL",
+      "reason": "TEST-039 旧/新版本预期范围冲突需在新数据集版本中审定；不修改旧固定题、答案或分数凑通过。"
+    }
+  ],
+  "selection": {
+    "directory": "evaluation/results",
+    "pattern": "regression-*.json/.png/.mjs",
+    "recursive": false,
+    "excludesOutput": true,
+    "artifactCount": 42
+  },
+  "artifacts": [
+    {
+      "path": "evaluation/results/regression-assistant-quality-v8-20260930.json",
+      "bytes": 10144,
+      "sha256": "5ba9304ecbca59d07b6e91d5309e3adf3999034135c634be0e4a4c43d6e7e8b2",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "ASSISTANT_SOURCE_GROUNDING_AUXILIARY_REVIEW",
+        "status": "SOURCE_GROUNDING_ISSUE",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null
+      }
+    },
+    {
+      "path": "evaluation/results/regression-assistant-quality-v9-20260930.json",
+      "bytes": 26500,
+      "sha256": "562c21fa3405dcf1017c1bcbe7fa6302248289dbaaf38ca188224f23d5610eda",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "ASSISTANT_SOURCE_GROUNDING_AUXILIARY_REVIEW",
+        "status": "TARGETED_FIX_VERIFIED_WITH_SEMANTIC_CAVEAT",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null
+      }
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r1-documents.png",
+      "bytes": 286164,
+      "sha256": "2a4ce8b43aa2883ce49e775a7483af247c122fc10d25fe7022c268a81c05b9e4"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r1-failure.png",
+      "bytes": 201831,
+      "sha256": "585bc68df5d480fc6bb780fca820db4de557e90374c3c64a57153a1a0f70367a"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r1-source.png",
+      "bytes": 112570,
+      "sha256": "a9eda98fa9e2ebd4a688a8afce38082de4fdff9bf1f81684736b2a57cd293a33"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r1.json",
+      "bytes": 21694,
+      "sha256": "531732eac914d489e80080b79cf945349f6e48735847373763b439e1a837641c",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+        "status": "FAILED",
+        "checks": {
+          "total": 11,
+          "states": {
+            "PASSED": 10,
+            "FAILED": 1
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "7dbd6369e4c674ad4d5da953d7f7667c4a314534b2f01999fe47f7f6767ed0ab",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:17:36.406Z",
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "NO_MATCHING_SOURCE_SNAPSHOT",
+          "matches": [],
+          "note": "保留原批次结果，不将当前脚本追认为当时执行源码。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r2-documents.png",
+      "bytes": 286108,
+      "sha256": "4ffec01ca553ba01936280abe2c3e62909ca1bb5cd7af886d8867a06897a41e9"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r2-failure.png",
+      "bytes": 217774,
+      "sha256": "74c2fc292bf8f0b16367f835e4b58ad3147c9a5d714b205289b2d82c0dc4aeab"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r2-source.png",
+      "bytes": 123203,
+      "sha256": "98428041da20fccea109361b2eac64184d4791f9243505a908e482c5771c76d4"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r2.json",
+      "bytes": 34371,
+      "sha256": "9f8530c847f119d1c086c3ad045c50305596f49fa2942508f7c551a3cef6f1de",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+        "status": "FAILED",
+        "checks": {
+          "total": 11,
+          "states": {
+            "PASSED": 10,
+            "FAILED": 1
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "bc68823120220b0c8f48047f23d98d922a6a729e5b97b1a014952aca0b9544e2",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:33:22.526Z",
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "NO_MATCHING_SOURCE_SNAPSHOT",
+          "matches": [],
+          "note": "保留原批次结果，不将当前脚本追认为当时执行源码。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r3-assistant.png",
+      "bytes": 218714,
+      "sha256": "c90d3ded65ac59f06184fadb072addd05349eedb472d0519d4d896334274a441"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r3-documents.png",
+      "bytes": 286116,
+      "sha256": "24877faa427ed7414f423a1e45abbe255d79038806b5b748eb7859b38ead0677"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r3-source.png",
+      "bytes": 123633,
+      "sha256": "84bad2d7ca44c5bb1a8311dac6f15a7fe0e31f6250f6be11feb61df9d0908e07"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r3.json",
+      "bytes": 38917,
+      "sha256": "df8c4aec5e6887f21431bcf0e28f2adafd51fdf01858bc95f49ef00a4ce5515f",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+        "status": "PASSED",
+        "checks": {
+          "total": 13,
+          "states": {
+            "PASSED": 13
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "66a373dcce14ac7e701f2c93422f248b3a1c928dc7555f7879b7cbc8cc7c367d",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:35:08.347Z",
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "deploy/scripts/verify-m7-browser.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r4-assistant.png",
+      "bytes": 180749,
+      "sha256": "7f0caf0c9301d3c2d4965a267ba1370e6457fe7f13aa044078337ade30081854"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r4-documents.png",
+      "bytes": 286100,
+      "sha256": "07867aa5993933cd780d5d56beeda9f77c00c17f009e0aceb7549427a6309134"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r4-source.png",
+      "bytes": 112802,
+      "sha256": "a39b7f92805c5d86ba100509a63ad262ecf8110480e57b5f4befb8ee3c5b61e5"
+    },
+    {
+      "path": "evaluation/results/regression-browser-20260930-r4.json",
+      "bytes": 28400,
+      "sha256": "df85133a885b230c20a2e13b676fcfd2944b37aec429d51220f67043064abf19",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+        "status": "PASSED",
+        "checks": {
+          "total": 13,
+          "states": {
+            "PASSED": 13
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "66a373dcce14ac7e701f2c93422f248b3a1c928dc7555f7879b7cbc8cc7c367d",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:59:24.474Z",
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "deploy/scripts/verify-m7-browser.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-development-review-20260930.json",
+      "bytes": 19149,
+      "sha256": "751c09472f034275de27db91f7c167a58ce3ec63d6abbd51efd7bb669658e875",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "DEVELOPMENT_TOPK_AUXILIARY_SEMANTIC_OBSERVATIONS",
+        "status": "AUXILIARY_REVIEW_PENDING_HUMAN_REVIEW",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null
+      }
+    },
+    {
+      "path": "evaluation/results/regression-development-topk24-20260930.json",
+      "bytes": 2403260,
+      "sha256": "f624981fc055e16d2a4780c9079fc6cbdd2df0c1d8106db26018ba3e76304819",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "F32_REAL_HTTP_EVALUATION",
+        "status": "COMPLETE_CAPTURE_PENDING_HUMAN_REVIEW",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": {
+          "status": null,
+          "artifactKind": null
+        },
+        "results": {
+          "total": 60,
+          "states": {
+            "COMPLETED": 48,
+            "NOT_RUN": 12
+          },
+          "nestedRunStates": {
+            "total": 60,
+            "states": {
+              "COMPLETED": 48,
+              "NOT_RUN": 12
+            }
+          }
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null
+      }
+    },
+    {
+      "path": "evaluation/results/regression-development-topk6-20260930.json",
+      "bytes": 1492175,
+      "sha256": "b72e1ef262bf82002e99565126e19a7e45f0949033401cc4ac55d8b81ec89069",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "F32_REAL_HTTP_EVALUATION",
+        "status": "COMPLETE_CAPTURE_PENDING_HUMAN_REVIEW",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": {
+          "status": null,
+          "artifactKind": null
+        },
+        "results": {
+          "total": 60,
+          "states": {
+            "COMPLETED": 48,
+            "NOT_RUN": 12
+          },
+          "nestedRunStates": {
+            "total": 60,
+            "states": {
+              "COMPLETED": 48,
+              "NOT_RUN": 12
+            }
+          }
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null
+      }
+    },
+    {
+      "path": "evaluation/results/regression-engineering-20260930-final.json",
+      "bytes": 72906,
+      "sha256": "911ad5c4bc7d11c06ff8ea5058a52dd0b03f9f936ec0ec630ffe89a16c64e332",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M7_ENGINEERING_REGRESSION_V7",
+        "status": "PASSED",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": null,
+        "finishedAt": null,
+        "components": {
+          "backend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "frontend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "evaluation": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-engineering-20260930-v6.json",
+      "bytes": 71134,
+      "sha256": "0b736ed072e74f9f1ff6addde81024985a2662706bd7eb8501b1b5c7d8b2fe4d",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M7_ENGINEERING_REGRESSION_V6",
+        "status": "PASSED",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": null,
+        "finishedAt": null,
+        "components": {
+          "backend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "frontend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "evaluation": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-engineering-20260930-v8.json",
+      "bytes": 73183,
+      "sha256": "0538b9e9b613a6979faad53b736a9d17786aa0125c237a8afaf61f8f46977c52",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M7_ENGINEERING_REGRESSION_V8",
+        "status": "PASSED",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": null,
+        "finishedAt": null,
+        "components": {
+          "backend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "frontend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "evaluation": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-engineering-20260930-v9.json",
+      "bytes": 74596,
+      "sha256": "cfbfac90dc3bcf14eba573b5faf30e6ed8fcc5b30360e67c3b852a713fc66d68",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M7_ENGINEERING_REGRESSION_V9",
+        "status": "PASSED",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": null,
+        "finishedAt": null,
+        "components": {
+          "backend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "frontend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "evaluation": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-engineering-20260930.json",
+      "bytes": 69036,
+      "sha256": "a3b9571d1d3e3dc43c3ae7c0560772993074bc63393ad86de579eeb6cd7401ea",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M7_ENGINEERING_REGRESSION",
+        "status": "PASSED",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": null,
+        "finishedAt": null,
+        "components": {
+          "backend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "frontend": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          },
+          "evaluation": {
+            "status": null,
+            "checks": {
+              "total": 0,
+              "states": {}
+            },
+            "results": {
+              "total": 0,
+              "states": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-engineering-capture-script.mjs",
+      "bytes": 9164,
+      "sha256": "f91b0106489aaadaa9a36aa8fc002f17d6a487dfab5e414cf5c88fcf6ebded9b"
+    },
+    {
+      "path": "evaluation/results/regression-index-script.mjs",
+      "bytes": 13052,
+      "sha256": "c052559670ea8d74fe72cb1503235cfb7b48ddd6317a930f38a75ddba148c190"
+    },
+    {
+      "path": "evaluation/results/regression-m1-m4-20260930-r1.json",
+      "bytes": 245608,
+      "sha256": "8490fec59c6e2b1cb032d9cf9240e5c3a61881f06ad4a606b5e9173d6b0e00bc",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M4_REAL_DEPLOYMENT_REGRESSION",
+        "status": "FAILED",
+        "checks": {
+          "total": 42,
+          "states": {
+            "PASSED": 42
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 5,
+          "states": {
+            "COMPLETED": 5
+          }
+        },
+        "scriptSha256": "137a4d4494ce066b5058bc77401337822e0cfe5b70e08ab5d97384c8a39883d3",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T04:44:02.219Z",
+        "finishedAt": "2026-09-30T04:45:19.954Z",
+        "scriptFingerprint": {
+          "status": "NO_MATCHING_SOURCE_SNAPSHOT",
+          "matches": [],
+          "note": "保留原批次结果，不将当前脚本追认为当时执行源码。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m1-m4-20260930-r2.json",
+      "bytes": 174707,
+      "sha256": "54cbe1720102ebaeee3c6249f1ccfa5ca5399f91954821314ca282dff44d72f0",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M4_REAL_DEPLOYMENT_REGRESSION",
+        "status": "FAILED",
+        "checks": {
+          "total": 20,
+          "states": {
+            "PASSED": 19,
+            "FAILED": 1
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 2,
+          "states": {
+            "COMPLETED": 2
+          }
+        },
+        "scriptSha256": "81d29dd2429328231c2ee24bb7a9e92f118e46c1370865dfe3c6608744fa2208",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T04:48:28.879Z",
+        "finishedAt": "2026-09-30T04:49:34.164Z",
+        "scriptFingerprint": {
+          "status": "NO_MATCHING_SOURCE_SNAPSHOT",
+          "matches": [],
+          "note": "保留原批次结果，不将当前脚本追认为当时执行源码。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m1-m4-20260930-r3.json",
+      "bytes": 317748,
+      "sha256": "d16c323c3d9f7af4f33a63a33f16b628e72d7c71bf5c39571f36efbdf17bdf3f",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M1_M4_REAL_DEPLOYMENT_REGRESSION",
+        "status": "PASSED",
+        "checks": {
+          "total": 67,
+          "states": {
+            "PASSED": 67
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 8,
+          "states": {
+            "COMPLETED": 8
+          }
+        },
+        "scriptSha256": "bba3d1813806ad7bd1d9d3913d74f5bb661909b743cca344a198519416914bb9",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T04:51:45.363Z",
+        "finishedAt": "2026-09-30T04:53:23.205Z",
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "deploy/scripts/verify-m1-m4-regression.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m6-20260930-r1.json",
+      "bytes": 123510,
+      "sha256": "0e30721bc868b120375a120efd3b71bb38477214ef5da54c456d810c31d9a877",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M6_LOCAL_REGRESSION",
+        "status": "FAILED",
+        "checks": {
+          "total": 5,
+          "states": {
+            "PASSED": 4,
+            "FAILED": 1
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 4,
+          "states": {
+            "COMPLETED": 4
+          }
+        },
+        "scriptSha256": "da3e92c38e9dd7d9477db47e5583613bf10a21344c824c609f1454ef964c2edc",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T04:54:18.681Z",
+        "finishedAt": "2026-09-30T04:55:05.951Z",
+        "scriptFingerprint": {
+          "status": "NO_MATCHING_SOURCE_SNAPSHOT",
+          "matches": [],
+          "note": "保留原批次结果，不将当前脚本追认为当时执行源码。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m6-20260930-r2.json",
+      "bytes": 109607,
+      "sha256": "25e6dbababdaacbc233d6d65c486881d0457198009164f7f7032e9f60d4d3c45",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M6_LOCAL_REGRESSION",
+        "status": "FAILED",
+        "checks": {
+          "total": 4,
+          "states": {
+            "PASSED": 3,
+            "FAILED": 1
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 3,
+          "states": {
+            "COMPLETED": 2,
+            "FAILED": 1
+          }
+        },
+        "scriptSha256": "82d21c365fb136903ecc98bf2c17638851854e613474853e7923143e8d95e2c7",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:07:40.348Z",
+        "finishedAt": "2026-09-30T05:08:22.917Z",
+        "scriptFingerprint": {
+          "status": "NO_MATCHING_SOURCE_SNAPSHOT",
+          "matches": [],
+          "note": "保留原批次结果，不将当前脚本追认为当时执行源码。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m6-20260930-r3.json",
+      "bytes": 174456,
+      "sha256": "74fc79062565709cebf85a8b76efd22438c68019802aa024a4a9960b60676210",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M6_LOCAL_REGRESSION",
+        "status": "PASSED",
+        "checks": {
+          "total": 14,
+          "states": {
+            "PASSED": 14
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 15,
+          "states": {
+            "COMPLETED": 10,
+            "FAILED": 4,
+            "CANCELLED": 1
+          }
+        },
+        "scriptSha256": "2910c919c62fca8c36064c1f6ec0c0676b10d442fe70d5cfb102931721f79721",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:16:14.316Z",
+        "finishedAt": "2026-09-30T05:17:11.878Z",
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "deploy/scripts/verify-m6-regression.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m6-20260930-r4.json",
+      "bytes": 180716,
+      "sha256": "f56afbeb6507a5bc01121884a4bee7543852d0fa4c7591c0303026fe29ad6c95",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M6_LOCAL_REGRESSION",
+        "status": "PASSED",
+        "checks": {
+          "total": 14,
+          "states": {
+            "PASSED": 14
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 15,
+          "states": {
+            "COMPLETED": 11,
+            "FAILED": 3,
+            "CANCELLED": 1
+          }
+        },
+        "scriptSha256": "2910c919c62fca8c36064c1f6ec0c0676b10d442fe70d5cfb102931721f79721",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:31:36.416Z",
+        "finishedAt": "2026-09-30T05:32:38.219Z",
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "deploy/scripts/verify-m6-regression.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-m6-20260930-r5.json",
+      "bytes": 181776,
+      "sha256": "2752d6cf1f0b81ca819b4a3dd29d2510fb61ddbe7d5f635d047ae263631dfccb",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "M6_LOCAL_REGRESSION",
+        "status": "PASSED",
+        "checks": {
+          "total": 14,
+          "states": {
+            "PASSED": 14
+          }
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 15,
+          "states": {
+            "COMPLETED": 11,
+            "FAILED": 3,
+            "CANCELLED": 1
+          }
+        },
+        "scriptSha256": "2910c919c62fca8c36064c1f6ec0c0676b10d442fe70d5cfb102931721f79721",
+        "declaredGitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+        "startedAt": "2026-09-30T05:57:46.677Z",
+        "finishedAt": "2026-09-30T05:58:56.568Z",
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "deploy/scripts/verify-m6-regression.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-runtime-capture-script.mjs",
+      "bytes": 1316,
+      "sha256": "507113e22a94893289b7e259ad5db7de310a2fd6be88bfa9d3b4c7e1856523d0"
+    },
+    {
+      "path": "evaluation/results/regression-runtime-final-20260930.json",
+      "bytes": 529,
+      "sha256": "0c7a87f027c10d05c71c393e9bb9296bf19fdf8bba4c657c46f1eb3fb7b90689",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": null,
+        "status": null,
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "507113e22a94893289b7e259ad5db7de310a2fd6be88bfa9d3b4c7e1856523d0",
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "evaluation/results/regression-runtime-capture-script.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-runtime-topk24-20260930.json",
+      "bytes": 529,
+      "sha256": "501f3510bb03ee86e9a892d496384007e6e30aa8d95d933c476e99a6266db80c",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": null,
+        "status": null,
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "507113e22a94893289b7e259ad5db7de310a2fd6be88bfa9d3b4c7e1856523d0",
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "evaluation/results/regression-runtime-capture-script.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-runtime-topk6-20260930.json",
+      "bytes": 529,
+      "sha256": "b3d3a81536a69eab4dec180e9a166436ef156d415ab43fabc503768cb84f2967",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": null,
+        "status": null,
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": "507113e22a94893289b7e259ad5db7de310a2fd6be88bfa9d3b4c7e1856523d0",
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null,
+        "scriptFingerprint": {
+          "status": "MATCHED_BYTES",
+          "matches": [
+            "evaluation/results/regression-runtime-capture-script.mjs"
+          ],
+          "note": "仅确认所列源码字节匹配该产物声明的脚本摘要。"
+        }
+      }
+    },
+    {
+      "path": "evaluation/results/regression-topk-comparison-20260930.json",
+      "bytes": 229826,
+      "sha256": "6aa5f6b6a5f4160b1d67fdf90804a1984502e2223ecaea99c34e7dc360d2e5ba",
+      "json": {
+        "parseStatus": "VALID",
+        "artifactKind": "DEVELOPMENT_TOPK_6_TO_24_OBJECTIVE_COMPARISON",
+        "status": "DRAFT_PENDING_HUMAN_REVIEW",
+        "checks": {
+          "total": 0,
+          "states": {}
+        },
+        "metadata": null,
+        "results": {
+          "total": 0,
+          "states": {}
+        },
+        "runs": {
+          "total": 0,
+          "states": {}
+        },
+        "scriptSha256": null,
+        "declaredGitCommit": null,
+        "startedAt": null,
+        "finishedAt": null
+      }
+    },
+    {
+      "path": "evaluation/results/regression-topk-comparison-script.mjs",
+      "bytes": 12719,
+      "sha256": "d7267f8fa833edd7103f4abe9e328e7436e207c2030e68958c7f9664c24fc876"
+    }
+  ],
+  "executionScripts": [
+    {
+      "path": "deploy/scripts/verify-m1-m4-regression.mjs",
+      "bytes": 33852,
+      "sha256": "bba3d1813806ad7bd1d9d3913d74f5bb661909b743cca344a198519416914bb9",
+      "availability": "PRESENT"
+    },
+    {
+      "path": "deploy/scripts/verify-m6-regression.mjs",
+      "bytes": 18533,
+      "sha256": "2910c919c62fca8c36064c1f6ec0c0676b10d442fe70d5cfb102931721f79721",
+      "availability": "PRESENT"
+    },
+    {
+      "path": "deploy/scripts/verify-m7-browser.mjs",
+      "bytes": 29845,
+      "sha256": "66a373dcce14ac7e701f2c93422f248b3a1c928dc7555f7879b7cbc8cc7c367d",
+      "availability": "PRESENT"
+    }
+  ],
+  "changedProductionSources": {
+    "scope": "HEAD 对比中的已跟踪修改及未忽略新文件，仅生产源码/资源，不包含测试。",
+    "count": 8,
+    "sha256": "1cd19fb6fbb808622c8c6bd0a251502bcfbdea1d5fd83f28229c06392ed0b888",
+    "files": [
+      {
+        "path": "backend/support-ai-assistant/src/main/java/com/haha/supportai/assistant/agent/exception/AssistantCitationException.java",
+        "bytes": 754,
+        "sha256": "1ef30a7becc1ddcff9d8b1c05aa1c223df34a5055a25ab7c07ac1df11245d503"
+      },
+      {
+        "path": "backend/support-ai-assistant/src/main/java/com/haha/supportai/assistant/agent/service/ReactAgentRunner.java",
+        "bytes": 24050,
+        "sha256": "c8c1ad46fc48e6cc0f87122f858ec2c89796f7233ba81830bb7af8676c01989b"
+      },
+      {
+        "path": "backend/support-ai-assistant/src/main/java/com/haha/supportai/assistant/agent/service/SupportAssistantAnswerService.java",
+        "bytes": 16019,
+        "sha256": "3fe8a09f14bcdd006b37fb4f0814413a2ead13e37e56496e4e529bcfaf27e6aa"
+      },
+      {
+        "path": "backend/support-ai-conversation/src/main/java/com/haha/supportai/conversation/service/context/ConversationContextService.java",
+        "bytes": 7917,
+        "sha256": "ee712ac871d23f65617c17c64d0d64f37be3835d40a649474229d0a31a76e32d"
+      },
+      {
+        "path": "backend/support-ai-conversation/src/main/java/com/haha/supportai/conversation/support/CitationParser.java",
+        "bytes": 4069,
+        "sha256": "ca2a4289581aa8b25b65048cf841fca4ed421b240f51373c40e5e004ea99d1ab"
+      },
+      {
+        "path": "backend/support-ai-conversation/src/main/java/com/haha/supportai/conversation/support/RagPromptFactory.java",
+        "bytes": 4358,
+        "sha256": "18b2b1c5f484f1d2d8ab8c469d610429a04e681d1c6c3d7ca21e99bf1b51ef09"
+      },
+      {
+        "path": "frontend/src/DashboardView.vue",
+        "bytes": 9173,
+        "sha256": "d30943e113bbb7cf1df80af9f60fcce1f8a5bc630d3782bddd4241916c805d94"
+      },
+      {
+        "path": "frontend/src/style.css",
+        "bytes": 44958,
+        "sha256": "dd6614137e64d7fb161128fd5760c7dc2e07324d1461394960a2c96fd840d64c"
+      }
+    ]
+  },
+  "markdownLinks": {
+    "scope": "仅当前修改的 Markdown 内联相对文件链接；本次生成索引在独占写入成功后存在，不检查外链、锚点或引用式链接。",
+    "documents": [
+      "README.md",
+      "doc/开发计划.md",
+      "doc/验收记录/M1-M2阶段复核.md",
+      "doc/验收记录/M1-M7人工质量待签核.md",
+      "doc/验收记录/M1-M7回归处理记录.md",
+      "doc/验收记录/M3阶段复核.md",
+      "doc/验收记录/M4阶段复核.md",
+      "doc/验收记录/M5阶段复核.md",
+      "doc/验收记录/M6阶段复核.md",
+      "doc/验收记录/M7阶段复核.md",
+      "evaluation/results/README.md"
+    ],
+    "checked": 281,
+    "missing": [],
+    "status": "PASSED"
+  },
+  "limitations": [
+    "本索引只读取 regression-* 当轮产物的字节和有限状态字段；未读取旧 fixed 题目、答案或人工评分。",
+    "通过、失败及部分运行保持各自原批次，不把多个批次成功项拼成一次整体通过。",
+    "源码指纹来自生成时工作区；必须结合每份原始报告中的镜像/运行身份判断适用范围。",
+    "脚本摘要匹配仅证明源码字节一致，不把没有原始快照的历史批次追认为可复现。",
+    "仅对选中文件和当前修改的生产源码计算摘要，不读取环境文件、Cookie 或认证配置值。"
+  ],
+  "integrity": {
+    "status": "COMPLETE",
+    "invalidJson": [],
+    "runningArtifacts": []
+  }
+}

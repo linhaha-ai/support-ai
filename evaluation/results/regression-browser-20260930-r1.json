@@ -1,0 +1,823 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "M7_HEADLESS_BROWSER_ACCEPTANCE",
+  "status": "FAILED",
+  "startedAt": "2026-09-30T05:17:36.406Z",
+  "baseUrl": "http://127.0.0.1:8088",
+  "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56",
+  "gitCommit": "aca30bb4693464659fa90a5ce7ccb76ff9c0a65e",
+  "scriptSha256": "7dbd6369e4c674ad4d5da953d7f7667c4a314534b2f01999fe47f7f6767ed0ab",
+  "execution": "独立无头 Edge / Playwright，真实页面与后端，未模拟网络或模型响应",
+  "streamObservation": "只读克隆同一次真实 SSE Response；原响应直接交给应用，不替换数据或额外发送模型请求",
+  "checks": [
+    {
+      "name": "未登录显示登录页且写入按钮不可用",
+      "status": "PASSED",
+      "durationMs": 589,
+      "evidence": {
+        "loginHeadingVisible": true,
+        "emptyLoginDisabled": true
+      }
+    },
+    {
+      "name": "通过真实表单登录并显示健康概览",
+      "status": "PASSED",
+      "durationMs": 295,
+      "evidence": {
+        "authenticated": true,
+        "backendHealthy": true,
+        "displayedPhase": "当前阶段 · M7 验收"
+      }
+    },
+    {
+      "name": "我的知识库列出合成验收资料且可查看文档",
+      "status": "PASSED",
+      "durationMs": 186,
+      "evidence": {
+        "knowledgeBaseName": "F32 真实评测 2026-09-29T13:21:09.313Z",
+        "documentCount": 6,
+        "documentNames": [
+          "operations-sla-guide",
+          "merchant-console-guide",
+          "reconciliation-guide",
+          "refund-guide",
+          "order-api-reference",
+          "payment-callback-guide"
+        ]
+      }
+    },
+    {
+      "name": "支付回调文档当前原文、历史版本和分块均可查看",
+      "status": "PASSED",
+      "durationMs": 409,
+      "evidence": {
+        "versionCount": 2,
+        "historicalFiveSecondContract": true,
+        "currentV2Contract": true,
+        "visibleChunkCount": 12
+      }
+    },
+    {
+      "name": "工单页面显示真实合成工单状态与查询时间",
+      "status": "PASSED",
+      "durationMs": 96,
+      "evidence": {
+        "ticketNo": "F32707894507",
+        "status": "RESOLVED",
+        "knowledgeBaseId": "032f6e88-3d10-4082-8c42-7b345f2247b5",
+        "queriedAt": "2026-09-30T05:17:39.059240423Z"
+      }
+    },
+    {
+      "name": "不存在工单显示明确反馈而非保留旧卡片",
+      "status": "PASSED",
+      "durationMs": 56,
+      "evidence": {
+        "message": "未找到该工单，或当前账号无权查看。\n\n重试",
+        "visibleTicketCards": 0
+      }
+    },
+    {
+      "name": "选择固定知识库创建独立 RAG 会话并重命名",
+      "status": "PASSED",
+      "durationMs": 276,
+      "evidence": {
+        "sessionId": "2c5c0cc8-5d83-4424-87e9-a8cb3f4596a7",
+        "sessionTitle": "M7 浏览器验收 2026-09-30T05:17:39.134Z",
+        "mode": "RAG",
+        "knowledgeBaseId": "238cbcc3-71be-44bf-ae75-8477ae5c5a56"
+      }
+    },
+    {
+      "name": "真实 SSE 回答在完成前多次渐进更新",
+      "status": "PASSED",
+      "durationMs": 1777,
+      "evidence": {
+        "runId": "9478cb24-b428-4f56-8bd4-b0155548d5ad",
+        "sessionId": "2c5c0cc8-5d83-4424-87e9-a8cb3f4596a7",
+        "sseEventCount": 111,
+        "deltaEvents": 108,
+        "domUpdates": 108,
+        "intermediateUpdates": 107,
+        "progress": [
+          {
+            "elapsedMs": 508,
+            "length": 2,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 509,
+            "length": 5,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 520,
+            "length": 7,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 530,
+            "length": 8,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 540,
+            "length": 10,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 550,
+            "length": 12,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 561,
+            "length": 14,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 571,
+            "length": 16,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 582,
+            "length": 17,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 593,
+            "length": 19,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 603,
+            "length": 21,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 613,
+            "length": 22,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 624,
+            "length": 24,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 635,
+            "length": 27,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 645,
+            "length": 30,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 655,
+            "length": 32,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 665,
+            "length": 33,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 686,
+            "length": 36,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 707,
+            "length": 41,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 716,
+            "length": 43,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 727,
+            "length": 45,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 738,
+            "length": 47,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 748,
+            "length": 49,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 758,
+            "length": 50,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 770,
+            "length": 51,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 780,
+            "length": 55,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 790,
+            "length": 57,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 800,
+            "length": 61,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 811,
+            "length": 64,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 821,
+            "length": 66,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 831,
+            "length": 67,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 842,
+            "length": 75,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 853,
+            "length": 84,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 863,
+            "length": 85,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 873,
+            "length": 87,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 883,
+            "length": 88,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 894,
+            "length": 90,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 904,
+            "length": 91,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 915,
+            "length": 92,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 935,
+            "length": 94,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 956,
+            "length": 99,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 966,
+            "length": 101,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 977,
+            "length": 103,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 988,
+            "length": 105,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1000,
+            "length": 106,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1010,
+            "length": 108,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1020,
+            "length": 110,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1031,
+            "length": 113,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1052,
+            "length": 115,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1072,
+            "length": 117,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1081,
+            "length": 118,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1092,
+            "length": 120,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1102,
+            "length": 122,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1112,
+            "length": 124,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1122,
+            "length": 125,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1132,
+            "length": 126,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1153,
+            "length": 128,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1174,
+            "length": 133,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1184,
+            "length": 135,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1194,
+            "length": 138,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1203,
+            "length": 140,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1214,
+            "length": 141,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1224,
+            "length": 143,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1235,
+            "length": 145,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1244,
+            "length": 148,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1255,
+            "length": 149,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1265,
+            "length": 150,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1276,
+            "length": 152,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1286,
+            "length": 154,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1295,
+            "length": 155,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1305,
+            "length": 156,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1316,
+            "length": 157,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1326,
+            "length": 159,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1336,
+            "length": 162,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1346,
+            "length": 164,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1357,
+            "length": 171,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1367,
+            "length": 172,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1377,
+            "length": 174,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1387,
+            "length": 175,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1397,
+            "length": 177,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1407,
+            "length": 178,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1418,
+            "length": 179,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1439,
+            "length": 182,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1449,
+            "length": 183,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1459,
+            "length": 185,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1470,
+            "length": 186,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1479,
+            "length": 188,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1490,
+            "length": 190,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1500,
+            "length": 191,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1511,
+            "length": 193,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1522,
+            "length": 194,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1532,
+            "length": 195,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1555,
+            "length": 197,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1564,
+            "length": 199,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1576,
+            "length": 201,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1585,
+            "length": 203,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1596,
+            "length": 204,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1607,
+            "length": 205,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1631,
+            "length": 209,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1639,
+            "length": 210,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1649,
+            "length": 213,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1660,
+            "length": 215,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1672,
+            "length": 218,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1680,
+            "length": 219,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1691,
+            "length": 220,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1700,
+            "length": 221,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1710,
+            "length": 223,
+            "streaming": true
+          },
+          {
+            "elapsedMs": 1722,
+            "length": 224,
+            "streaming": true
+          }
+        ],
+        "citedNumbers": [
+          1,
+          4,
+          5,
+          6
+        ],
+        "sourceButtonCount": 4,
+        "answer": "根据提供的资料，关于支付回调入口、响应时限和确认字符串的回答如下：\n\n*   **支付回调入口**：`POST /openapi/v2/payment/callback` [1][4]\n*   **响应时限**：商户系统必须在 3 秒内返回结果 [1]\n*   **确认字符串**：业务处理完成后（或收到请求时）应返回字符串 `SUCCESS` [1][4]\n\n注：资料中关于错误码 [5] 和金额校验 [6] 的规则未在当前问题范围内，故未列出。"
+      }
+    },
+    {
+      "name": "引用按钮打开对应真实原文且显示版本身份",
+      "status": "PASSED",
+      "durationMs": 630,
+      "evidence": {
+        "sourcePath": "/api/chunks/3820490a-a273-3614-b630-5a417c0275f9/source",
+        "citedNumber": 1,
+        "chunkId": "3820490a-a273-3614-b630-5a417c0275f9",
+        "documentId": "fa9e3df3-b2bf-457b-9172-075c5e730663",
+        "versionId": "0ad49a99-c8c1-4a4c-b44a-49bfefe5ce47",
+        "documentName": "payment-callback-guide",
+        "versionNo": 2,
+        "isCurrent": true,
+        "contentCharacters": 132
+      }
+    },
+    {
+      "name": "刷新后历史会话、回答和引用来源保持一致",
+      "status": "PASSED",
+      "durationMs": 1138,
+      "evidence": {
+        "sessionId": "2c5c0cc8-5d83-4424-87e9-a8cb3f4596a7",
+        "runId": "9478cb24-b428-4f56-8bd4-b0155548d5ad",
+        "sameAnswerAfterReload": true,
+        "sourceReadableAfterReload": true
+      }
+    },
+    {
+      "name": "智能助手真实组合知识与工单并展示两类引用",
+      "status": "FAILED",
+      "durationMs": 10389,
+      "error": "The expression evaluated to a falsy value:\n\n  assert(citations.length > 1 && citations.every((number) => sources.some((source) => source.number === number)))\n"
+    }
+  ],
+  "screenshots": [
+    "evaluation/results/regression-browser-20260930-r1-documents.png",
+    "evaluation/results/regression-browser-20260930-r1-source.png",
+    "evaluation/results/regression-browser-20260930-r1-failure.png"
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 ()",
+      "path": "/api/auth/me"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 ()",
+      "path": "/api/tickets/M7-NOT-EXIST"
+    }
+  ],
+  "pageErrors": [],
+  "failedHttp": [
+    {
+      "status": 401,
+      "path": "/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "status": 404,
+      "path": "/api/tickets/M7-NOT-EXIST",
+      "method": "GET"
+    }
+  ],
+  "findings": [],
+  "browserVersion": "154.0.4258.37",
+  "streams": [
+    {
+      "sessionId": "2c5c0cc8-5d83-4424-87e9-a8cb3f4596a7",
+      "runId": "9478cb24-b428-4f56-8bd4-b0155548d5ad",
+      "terminal": [
+        {
+          "event": "done",
+          "data": {
+            "runId": "9478cb24-b428-4f56-8bd4-b0155548d5ad",
+            "status": "COMPLETED",
+            "usage": {
+              "promptTokens": 906,
+              "completionTokens": 120,
+              "totalTokens": 1026
+            },
+            "metrics": {
+              "evidenceCount": 6,
+              "retrievedEvidenceCount": 6,
+              "scoreFilteredEvidenceCount": 0,
+              "budgetFilteredEvidenceCount": 0,
+              "evidenceTokenCount": 453,
+              "citedCount": 4,
+              "noEvidence": false,
+              "retrievalMs": 25,
+              "embeddingTotalTokens": null,
+              "rerankStatus": "DISABLED",
+              "rerankCandidateCount": 0,
+              "rerankMs": 0,
+              "rerankTotalTokens": null,
+              "generationMs": 1599,
+              "totalMs": 1665,
+              "firstDeltaMs": 433,
+              "queryRewrite": {
+                "originalQuestion": "根据当前支付回调手册，支付回调入口、响应时限和确认字符串是什么？请引用来源。",
+                "retrievalQuestion": "根据当前支付回调手册，支付回调入口、响应时限和确认字符串是什么？请引用来源。",
+                "status": "NO_HISTORY"
+              }
+            }
+          }
+        }
+      ],
+      "tools": []
+    },
+    {
+      "sessionId": "10ef32f3-c5c8-42e3-9d33-cda5f0dd8e63",
+      "runId": "63642aad-6b5f-41ad-9d4c-cf6bbfccde9e",
+      "terminal": [
+        {
+          "event": "done",
+          "data": {
+            "runId": "63642aad-6b5f-41ad-9d4c-cf6bbfccde9e",
+            "status": "COMPLETED",
+            "usage": null,
+            "metrics": {
+              "evidenceCount": 3,
+              "citedCount": 1,
+              "noEvidence": false,
+              "totalMs": 9759,
+              "firstDeltaMs": 9757,
+              "modelCallCount": 3,
+              "toolCallCount": 2,
+              "maxObservedContextTokens": 1362,
+              "toolCallLimit": 2,
+              "modelCallLimit": 3,
+              "retrievedEvidenceCount": 3,
+              "scoreFilteredEvidenceCount": 0,
+              "budgetFilteredEvidenceCount": 0,
+              "evidenceTokenCount": 0,
+              "retrievalMs": 0,
+              "embeddingTotalTokens": null,
+              "rerankStatus": "NOT_REACHED",
+              "rerankCandidateCount": 0,
+              "rerankMs": 0,
+              "rerankTotalTokens": null,
+              "generationMs": null,
+              "queryRewrite": null
+            }
+          }
+        }
+      ],
+      "tools": [
+        {
+          "name": "getTicketStatus",
+          "status": "STARTED"
+        },
+        {
+          "name": "getTicketStatus",
+          "status": "SUCCEEDED"
+        },
+        {
+          "name": "searchKnowledge",
+          "status": "STARTED"
+        },
+        {
+          "name": "searchKnowledge",
+          "status": "SUCCEEDED"
+        }
+      ]
+    }
+  ],
+  "error": "The expression evaluated to a falsy value:\n\n  assert(citations.length > 1 && citations.every((number) => sources.some((source) => source.number === number)))\n",
+  "completedAt": "2026-09-30T05:17:53.688Z",
+  "durationMs": 17282,
+  "passedChecks": 10,
+  "failedChecks": 1
+}

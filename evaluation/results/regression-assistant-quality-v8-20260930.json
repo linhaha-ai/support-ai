@@ -1,0 +1,192 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "ASSISTANT_SOURCE_GROUNDING_AUXILIARY_REVIEW",
+  "recordedAt": "2026-09-30T05:48:08.776Z",
+  "assistantPromptVersion": "assistant-agent-v8",
+  "status": "SOURCE_GROUNDING_ISSUE",
+  "scope": "仅复核本轮合成F32验收资料与已完成助手回答；不重跑模型，不改变固定题标准或功能验收原始记录。",
+  "reviewMethod": "只读查询指定run的chat_run/chat_message/tool_call/message_source/document_chunk；核对成功工具正文与原分块SHA-256及字符长度；用本地现有依赖重现DTO时间序列化。",
+  "run": {
+    "runId": "811f0bfe-243f-4faf-ac87-93961459e4ee",
+    "traceId": "f32df6cc-1e03-4cda-bcfd-b0d79a8345da",
+    "sessionId": "a26a0946-2b2f-4268-9ad3-fd5022522bdd",
+    "status": "COMPLETED",
+    "question": "请查询工单 F32707894507 的当前状态，再查询F32_E_TIMEOUT手册，综合给出处理建议。请同时引用工单和知识文档。",
+    "answer": "### 工单状态说明\n工单 F32707894507 标题为“F32 回调超时验收”，描述为“F32_E_TIMEOUT 回调失败待排查”。该工单的当前状态为 **RESOLVED**，最后更新时间为 1790693068.744107000，查询时刻为 1790746516.609350547 [1]。\n\n### 知识文档依据\n根据授权资料，F32 专用业务验收手册中指出：错误码 F32_E_TIMEOUT 表示回调超时，处理步骤为先核对回调地址和网络，再按四次退避重试，并通知值班人员 [2]。另一份手册《F32 故障处理手册-9b580eff62e5》也强调了相同的内容：错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按四次退避重试，并通知值班人员 [3]。\n\n### 综合处理建议\n由于工单状态已标记为 RESOLVED（已解决），但手册仍提示 F32_E_TIMEOUT 错误码对应的操作流程，若需进一步排查该故障现象，可参考以下步骤：\n1. **核对回调地址和网络连接**，确保配置正确且网络畅通；\n2. **执行四次退避重试**，即每次重试等待的时间按指数增加（如 1s、2s、4s、8s）；\n3. **通知值班人员**，以便协同处理可能涉及的基础设施问题。\n\n以上建议基于当前工单状态和授权手册内容，如需更详细的信息，请进一步说明需求或联系相关值班人员。"
+  },
+  "browserEvidence": {
+    "path": "evaluation/results/regression-browser-20260930-r3.json",
+    "sha256": "df8c4aec5e6887f21431bcf0e28f2adafd51fdf01858bc95f49ef00a4ce5515f",
+    "status": "PASSED",
+    "passedChecks": 13,
+    "failedChecks": 0,
+    "citations": [
+      1,
+      2,
+      3
+    ],
+    "note": "13项为功能与引用链路检查；来源存在且已引用不证明每条生成断言都受来源支持，原JSON保持不变。"
+  },
+  "toolEvidence": [
+    {
+      "toolCallId": "7cf3602a-b933-438e-b58b-d52e427d2901",
+      "toolName": "getTicketStatus",
+      "callNo": 1,
+      "status": "SUCCEEDED",
+      "arguments": {
+        "ticketNo": "F32707894507"
+      },
+      "resultSnapshot": {
+        "title": "F32 回调超时验收",
+        "status": "RESOLVED",
+        "citation": "[[source:6874a5bb-0939-4b72-94fd-59771a893f44]]",
+        "ticketNo": "F32707894507",
+        "ownerName": "F32值班员",
+        "queriedAt": "2026-09-30T05:35:16.609350547Z",
+        "updatedAt": "2026-09-29T14:44:28.744107Z",
+        "description": "F32_E_TIMEOUT 回调失败待排查",
+        "sourceHandle": "6874a5bb-0939-4b72-94fd-59771a893f44"
+      }
+    },
+    {
+      "toolCallId": "a1df58f5-2421-430d-8a54-52e2a8e7bc90",
+      "toolName": "searchKnowledge",
+      "callNo": 2,
+      "status": "SUCCEEDED",
+      "arguments": {
+        "query": "F32_E_TIMEOUT手册"
+      },
+      "resultSnapshot": {
+        "sources": [
+          {
+            "pageNo": null,
+            "content": "F32 专用业务验收手册。\n错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按四次退避重试，并通知值班人员。\n本手册不包含工单实时状态，必须查询工单系统。\n",
+            "section": null,
+            "citation": "[[source:eecd6b51-00a3-4795-846e-c3e3a76d2392]]",
+            "documentName": "F32 任务控制夹具",
+            "sourceHandle": "eecd6b51-00a3-4795-846e-c3e3a76d2392"
+          },
+          {
+            "pageNo": null,
+            "content": "F32 专用业务验收手册。\n错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按四次退避重试，并通知值班人员。\n本手册不包含工单实时状态，必须查询工单系统。\n",
+            "section": null,
+            "citation": "[[source:299dd506-7594-446b-aa8c-5632d3d066fb]]",
+            "documentName": "F32 故障处理手册-9b580eff62e5",
+            "sourceHandle": "299dd506-7594-446b-aa8c-5632d3d066fb"
+          }
+        ]
+      }
+    }
+  ],
+  "chunkVerification": [
+    {
+      "sourceId": "eecd6b51-00a3-4795-846e-c3e3a76d2392",
+      "citationNo": 2,
+      "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+      "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+      "versionNo": 1,
+      "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+      "startOffset": 0,
+      "endOffset": 91,
+      "charCount": 91,
+      "toolContentCharCount": 91,
+      "storedContentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+      "toolContentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+      "hashMatches": true
+    },
+    {
+      "sourceId": "299dd506-7594-446b-aa8c-5632d3d066fb",
+      "citationNo": 3,
+      "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+      "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+      "versionNo": 2,
+      "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+      "startOffset": 0,
+      "endOffset": 91,
+      "charCount": 91,
+      "toolContentCharCount": 91,
+      "storedContentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+      "toolContentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+      "hashMatches": true
+    }
+  ],
+  "groundingFinding": {
+    "code": "SOURCE_GROUNDING_ISSUE",
+    "unsupportedAnswerText": "执行四次退避重试，即每次重试等待的时间按指数增加（如 1s、2s、4s、8s）",
+    "supportedFacts": [
+      "错误码F32_E_TIMEOUT表示回调超时",
+      "先核对回调地址和网络",
+      "四次退避重试",
+      "通知值班人员"
+    ],
+    "unsupportedAdditions": [
+      "将退避解释为指数增加",
+      "给出1s、2s、4s、8s具体间隔"
+    ],
+    "conclusion": "两条真实工具内容及其对应原分块均没有上述算法解释或间隔值；模型虽用“如”举例，仍提供了资料未支持的操作细节。引用数量合格不能据此判定语义忠实。"
+  },
+  "timeSerializationFinding": {
+    "code": "TOOL_TIME_FORMAT_READABILITY",
+    "status": "REPRODUCED_LOCALLY_WITHOUT_MODEL",
+    "dto": "TicketStatusToolResult",
+    "fields": [
+      {
+        "name": "updatedAt",
+        "auditIsoValue": "2026-09-29T14:44:28.744107Z",
+        "modelAnswerValue": "1790693068.744107000",
+        "reproducedJsonNumberLexeme": "1790693068.744107000"
+      },
+      {
+        "name": "queriedAt",
+        "auditIsoValue": "2026-09-30T05:35:16.609350547Z",
+        "modelAnswerValue": "1790746516.609350547",
+        "reproducedJsonNumberLexeme": "1790746516.609350547"
+      }
+    ],
+    "serializationPath": [
+      "ReactAgentRunner的FunctionToolCallback未指定结果转换器",
+      "Spring AI 1.1.2 DefaultToolCallResultConverter.convert",
+      "JsonParser.toJson使用独立JsonMapper，未关闭日期时间戳输出"
+    ],
+    "auditSerialization": "ToolCallPersistenceService复用注入的Spring ObjectMapper，实际审计快照为ISO时间字符串。",
+    "reproduction": {
+      "runtime": "D:/Java/jdk21.0.12.1/bin/jshell.exe",
+      "dependency": "org.springframework.ai:spring-ai-model:1.1.2",
+      "classpathBasis": "当前ReactAgentRunnerTest Surefire XML中的java.class.path；没有重新执行Maven。",
+      "action": "用两个真实OffsetDateTime值构造TicketStatusToolResult，调用new DefaultToolCallResultConverter().convert(ticket, TicketStatusToolResult.class)。",
+      "exitCode": 0,
+      "noModelCall": true
+    },
+    "conclusion": "正文数字逐字符匹配默认工具结果转换器的序列化结果；不是编造时间，但时间未转成人类可读格式。原始提供方请求未落盘，本项依据实际DTO路径及现有依赖局部重现，不能冒称捕获了当时网络请求。"
+  },
+  "sourceCodeAndDependencyFingerprints": [
+    {
+      "path": "backend/support-ai-assistant/src/main/java/com/haha/supportai/assistant/agent/service/ReactAgentRunner.java",
+      "sha256": "74811a4dce8332e63cbc54898c22c494c2c9d585a7fdce62802801e93c01d839"
+    },
+    {
+      "path": "backend/support-ai-assistant/src/main/java/com/haha/supportai/assistant/agent/tool/entity/dto/TicketStatusToolResult.java",
+      "sha256": "deffd76bd9c6e8f1536d2b9e2fcd42f2845041d8f76e7395905caa22c8ba3367"
+    },
+    {
+      "path": "backend/support-ai-assistant/src/main/java/com/haha/supportai/assistant/agent/tool/service/ToolCallPersistenceService.java",
+      "sha256": "b4cdb36af8902aabfbf6e3ad0414b03655905d8f6811febefacbb4d824e2e1cb"
+    },
+    {
+      "path": "E:/mvnrepository/org/springframework/ai/spring-ai-model/1.1.2/spring-ai-model-1.1.2.jar",
+      "sha256": "694d972dea31846bbb0b1f0a50cb72309681c3396a8e520da213323779a1406c"
+    }
+  ],
+  "humanReview": {
+    "status": "NOT_SIGNED",
+    "isHumanScore": false,
+    "reviewer": null,
+    "score": null,
+    "note": "本文件为自动辅助证据核对，不替代40题人工引用/依据/缺漏/结论签核，不重算旧评测通过率。"
+  },
+  "limitations": [
+    "只覆盖本次具体合成资料运行，不推断所有助手问题的语义质量。",
+    "未修改生产源码、功能通过结果、固定数据集或验收阈值。",
+    "未写入或输出凭据，没有登录或调用真实模型。"
+  ]
+}

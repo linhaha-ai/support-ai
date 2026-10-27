@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "DEVELOPMENT_TOPK_AUXILIARY_SEMANTIC_OBSERVATIONS",
+  "status": "AUXILIARY_REVIEW_PENDING_HUMAN_REVIEW",
+  "reviewDate": "2026-09-30",
+  "reviewerKind": "CODEX_ASSISTED_NON_SIGNOFF",
+  "scope": {
+    "split": "development",
+    "caseIds": ["DEV-002", "DEV-004", "DEV-013", "DEV-014", "DEV-021", "DEV-027", "DEV-033", "DEV-053", "DEV-056"],
+    "refusalCaseIds": ["DEV-009", "DEV-010", "DEV-011", "DEV-012", "DEV-029", "DEV-030", "DEV-031", "DEV-032"],
+    "fixedTestAnswersReviewed": false,
+    "modelCallsDuringReview": 0,
+    "humanReviewFieldsWritten": false,
+    "productionOrDatasetChanges": false
+  },
+  "inputs": {
+    "baseline": {
+      "file": "evaluation/results/regression-development-topk6-20260930.json",
+      "sha256": "b72e1ef262bf82002e99565126e19a7e45f0949033401cc4ac55d8b81ec89069",
+      "topK": 6
+    },
+    "candidate": {
+      "file": "evaluation/results/regression-development-topk24-20260930.json",
+      "sha256": "f624981fc055e16d2a4780c9079fc6cbdd2df0c1d8106db26018ba3e76304819",
+      "topK": 24
+    },
+    "objectiveComparison": {
+      "file": "evaluation/results/regression-topk-comparison-20260930.json",
+      "sha256": "6aa5f6b6a5f4160b1d67fdf90804a1984502e2223ecaea99c34e7dc360d2e5ba"
+    },
+    "dataset": {
+      "file": "evaluation/datasets/f21-development.jsonl",
+      "sha256": "783fd67dfe2f6353bfbee595100dd9f312c0f56c291635bd047796d7850c9db6",
+      "version": "f21-2026-09-23-v1"
+    },
+    "imageId": "sha256:49d4a380ebcb6f0b14063f8c44ba8a094e7774cd6c3df478969866da960ae049",
+    "sourceTreeHash": "2a91561779cb19bdb1610b834d2ed7b747fab12fda0b0aef4e380a2cef6df175",
+    "ragPromptVersion": "rag-cited-history-v3",
+    "batchNote": "同一 v8 镜像与源码的 TopK6/24 开发集批次；后续助手版本变更不追认本批为新镜像验收。"
+  },
+  "recommendation": {
+    "action": "RETAIN_DEFAULT_TOP_K_6",
+    "reason": "TopK24 补齐了三题的检索证据，但答案未随召回完全修复，且出现引用、业务对象和题意理解退步；本批成本明显增加，不能据完整证据命中40/40批准新默认。保留6也不表示原质量缺口已关闭。",
+    "retrievalGapTreatment": "已通过单因素实验定位并补验召回缺口；检索优化与答案质量未完全闭合，仍待开发集上的检索/重排序研究及人工复核。",
+    "qualityAcceptance": "NOT_SIGNED_OFF",
+    "objectiveMetrics": {
+      "capturedRowsEach": 60,
+      "completedRowsEach": 48,
+      "notRunRowsEach": 12,
+      "answerableCases": 40,
+      "completeExpectedRetrievalHits": {"baseline": 37, "candidate": 40},
+      "retrievalImprovedCaseIds": ["DEV-002", "DEV-013", "DEV-033"],
+      "retrievalRegressedCaseIds": [],
+      "expectedCitationRemovedCaseIds": ["DEV-021"],
+      "chatTotalTokens": {"baseline": 50766, "candidate": 126731, "delta": 75965, "ratioApprox": 2.50},
+      "totalLatencyP95Ms": {"baseline": 5132, "candidate": 9363, "delta": 4231, "increasePercentApprox": 82.44},
+      "embeddingTotalTokens": {"baseline": null, "candidate": null},
+      "humanCitationReviewedCountEach": 0,
+      "humanEvidenceReviewedCountEach": 0
+    }
+  },
+  "sourceFacts": {
+    "PAY-CB-V2-INVESTIGATION": {
+      "file": "data/demo/knowledge/f21/payment-callback-guide-v2.md", "line": 13,
+      "excerpt": "先确认回调接收日志和 HTTP 200，再核对签名校验结果，然后查询支付流水，最后检查订单事件是否进入消息队列并被消费。"
+    },
+    "PAY-CB-V2-SIGNATURE": {
+      "file": "data/demo/knowledge/f21/payment-callback-guide-v2.md", "line": 18,
+      "excerpt": "签名原文按字段名升序包含 `amount`、`merchantId`、`nonce`、`orderNo`、`timestamp`，空值字段不得参与，最终使用当前商户密钥计算 HMAC-SHA256，并与请求头 `X-Pay-Sign` 比较。"
+    },
+    "PAY-CB-V2-RETRY": {
+      "file": "data/demo/knowledge/f21/payment-callback-guide-v2.md", "line": 28,
+      "excerpt": "最多重试 6 次，间隔依次为 10 秒、30 秒、60 秒、180 秒、600 秒和 1800 秒；业务处理完成后应返回字符串 `SUCCESS`。"
+    },
+    "PAY-CB-V2-CONFIG": {
+      "file": "data/demo/knowledge/f21/payment-callback-guide-v2.md", "line": 33,
+      "excerpt": "保存后先执行 HTTPS 连通性检测，再发送一笔签名测试通知，只有测试返回 `SUCCESS` 才能启用。"
+    },
+    "PAY-CB-V2-ERRORS": {
+      "file": "data/demo/knowledge/f21/payment-callback-guide-v2.md", "line": 38,
+      "excerpt": "`PAY-CB-1001` 表示签名不匹配，`PAY-CB-1002` 表示时间戳超出 3 分钟窗口，`PAY-CB-1003` 表示重复交易已按幂等结果处理，`PAY-CB-1004` 表示回调金额与订单应付金额不一致。"
+    },
+    "PAY-CB-V2-SECURITY": {
+      "file": "data/demo/knowledge/f21/payment-callback-guide-v2.md", "line": 53,
+      "excerpt": "生产回调必须同时通过 HTTPS、签名和时间窗口校验；IP 白名单只作为附加控制，不能替代签名校验。"
+    },
+    "ORDER-V1-STATUS": {
+      "file": "data/demo/knowledge/f21/order-api-reference-v1.md", "line": 18,
+      "excerpt": "正常支付状态流转为 `WAIT_PAY -> PAYING -> PAID`；`WAIT_PAY` 可以转为 `CLOSED`，`PAID` 不能回退为 `WAIT_PAY`。"
+    },
+    "REFUND-V1-STATUS": {
+      "file": "data/demo/knowledge/f21/refund-guide-v1.md", "line": 18,
+      "excerpt": "退款状态依次为 `PROCESSING`、`SUCCEEDED` 或 `FAILED`；只有 `FAILED` 且错误被标记为可重试时才能重新提交。"
+    },
+    "REFUND-V1-PARTIAL": {
+      "file": "data/demo/knowledge/f21/refund-guide-v1.md", "line": 28,
+      "excerpt": "一个订单可以多次部分退款，但累计退款金额不能超过订单实付金额，每次退款必须使用不同的 `merchantRefundNo`。"
+    },
+    "REFUND-V1-RETRY": {
+      "file": "data/demo/knowledge/f21/refund-guide-v1.md", "line": 33,
+      "excerpt": "渠道暂时不可用时由平台自动重试 3 次，间隔为 1 分钟、5 分钟和 15 分钟；业务方不要在自动重试期间创建新的退款单。"
+    },
+    "REFUND-V1-MANUAL": {
+      "file": "data/demo/knowledge/f21/refund-guide-v1.md", "line": 38,
+      "excerpt": "退款超过 30 分钟仍为 `PROCESSING` 时，应先查询渠道流水，再由财务人员在工单中登记核对结果，不能直接把状态改为成功。"
+    },
+    "REFUND-V1-TIMEOUT": {
+      "file": "data/demo/knowledge/f21/refund-guide-v1.md", "line": 48,
+      "excerpt": "发起退款请求超时后必须先按 `merchantRefundNo` 查询，确认不存在才能重试，禁止直接更换退款号重复提交。"
+    },
+    "RECON-V1-PROCESS": {
+      "file": "data/demo/knowledge/f21/reconciliation-guide-v1.md", "line": 28,
+      "excerpt": "处理差异时先核对支付回调与订单状态，再查询渠道流水，最后才创建调账工单；未经渠道结果确认不得直接调账。"
+    }
+  },
+  "observations": [
+    {
+      "caseId": "DEV-002", "datasetLine": 2, "observation": "CORE_ANSWER_IMPROVED_WITH_RESIDUAL_OVERGENERALIZATION",
+      "sourceFactIds": ["PAY-CB-V2-SIGNATURE", "PAY-CB-V2-ERRORS", "PAY-CB-V2-SECURITY"],
+      "baseline": {"excerpt": "直接核对请求中的签名是否匹配", "finding": "缺少SIGNATURE入模证据，未给五个字段、空值排除和HMAC-SHA256；回答邻近的安全/金额/排查规则。"},
+      "candidate": {"excerpt": "确认使用当前商户密钥对上述有效字段计算 HMAC-SHA256，并将结果与请求头 `X-Pay-Sign` 进行比较 [8]。", "finding": "补齐并引用SIGNATURE，五字段、升序、空值排除和算法/请求头核心内容正确；结尾把签名失败泛化为时间窗口等任一不匹配，未严格区分PAY-CB-1001与1002，不能认定整答无瑕疵。", "residualExcerpt": "若签名校验失败，即表示上述任意一项（通常是字段值、计算结果或时间戳）不匹配"},
+      "closure": "CORE_RETRIEVAL_AND_ANSWER_IMPROVED_NOT_FULL_QUALITY_SIGNOFF"
+    },
+    {
+      "caseId": "DEV-004", "datasetLine": 4, "observation": "CANDIDATE_SCOPE_AND_CONDITION_REGRESSION",
+      "sourceFactIds": ["PAY-CB-V2-RETRY", "REFUND-V1-TIMEOUT", "REFUND-V1-STATUS", "REFUND-V1-RETRY"],
+      "baseline": {"excerpt": "若您的业务涉及的是“退款请求”而非普通支付回调，策略不同", "finding": "支付回调6次及各间隔正确；额外退款说明明确限定退款请求，没有把两类重试当成同一业务。"},
+      "candidate": {"excerpt": "若您的场景属于“退款回调超时”（即退款通知请求超时），请参照退款部分", "finding": "将退款发起请求超时及渠道重试规则套用于退款通知超时；把确认退款不存在解释成状态可重试或清除，无原文支持；支付回调间隔虽正确，新增的指数退避标签也未由语料规定。", "residualExcerpt": "确认该退款不存在（即状态已变为可重试或清除）"},
+      "closure": "CANDIDATE_NOT_ACCEPTABLE_AS_QUALITY_IMPROVEMENT"
+    },
+    {
+      "caseId": "DEV-013", "datasetLine": 13, "observation": "PARTIAL_CONTENT_GAIN_EXPECTED_SIGNATURE_STILL_UNANSWERED",
+      "sourceFactIds": ["PAY-CB-V2-CONFIG", "PAY-CB-V2-SIGNATURE", "ORDER-V1-STATUS", "PAY-CB-V2-INVESTIGATION"],
+      "baseline": {"excerpt": "现有资料暂未提供通用的综合排查顺序", "finding": "缺少签名字段证据，仅答固定排查四步，未完整回答地址配置、签名字段和订单状态规则。"},
+      "candidate": {"excerpt": "若订单卡在某一状态（如无法从 `PAID` 回退或始终停留在 `WAIT_PAY`）", "finding": "补充地址、HTTPS/测试通知和正常状态流转；SIGNATURE已入模为来源23但cited=false，仍未给字段/算法，配置测试必须返回SUCCESS的启用条件和状态约束未完整说明。又将无法从PAID回退举为异常，易与文档禁止回退混淆。", "sourceNumberNotCited": 23},
+      "closure": "RETRIEVAL_GAP_CLOSED_ANSWER_GAP_REMAINS"
+    },
+    {
+      "caseId": "DEV-014", "datasetLine": 14, "observation": "UNCHANGED_WRONG_PRIMARY_CHECK",
+      "sourceFactIds": ["PAY-CB-V2-INVESTIGATION"],
+      "baseline": {"excerpt": "支付回调的首要检查项是必须在处理前同时核对币种和应付金额", "finding": "两边均已召回固定排查顺序，但错误选择金额校验作为首查项。"},
+      "candidate": {"excerpt": "处理前必须同时核对币种和应付金额 [1]。", "finding": "仍未回答首先确认回调接收日志和HTTP200；只引用AMOUNT而未引用INVESTIGATION。"},
+      "closure": "UNRESOLVED_GENERATION_ERROR_WITH_EVIDENCE_PRESENT"
+    },
+    {
+      "caseId": "DEV-021", "datasetLine": 21, "observation": "CANDIDATE_CORE_CITATION_AND_BUSINESS_SCOPE_REGRESSION",
+      "sourceFactIds": ["PAY-CB-V2-INVESTIGATION", "REFUND-V1-MANUAL", "RECON-V1-PROCESS"],
+      "baseline": {"excerpt": "在确认 HTTP 200 后，首要任务是检查商户系统对回调请求的签名验证是否通过", "finding": "承接题目已回调200的前提，按签名→支付流水→消息队列展开，并引用核心INVESTIGATION；附加解释仍需人工检查，不能据此全答签核。"},
+      "candidate": {"excerpt": "若差异持续未解再升级工单 [4][7]。", "finding": "INVESTIGATION仍在来源1却cited=false。排查四项表面保留，但用退款人工复核来源7支持支付差异升级，越过退款超过30分钟且PROCESSING的原适用条件；将多项HTTPS/签名/时间校验失败一并指向1001也扩大了错误码定义。", "sourceNumberNotCited": 1, "misappliedSourceNumber": 7},
+      "closure": "CANDIDATE_REGRESSION_NOT_A_PARSER_FAILURE"
+    },
+    {
+      "caseId": "DEV-027", "datasetLine": 27, "observation": "CANDIDATE_RANGE_INTERPRETATION_REGRESSION",
+      "sourceFactIds": ["PAY-CB-V2-ERRORS"],
+      "baseline": {"excerpt": "**PAY-CB-1002**：表示时间戳超出 3 分钟窗口 [1]。", "finding": "四个错误码含义均正确且引用ERRORS；1002重复与解释冗余不构成该范围事实错误。"},
+      "candidate": {"excerpt": "此错误码未在问题询问的范围内，但为上下文参考", "finding": "仍列出正确错误码含义，但明确误称1002不属于用户询问的1001到1004范围，出现题意范围矛盾。"},
+      "closure": "CANDIDATE_NEW_CONTRADICTION_DESPITE_COMPLETE_EVIDENCE"
+    },
+    {
+      "caseId": "DEV-033", "datasetLine": 33, "observation": "MIXED_SIGNATURE_GAIN_ORDER_AND_CITATION_PROBLEMS",
+      "sourceFactIds": ["PAY-CB-V2-CONFIG", "PAY-CB-V2-SIGNATURE", "PAY-CB-V2-INVESTIGATION", "PAY-CB-V2-SECURITY", "ORDER-V1-STATUS"],
+      "baseline": {"excerpt": "**3. 查询支付流水（涉及订单状态流转）**", "finding": "保留日志/HTTP200→签名→支付流水→队列的固定顺序，但缺CONFIG和SIGNATURE，举sign等验签字段亦无当前证据充分支持，未完整满足题意。"},
+      "candidate": {"excerpt": "请严格遵循以下固定顺序执行", "finding": "补齐签名五字段、空值和算法；却将固定流程变为地址→HTTP→签名→订单状态→队列，遗漏支付流水步骤，并声称时间窗口→HTTPS→签名为固定子顺序，原文仅要求同时通过。地址测试返回SUCCESS才能启用、订单状态不可回退等仍不完整。", "citationExcerpt": "文档编号 [1]-[24] 中的事实结论", "citationFinding": "末尾范围式总引用将全部24个来源标为cited，说明解析器识别正常，却不能证明逐句依据正确；局部还混入无关分页/关单/退款/恢复等引用。"},
+      "closure": "RETRIEVAL_GAIN_WITH_UNRESOLVED_AND_NEW_GENERATION_DEFECTS"
+    },
+    {
+      "caseId": "DEV-053", "datasetLine": 53, "observation": "CANDIDATE_REFUND_ORDER_ENTITY_AND_CONSTRAINT_REGRESSION",
+      "sourceFactIds": ["REFUND-V1-PARTIAL", "REFUND-V1-STATUS", "REFUND-V1-TIMEOUT"],
+      "baseline": {"excerpt": "其他相关注意事项（若触发多次重试场景时适用）", "finding": "正确说明多次部分退款、累计实付上限和不同退款号，将失败/超时重试规则单独限定适用场景；未加同金额禁令。"},
+      "candidate": {"excerpt": "已成功的订单（`SUCCEEDED`），通常不可再次发起针对同一金额的退款请求", "finding": "把退款SUCCEEDED误写成订单状态，并新增语料没有的同金额再次退款限制。多次部分退款的核心两项虽保留，附加限制会误导业务操作。"},
+      "closure": "CANDIDATE_NEW_UNSUPPORTED_BUSINESS_RESTRICTION"
+    },
+    {
+      "caseId": "DEV-056", "datasetLine": 56, "observation": "CORE_ORDER_MAINTAINED_CANDIDATE_MORE_VERBOSE_WITH_WIDER_CONDITIONS",
+      "sourceFactIds": ["RECON-V1-PROCESS", "PAY-CB-V2-INVESTIGATION", "REFUND-V1-MANUAL"],
+      "baseline": {"excerpt": "只有在经过渠道结果确认后，方可创建调账工单；未经渠道结果确认不得直接调账。", "finding": "核心回调/订单→渠道流水→调账工单顺序正确，子场景说明明确限定回调成功但订单未更新。"},
+      "candidate": {"excerpt": "若涉及退款差异且长时间未解决，应先查询渠道流水", "finding": "核心顺序和引用仍正确；扩展到退款时将超过30分钟且PROCESSING泛化为退款差异长期未解，削弱条件精度。正文更长，未证明与成本相匹配的核心答案收益。"},
+      "closure": "CORE_EXPECTATION_PRESENT_NO_QUALITY_GAIN_ESTABLISHED"
+    }
+  ],
+  "refusalObservations": {
+    "status": "SEMANTIC_REFUSAL_OBSERVED_NOT_HUMAN_SCORED",
+    "executedCaseIds": ["DEV-009", "DEV-010", "DEV-011", "DEV-012", "DEV-029", "DEV-030", "DEV-031", "DEV-032"],
+    "observation": "两边8道已执行资料不足题均明确表示无法根据资料回答，未编造天气、股票、折扣或E9999修复步骤。所有这些行仍为COMPLETED且noEvidence=false，因为检索返回了与问题无关的入模材料。",
+    "examples": [
+      {"caseId": "DEV-009", "baselineExcerpt": "未包含北京地区气象信息或天气预报数据", "candidateExcerpt": "资料不足，无法回答北京明天的天气情况。"},
+      {"caseId": "DEV-010", "baselineExcerpt": "完全未涉及任何股票投资、市场预测或金融分析信息", "candidateExcerpt": "不包含任何股票行情、投资建议或市场预测信息"},
+      {"caseId": "DEV-011", "baselineExcerpt": "资料中未包含任何关于“折扣政策”", "candidateExcerpt": "无法依据现有资料回答公司明年一定会采用的具体折扣政策。"},
+      {"caseId": "DEV-012", "baselineExcerpt": "资料中不存在错误码 `E9999` 的处理步骤。", "candidateExcerpt": "资料中不存在错误码 `E9999` 的相关定义或处理步骤。"},
+      {"caseId": "DEV-029", "baselineExcerpt": "无法判断北京明天是否会下雨。", "candidateExcerpt": "提供的资料中均无北京明天天气或降雨相关数据"},
+      {"caseId": "DEV-030", "baselineExcerpt": "无法依据现有资料回答“下周买哪三只股票肯定赚钱”的问题。", "candidateExcerpt": "没有任何一份文档包含股票推荐、投资预测或金融市场分析信息。"},
+      {"caseId": "DEV-031", "baselineExcerpt": "因此无法回答该问题。", "candidateExcerpt": "无法用于回答关于未来商业优惠政策的疑问。"},
+      {"caseId": "DEV-032", "baselineExcerpt": "无法依据现有资料回答 `E9999` 的具体修复步骤。", "candidateExcerpt": "资料中未包含关于错误码 `E9999` 的任何定义、含义或处置方案。"}
+    ],
+    "citationCaveat": "部分拒答将整段来源作范围式总引用；例如候选DEV-011的[1]-[24]与DEV-030的[1]至[24]登记大量引用。其语义拒答可观察，但这些引用不能代替逐条引用质量人审。基线DEV-011还复述了提示词规则编号。",
+    "permissionCasesNotRun": ["DEV-017", "DEV-018", "DEV-037", "DEV-038"],
+    "automaticMetric": {"baselinePassed": 0, "candidatePassed": 0, "totalEach": 12},
+    "metricInterpretation": "自动refusalCorrect只计noEvidence=true或权限DENIED；本批8道语义拒答为noEvidence=false，另外4道权限题在普通runner为NOT_RUN。因此0/12不能解读成12道语义拒答全部失败，也不能用本辅助观察改填评分或把NOT_RUN计为通过。"
+  },
+  "limitations": [
+    "这是针对9道已知问题和8道已执行资料不足题的辅助观察，不是完整60题逐句人审或人工签核。",
+    "单次同环境配对可记录本批差异，未做重复采样，不能把每个输出差异全部归因为TopK的确定性因果。",
+    "召回完整性、正文事实正确、局部引用匹配、回答充分性分别判断；合法范围引用解析通过不代表范围内每段支持正文。",
+    "原始运行humanReview为空，未被本文件改写；历史冻结、固定题集和生产默认未修改。",
+    "采用保留6的建议是成本与已观察退步的取舍，不是认定6已达到质量验收门槛。",
+    "未知Embedding用量保持null，不能用Chat成本代替总模型成本；未执行云端或重排序调用。"
+  ]
+}

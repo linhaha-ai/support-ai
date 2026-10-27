@@ -1,0 +1,607 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "ASSISTANT_SOURCE_GROUNDING_AUXILIARY_REVIEW",
+  "recordedAt": "2026-09-30T06:04:59.438Z",
+  "assistantPromptVersion": "assistant-agent-v9",
+  "status": "TARGETED_FIX_VERIFIED_WITH_SEMANTIC_CAVEAT",
+  "scope": "抽查浏览器r4助手1例、M6r5组合问答3例及知识单问1例；只核实本轮合成样本的已知退避参数扩展、时间格式和显式数值依据，不替代全面语义质量验收。",
+  "method": "只读查询五个指定run的数据库持久化答复、成功工具JSON与注册来源；确认与既有回归JSON的答案相同；逐条对照来源内容和原document_chunk的SHA-256/长度。",
+  "provenance": [
+    {
+      "path": "evaluation/results/regression-browser-20260930-r4.json",
+      "sha256": "df85133a885b230c20a2e13b676fcfd2944b37aec429d51220f67043064abf19"
+    },
+    {
+      "path": "evaluation/results/regression-m6-20260930-r5.json",
+      "sha256": "2752d6cf1f0b81ca819b4a3dd29d2510fb61ddbe7d5f635d047ae263631dfccb"
+    },
+    {
+      "path": "evaluation/results/regression-assistant-quality-v8-20260930.json",
+      "sha256": "5ba9304ecbca59d07b6e91d5309e3adf3999034135c634be0e4a4c43d6e7e8b2"
+    },
+    {
+      "path": "evaluation/results/regression-engineering-20260930-v9.json",
+      "sha256": "cfbfac90dc3bcf14eba573b5faf30e6ed8fcc5b30360e67c3b852a713fc66d68"
+    }
+  ],
+  "targetedConclusions": [
+    {
+      "issue": "V8_UNSUPPORTED_BACKOFF_INTERVALS",
+      "sampleRunId": "b575a809-dfa4-4f0c-bc74-8cda746ea14a",
+      "status": "NOT_OBSERVED_IN_V9_SAMPLE",
+      "finding": "本次只复述原文四次退避重试，未再补充指数增长或1s/2s/4s/8s。不能由单个样本推断以后所有回答都不会补造。"
+    },
+    {
+      "issue": "V8_UNIX_TIME_DISPLAY",
+      "status": "ISO_OBSERVED_IN_V9_SAMPLES",
+      "finding": "浏览器与三个组合回答实际展示的工单更新时间均为ISO文本，并与当次工具updatedAt一致；第二组合还展示了与queriedAt一致的ISO查询时间。纯知识样本不涉及工单时间。"
+    },
+    {
+      "issue": "REG_TIMEOUT_NUMERIC_GROUNDING",
+      "status": "SUPPORTED_IN_FOUR_REVIEWED_SAMPLES",
+      "finding": "三组合与知识单问的重试2次、每次7秒均由各自成功searchKnowledge返回的同一授权片段明确说明，未观察到新的数值或指数规则。"
+    }
+  ],
+  "samples": [
+    {
+      "sampleKind": "M6_COMBINED",
+      "runId": "37c7c9f1-1de2-4fb9-88d3-de351745b029",
+      "traceId": "71e797e8-6fcd-466d-8de7-7e351c8d5d61",
+      "status": "COMPLETED",
+      "question": "请查询工单 TK-1790747882705 的当前状态，再查询 REG_TIMEOUT 手册，综合给出处理建议。请同时引用工单和知识文档。",
+      "answerExcerpts": [
+        "随后重试 2 次，每次间隔 7 秒。不得在未确认状态时直接标记成功。",
+        "更新于 2026-09-30T05:58:02.838548Z"
+      ],
+      "persistedAnswerMatchesOriginalRegressionArtifact": true,
+      "toolEvidence": [
+        {
+          "toolCallId": "42160e95-5bd2-4554-846c-5dfc522a7fae",
+          "toolName": "getTicketStatus",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "ticketNo": "TK-1790747882705"
+          },
+          "resultSnapshot": {
+            "title": "回归超时工单",
+            "status": "OPEN",
+            "citation": "[[source:d43b3084-4626-4a98-865a-d609de587fc3]]",
+            "ticketNo": "TK-1790747882705",
+            "ownerName": "回归值班员",
+            "queriedAt": "2026-09-30T05:58:09.962523103Z",
+            "updatedAt": "2026-09-30T05:58:02.838548Z",
+            "description": "REG_TIMEOUT 回调失败",
+            "sourceHandle": "d43b3084-4626-4a98-865a-d609de587fc3"
+          }
+        },
+        {
+          "toolCallId": "6bab3688-37d8-4225-9623-82683a28f8b2",
+          "toolName": "searchKnowledge",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "query": "REG_TIMEOUT"
+          },
+          "resultSnapshot": {
+            "sources": [
+              {
+                "pageNo": null,
+                "content": "# 回归故障处理\n\nREG_TIMEOUT 表示回调超时。先检查接收日志，再核对签名，随后重试 2 次。每次间隔 7 秒。不得在未确认状态时直接标记成功。\n",
+                "section": "回归故障处理",
+                "citation": "[[source:2256b077-425f-4b37-b081-b0f43b898292]]",
+                "documentName": "M6 故障手册 087930cd",
+                "sourceHandle": "2256b077-425f-4b37-b081-b0f43b898292"
+              }
+            ]
+          }
+        }
+      ],
+      "registeredSources": [
+        {
+          "sourceId": "d43b3084-4626-4a98-865a-d609de587fc3",
+          "citationNo": 1,
+          "isCited": true,
+          "sourceType": "TICKET",
+          "toolCallId": "42160e95-5bd2-4554-846c-5dfc522a7fae",
+          "originSourceId": null,
+          "chunkId": null,
+          "versionId": null,
+          "contentHash": null,
+          "charCount": null,
+          "snapshot": {
+            "title": "回归超时工单",
+            "status": "OPEN",
+            "ticketNo": "TK-1790747882705",
+            "ownerName": "回归值班员",
+            "queriedAt": "2026-09-30T05:58:09.962523103Z",
+            "updatedAt": "2026-09-30T05:58:02.838548Z"
+          }
+        },
+        {
+          "sourceId": "2256b077-425f-4b37-b081-b0f43b898292",
+          "citationNo": 2,
+          "isCited": true,
+          "sourceType": "DOCUMENT",
+          "toolCallId": "6bab3688-37d8-4225-9623-82683a28f8b2",
+          "originSourceId": null,
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+          "contentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "charCount": 78,
+          "snapshot": {
+            "score": 0.7157992896316099,
+            "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+            "versionNo": 1,
+            "chunkIndex": 0,
+            "documentId": "48c8750c-b455-48e7-9fa0-c285d8d66bf5",
+            "documentName": "M6 故障手册 087930cd"
+          }
+        }
+      ],
+      "numericFinding": "2次、7秒均由成功工具文档明示。",
+      "timeFinding": "回答展示的工单更新时间为ISO文本且与成功工具updatedAt相同。",
+      "documentContentVerification": [
+        {
+          "sourceId": "2256b077-425f-4b37-b081-b0f43b898292",
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "storedContentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "storedCharCount": 78,
+          "toolContentMatchesChunkHash": true,
+          "toolContentMatchesChunkLength": true
+        }
+      ]
+    },
+    {
+      "sampleKind": "M6_COMBINED",
+      "runId": "ff412c78-32e6-4b88-b05a-cae731a965dc",
+      "traceId": "3199c306-ae19-4795-9978-6abfa9f9b7c3",
+      "status": "COMPLETED",
+      "question": "请查询工单 TK-1790747882705 的当前状态，再查询 REG_TIMEOUT 手册，综合给出处理建议。请同时引用工单和知识文档。",
+      "answerExcerpts": [
+        "重试次数为 **2次**，每次间隔时间为 **7秒**。",
+        "更新时间为 `2026-09-30T05:58:02.838548Z`"
+      ],
+      "persistedAnswerMatchesOriginalRegressionArtifact": true,
+      "toolEvidence": [
+        {
+          "toolCallId": "f8ef4c92-8e60-4d5a-84a7-6f5f820e855e",
+          "toolName": "getTicketStatus",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "ticketNo": "TK-1790747882705"
+          },
+          "resultSnapshot": {
+            "title": "回归超时工单",
+            "status": "OPEN",
+            "citation": "[[source:f556124b-e3c8-4f08-bc9b-3e60ef918846]]",
+            "ticketNo": "TK-1790747882705",
+            "ownerName": "回归值班员",
+            "queriedAt": "2026-09-30T05:58:14.20985195Z",
+            "updatedAt": "2026-09-30T05:58:02.838548Z",
+            "description": "REG_TIMEOUT 回调失败",
+            "sourceHandle": "f556124b-e3c8-4f08-bc9b-3e60ef918846"
+          }
+        },
+        {
+          "toolCallId": "bf58bbe9-1e25-4bc5-af7f-c494784008e3",
+          "toolName": "searchKnowledge",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "query": "REG_TIMEOUT 手册"
+          },
+          "resultSnapshot": {
+            "sources": [
+              {
+                "pageNo": null,
+                "content": "# 回归故障处理\n\nREG_TIMEOUT 表示回调超时。先检查接收日志，再核对签名，随后重试 2 次。每次间隔 7 秒。不得在未确认状态时直接标记成功。\n",
+                "section": "回归故障处理",
+                "citation": "[[source:233b690d-6230-42b9-a061-37eec158fcc4]]",
+                "documentName": "M6 故障手册 087930cd",
+                "sourceHandle": "233b690d-6230-42b9-a061-37eec158fcc4"
+              }
+            ]
+          }
+        }
+      ],
+      "registeredSources": [
+        {
+          "sourceId": "f556124b-e3c8-4f08-bc9b-3e60ef918846",
+          "citationNo": 1,
+          "isCited": true,
+          "sourceType": "TICKET",
+          "toolCallId": "f8ef4c92-8e60-4d5a-84a7-6f5f820e855e",
+          "originSourceId": null,
+          "chunkId": null,
+          "versionId": null,
+          "contentHash": null,
+          "charCount": null,
+          "snapshot": {
+            "title": "回归超时工单",
+            "status": "OPEN",
+            "ticketNo": "TK-1790747882705",
+            "ownerName": "回归值班员",
+            "queriedAt": "2026-09-30T05:58:14.20985195Z",
+            "updatedAt": "2026-09-30T05:58:02.838548Z"
+          }
+        },
+        {
+          "sourceId": "233b690d-6230-42b9-a061-37eec158fcc4",
+          "citationNo": 2,
+          "isCited": true,
+          "sourceType": "DOCUMENT",
+          "toolCallId": "bf58bbe9-1e25-4bc5-af7f-c494784008e3",
+          "originSourceId": null,
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+          "contentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "charCount": 78,
+          "snapshot": {
+            "score": 0.7251522541046194,
+            "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+            "versionNo": 1,
+            "chunkIndex": 0,
+            "documentId": "48c8750c-b455-48e7-9fa0-c285d8d66bf5",
+            "documentName": "M6 故障手册 087930cd"
+          }
+        }
+      ],
+      "numericFinding": "2次、7秒均由成功工具文档明示。",
+      "timeFinding": "回答展示的工单更新时间为ISO文本且与成功工具updatedAt相同。",
+      "documentContentVerification": [
+        {
+          "sourceId": "233b690d-6230-42b9-a061-37eec158fcc4",
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "storedContentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "storedCharCount": 78,
+          "toolContentMatchesChunkHash": true,
+          "toolContentMatchesChunkLength": true
+        }
+      ]
+    },
+    {
+      "sampleKind": "M6_COMBINED",
+      "runId": "1b8e4c52-6106-4190-9e51-f3f601f6eec8",
+      "traceId": "de688ffb-a3aa-443d-9af2-eb5c3848ced4",
+      "status": "COMPLETED",
+      "question": "请查询工单 TK-1790747882705 的当前状态，再查询 REG_TIMEOUT 手册，综合给出处理建议。请同时引用工单和知识文档。",
+      "answerExcerpts": [
+        "**重试次数**：重试 **2** 次",
+        "**时间间隔**：每次重试之间间隔 **7** 秒",
+        "最后更新时间为 `2026-09-30T05:58:02.838548Z`"
+      ],
+      "persistedAnswerMatchesOriginalRegressionArtifact": true,
+      "toolEvidence": [
+        {
+          "toolCallId": "1a6fbc6e-6efe-4707-ab91-7953d5b5d910",
+          "toolName": "getTicketStatus",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "ticketNo": "TK-1790747882705"
+          },
+          "resultSnapshot": {
+            "title": "回归超时工单",
+            "status": "OPEN",
+            "citation": "[[source:50ff5090-4c18-4d08-be4a-fa4f97a0396b]]",
+            "ticketNo": "TK-1790747882705",
+            "ownerName": "回归值班员",
+            "queriedAt": "2026-09-30T05:58:20.74429972Z",
+            "updatedAt": "2026-09-30T05:58:02.838548Z",
+            "description": "REG_TIMEOUT 回调失败",
+            "sourceHandle": "50ff5090-4c18-4d08-be4a-fa4f97a0396b"
+          }
+        },
+        {
+          "toolCallId": "0896372e-6347-4c7b-bc5b-199b2e2bd677",
+          "toolName": "searchKnowledge",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "query": "REG_TIMEOUT 手册"
+          },
+          "resultSnapshot": {
+            "sources": [
+              {
+                "pageNo": null,
+                "content": "# 回归故障处理\n\nREG_TIMEOUT 表示回调超时。先检查接收日志，再核对签名，随后重试 2 次。每次间隔 7 秒。不得在未确认状态时直接标记成功。\n",
+                "section": "回归故障处理",
+                "citation": "[[source:ff7c563c-772a-4053-ba09-2fbb796a17ec]]",
+                "documentName": "M6 故障手册 087930cd",
+                "sourceHandle": "ff7c563c-772a-4053-ba09-2fbb796a17ec"
+              }
+            ]
+          }
+        }
+      ],
+      "registeredSources": [
+        {
+          "sourceId": "50ff5090-4c18-4d08-be4a-fa4f97a0396b",
+          "citationNo": 1,
+          "isCited": true,
+          "sourceType": "TICKET",
+          "toolCallId": "1a6fbc6e-6efe-4707-ab91-7953d5b5d910",
+          "originSourceId": null,
+          "chunkId": null,
+          "versionId": null,
+          "contentHash": null,
+          "charCount": null,
+          "snapshot": {
+            "title": "回归超时工单",
+            "status": "OPEN",
+            "ticketNo": "TK-1790747882705",
+            "ownerName": "回归值班员",
+            "queriedAt": "2026-09-30T05:58:20.74429972Z",
+            "updatedAt": "2026-09-30T05:58:02.838548Z"
+          }
+        },
+        {
+          "sourceId": "ff7c563c-772a-4053-ba09-2fbb796a17ec",
+          "citationNo": 2,
+          "isCited": true,
+          "sourceType": "DOCUMENT",
+          "toolCallId": "0896372e-6347-4c7b-bc5b-199b2e2bd677",
+          "originSourceId": null,
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+          "contentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "charCount": 78,
+          "snapshot": {
+            "score": 0.7251522541046194,
+            "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+            "versionNo": 1,
+            "chunkIndex": 0,
+            "documentId": "48c8750c-b455-48e7-9fa0-c285d8d66bf5",
+            "documentName": "M6 故障手册 087930cd"
+          }
+        }
+      ],
+      "numericFinding": "2次、7秒均由成功工具文档明示。",
+      "timeFinding": "回答展示的工单更新时间为ISO文本且与成功工具updatedAt相同。",
+      "documentContentVerification": [
+        {
+          "sourceId": "ff7c563c-772a-4053-ba09-2fbb796a17ec",
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "storedContentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "storedCharCount": 78,
+          "toolContentMatchesChunkHash": true,
+          "toolContentMatchesChunkLength": true
+        }
+      ]
+    },
+    {
+      "sampleKind": "M6_KNOWLEDGE_ONLY",
+      "runId": "f4200f19-db35-49eb-9177-58bb55388ff3",
+      "traceId": "4072bda4-7764-41cb-9b78-af2f18494514",
+      "status": "COMPLETED",
+      "question": "REG_TIMEOUT 应如何排查？重试几次、间隔多久？",
+      "answerExcerpts": [
+        "**重试次数：** 2 次。",
+        "**时间间隔：** 7 秒。"
+      ],
+      "persistedAnswerMatchesOriginalRegressionArtifact": true,
+      "toolEvidence": [
+        {
+          "toolCallId": "c8d45c38-aac5-4729-8e05-489a68e8930e",
+          "toolName": "searchKnowledge",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "query": "REG_TIMEOUT 排查方法 重试次数 时间间隔"
+          },
+          "resultSnapshot": {
+            "sources": [
+              {
+                "pageNo": null,
+                "content": "# 回归故障处理\n\nREG_TIMEOUT 表示回调超时。先检查接收日志，再核对签名，随后重试 2 次。每次间隔 7 秒。不得在未确认状态时直接标记成功。\n",
+                "section": "回归故障处理",
+                "citation": "[[source:1b56fdf3-f18c-418b-880d-23f4301d8369]]",
+                "documentName": "M6 故障手册 087930cd",
+                "sourceHandle": "1b56fdf3-f18c-418b-880d-23f4301d8369"
+              }
+            ]
+          }
+        }
+      ],
+      "registeredSources": [
+        {
+          "sourceId": "1b56fdf3-f18c-418b-880d-23f4301d8369",
+          "citationNo": 1,
+          "isCited": true,
+          "sourceType": "DOCUMENT",
+          "toolCallId": "c8d45c38-aac5-4729-8e05-489a68e8930e",
+          "originSourceId": null,
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+          "contentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "charCount": 78,
+          "snapshot": {
+            "score": 0.7844326542519257,
+            "versionId": "af3b35f3-f976-469f-b685-05714d9ac233",
+            "versionNo": 1,
+            "chunkIndex": 0,
+            "documentId": "48c8750c-b455-48e7-9fa0-c285d8d66bf5",
+            "documentName": "M6 故障手册 087930cd"
+          }
+        }
+      ],
+      "numericFinding": "2次、7秒均由成功工具文档明示。",
+      "timeFinding": "不涉及工单时间。",
+      "documentContentVerification": [
+        {
+          "sourceId": "1b56fdf3-f18c-418b-880d-23f4301d8369",
+          "chunkId": "e4bea53e-70d3-3bb4-8077-4907ae1090bb",
+          "storedContentHash": "7a7c1106064a9fb417f3be2e0cff7613cb6094e98e897deb461749d268ccda92",
+          "storedCharCount": 78,
+          "toolContentMatchesChunkHash": true,
+          "toolContentMatchesChunkLength": true
+        }
+      ]
+    },
+    {
+      "sampleKind": "BROWSER_COMBINED",
+      "runId": "b575a809-dfa4-4f0c-bc74-8cda746ea14a",
+      "traceId": "0941fe0b-8389-401f-819f-48ae2eaa8579",
+      "status": "COMPLETED",
+      "question": "请查询工单 F32707894507 的当前状态，再查询F32_E_TIMEOUT手册，综合给出处理建议。请同时引用工单和知识文档。",
+      "answerExcerpts": [
+        "按四次退避重试策略进行重试操作",
+        "更新于 2026-09-29T14:44:28.744107Z"
+      ],
+      "persistedAnswerMatchesOriginalRegressionArtifact": true,
+      "toolEvidence": [
+        {
+          "toolCallId": "9fabbb55-dfff-40ec-9f28-dda5c5be7c3f",
+          "toolName": "getTicketStatus",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "ticketNo": "F32707894507"
+          },
+          "resultSnapshot": {
+            "title": "F32 回调超时验收",
+            "status": "RESOLVED",
+            "citation": "[[source:c9fc20a1-797a-4ebc-8d61-b973bb1bb41a]]",
+            "ticketNo": "F32707894507",
+            "ownerName": "F32值班员",
+            "queriedAt": "2026-09-30T05:59:33.891315914Z",
+            "updatedAt": "2026-09-29T14:44:28.744107Z",
+            "description": "F32_E_TIMEOUT 回调失败待排查",
+            "sourceHandle": "c9fc20a1-797a-4ebc-8d61-b973bb1bb41a"
+          }
+        },
+        {
+          "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+          "toolName": "searchKnowledge",
+          "status": "SUCCEEDED",
+          "arguments": {
+            "query": "F32_E_TIMEOUT手册"
+          },
+          "resultSnapshot": {
+            "sources": [
+              {
+                "pageNo": null,
+                "content": "F32 专用业务验收手册。\n错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按四次退避重试，并通知值班人员。\n本手册不包含工单实时状态，必须查询工单系统。\n",
+                "section": null,
+                "citation": "[[source:1295847d-6fe3-4e76-8f0e-69de853727ee]]",
+                "documentName": "F32 任务控制夹具",
+                "sourceHandle": "1295847d-6fe3-4e76-8f0e-69de853727ee"
+              },
+              {
+                "pageNo": null,
+                "content": "F32 专用业务验收手册。\n错误码 F32_E_TIMEOUT 表示回调超时，先核对回调地址和网络，再按四次退避重试，并通知值班人员。\n本手册不包含工单实时状态，必须查询工单系统。\n",
+                "section": null,
+                "citation": "[[source:5aebe43b-2939-4230-9c44-5444342d31c9]]",
+                "documentName": "F32 故障处理手册-9b580eff62e5",
+                "sourceHandle": "5aebe43b-2939-4230-9c44-5444342d31c9"
+              }
+            ]
+          }
+        }
+      ],
+      "registeredSources": [
+        {
+          "sourceId": "c9fc20a1-797a-4ebc-8d61-b973bb1bb41a",
+          "citationNo": 1,
+          "isCited": true,
+          "sourceType": "TICKET",
+          "toolCallId": "9fabbb55-dfff-40ec-9f28-dda5c5be7c3f",
+          "originSourceId": null,
+          "chunkId": null,
+          "versionId": null,
+          "contentHash": null,
+          "charCount": null,
+          "snapshot": {
+            "title": "F32 回调超时验收",
+            "status": "RESOLVED",
+            "ticketNo": "F32707894507",
+            "ownerName": "F32值班员",
+            "queriedAt": "2026-09-30T05:59:33.891315914Z",
+            "updatedAt": "2026-09-29T14:44:28.744107Z"
+          }
+        },
+        {
+          "sourceId": "1295847d-6fe3-4e76-8f0e-69de853727ee",
+          "citationNo": 2,
+          "isCited": true,
+          "sourceType": "DOCUMENT",
+          "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+          "originSourceId": null,
+          "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+          "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+          "contentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+          "charCount": 91,
+          "snapshot": {
+            "score": 0.7701248437538277,
+            "versionId": "e4fba97c-6b48-43b1-8872-3ae923834550",
+            "versionNo": 1,
+            "chunkIndex": 0,
+            "documentId": "c3faeb33-3e5a-4309-a33a-83ca34f8edfb",
+            "documentName": "F32 任务控制夹具"
+          }
+        },
+        {
+          "sourceId": "5aebe43b-2939-4230-9c44-5444342d31c9",
+          "citationNo": 3,
+          "isCited": true,
+          "sourceType": "DOCUMENT",
+          "toolCallId": "6d3e3398-54a0-49ca-89b1-ca72a93d19e1",
+          "originSourceId": null,
+          "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+          "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+          "contentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+          "charCount": 91,
+          "snapshot": {
+            "score": 0.7701248437538277,
+            "versionId": "9cbd3359-0c0a-4813-a24d-066f1e504493",
+            "versionNo": 2,
+            "chunkIndex": 0,
+            "documentId": "bde005c1-48fb-4760-9a36-81e70fa0eb2c",
+            "documentName": "F32 故障处理手册-9b580eff62e5"
+          }
+        }
+      ],
+      "numericFinding": "四次来自F32原文；原文未明示间隔，回答未给出间隔或增长公式。",
+      "timeFinding": "回答展示的工单更新时间为ISO文本且与成功工具updatedAt相同。",
+      "documentContentVerification": [
+        {
+          "sourceId": "1295847d-6fe3-4e76-8f0e-69de853727ee",
+          "chunkId": "ae36100c-2899-346e-a6d3-718654bd59fe",
+          "storedContentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+          "storedCharCount": 91,
+          "toolContentMatchesChunkHash": true,
+          "toolContentMatchesChunkLength": true
+        },
+        {
+          "sourceId": "5aebe43b-2939-4230-9c44-5444342d31c9",
+          "chunkId": "c9582328-a41c-3378-b272-8d5b50792ea4",
+          "storedContentHash": "7d36519641a1d448a619668807a5a11fb8989d9ee31367febb0363d54076bf4a",
+          "storedCharCount": 91,
+          "toolContentMatchesChunkHash": true,
+          "toolContentMatchesChunkLength": true
+        }
+      ]
+    }
+  ],
+  "remainingSemanticObservations": [
+    {
+      "code": "ADDED_CONDITIONS_NEED_HUMAN_REVIEW",
+      "runId": "ff412c78-32e6-4b88-b05a-cae731a965dc",
+      "traceId": "3199c306-ae19-4795-9978-6abfa9f9b7c3",
+      "answerExcerpts": [
+        "在确认上述步骤无异常但状态仍未恢复的情况下，进行重试。",
+        "严禁在未通过上述检查或确认状态未真正恢复前，直接将该工单标记为“成功”或关闭工单。"
+      ],
+      "toolOriginal": "先检查接收日志，再核对签名，随后重试 2 次。每次间隔 7 秒。不得在未确认状态时直接标记成功。",
+      "finding": "数值正确，但原文未明确“上述步骤无异常且状态未恢复”这个重试条件，也未提及“关闭工单”的限制；模型把来源要求扩展成额外流程条件。保留为语义忠实度人工审核关注点，不以功能引用通过抵消。",
+      "actionTaken": "仅记录，不修改生产源码、功能回归结果、数据集或验收标准。"
+    }
+  ],
+  "formalHumanReview": {
+    "status": "NOT_PERFORMED",
+    "isFormalHumanReview": false,
+    "reviewer": null,
+    "score": null,
+    "note": "自动辅助复核，不为40题人工质量表代填引用/依据/缺漏/结论评分，也不重算旧模型通过率。"
+  },
+  "limitations": [
+    "五个同轮合成样本不是独立盲测或全量质量评估。",
+    "浏览器13/13和M6专项14/14仍仅是各自既有功能检查；本文件不将它们解释为全语义质量通过。",
+    "没有登录、调用模型或修改生产源码；v8质量问题原始记录保持不变。",
+    "本文时间结论依据用户实际看到的持久化答案与当次工具审计字段；不冒称捕获了未落盘的提供方网络请求。"
+  ]
+}

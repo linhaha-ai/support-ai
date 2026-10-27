@@ -1,0 +1,9 @@
+{
+  "recordedAt": "2026-09-30T06:01:16.765Z",
+  "imageId": "sha256:3de3edbd45a4cca3558293e502b2973313a9c6c3075114cac451bfa2d061f786",
+  "runtimeHash": "b7d4d833df713e0ea77abc4fb4825c7f6dfb7760b43a064c3613ba5c2e4284a1",
+  "runtimeWithoutStrategyHash": "b7d4d833df713e0ea77abc4fb4825c7f6dfb7760b43a064c3613ba5c2e4284a1",
+  "topKEnvironment": null,
+  "runtimeWithoutTopKHash": "b7d4d833df713e0ea77abc4fb4825c7f6dfb7760b43a064c3613ba5c2e4284a1",
+  "scriptSha256": "507113e22a94893289b7e259ad5db7de310a2fd6be88bfa9d3b4c7e1856523d0"
+}
